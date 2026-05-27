@@ -86,3 +86,39 @@ def test_referential_handling_invalid_json() -> None:
     # Act & Assert
     with pytest.raises(ValueError, match="Unexpected response format"):
         service.fetch_and_filter_rome(["M1805"])
+
+
+def test_referential_utf8_encoding_preserved_in_json_output(tmp_path: Path) -> None:
+    """Test that accented characters are preserved correctly in the JSON file.
+
+    Regression test against a cp1252 encoding corruption bug on Windows:
+    ensure the JSON output contains "systèmes" and not "systÃ¨mes".
+    """
+    # Arrange: mock data with accented French characters
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client.get.return_value = [
+        {
+            "code": "M1801",
+            "libelle": "Administration de systèmes d'information",
+        },
+        {
+            "code": "M1805",
+            "libelle": "Études et développement informatique",
+        },
+    ]
+
+    service = RomeReferentialService(mock_client)
+    output_file = tmp_path / "rome_test.json"
+
+    # Act
+    export_data = service.fetch_and_filter_rome(["M1801", "M1805"])
+    service.export_to_json(export_data, output_file)
+
+    # Assert: file bytes must be valid UTF-8
+    raw_text = output_file.read_text(encoding="utf-8")
+    data = json.loads(raw_text)
+
+    libelles = {item["code_rome"]: item["libelle_rome"] for item in data["items"]}
+    # Verify actual accented characters — not cp1252-corrupted variants
+    assert libelles["M1801"] == "Administration de systèmes d'information"
+    assert libelles["M1805"] == "Études et développement informatique"

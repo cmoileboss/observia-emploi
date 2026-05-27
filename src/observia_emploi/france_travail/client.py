@@ -112,8 +112,14 @@ class MockFranceTravailClient(FranceTravailClient):
                     "code": "M1801",
                     "libelle": "Administration de systèmes d'information",
                 },
-                {"code": "M1802", "libelle": "Expertise et support technique en SI"},
-                {"code": "M1805", "libelle": "Études et développement informatique"},
+                {
+                    "code": "M1802",
+                    "libelle": "Expertise et support technique en SI",
+                },
+                {
+                    "code": "M1805",
+                    "libelle": "Études et développement informatique",
+                },
                 {"code": "A1201", "libelle": "Bûcheronnage / Sylviculture"},
             ]
         return {}
