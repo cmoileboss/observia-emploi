@@ -1,2 +1,23 @@
+# Configuration de l'environnement
 .env
-Ressources/*
+.env.local
+.env.*
+
+# Dossiers de Ressources / Data
+# (Gère les majuscules/minuscules et l'orthographe française/anglaise)
+/[Rr]essources/
+/[Rr]esources/
+
+# Sécurité globale contre les fichiers de données volumineux
+*.csv
+*.xlsx
+*.parquet
+*.sqlite3
+
+# Caches Python & Environnement Virtuel
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
