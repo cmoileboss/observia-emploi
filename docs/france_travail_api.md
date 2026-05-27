@@ -79,9 +79,32 @@ Le service `referential.py` exportera un fichier JSON propre dans le dossier `da
     },
     {
       "code_rome": "M1802",
-      "libelle": "Expertise et support technique en systèmes d'information",
+      "libelle_rome": "Expertise et support technique en systèmes d'information",
       "validated": true
     }
   ]
 }
 ```
+
+---
+
+## 6. Procédure d'exécution locale
+
+Pour exécuter la récupération, le filtrage et la génération du référentiel ROME consolidé, vous pouvez lancer le point d'entrée de l'application via la commande suivante :
+
+```bash
+python -m observia_emploi.cli
+```
+
+### Options d'exécution :
+*   **Mode Production (Réel)** : Assurez-vous d'avoir configuré vos identifiants réels dans votre fichier local `.env`.
+*   **Mode Hors-ligne (Mock / Démonstration)** : Si vos variables d'environnement de clé ne sont pas définies ou si vous souhaitez tester le script sans connexion internet, l'application basculera automatiquement sur le client Mock. Vous pouvez également forcer ce comportement via la variable d'environnement `FRANCE_TRAVAIL_OFFLINE` :
+    ```powershell
+    # Windows (PowerShell) :
+    $env:FRANCE_TRAVAIL_OFFLINE="true"
+    python -m observia_emploi.cli
+    ```
+
+### Fichier produit :
+L'export JSON consolidé et normalisé est sauvegardé à l'adresse suivante :
+`data/processed/reference/rome_metiers_v1.json` (ignoré par Git pour éviter le versionnage des fichiers de données).
