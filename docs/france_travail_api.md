@@ -51,6 +51,15 @@ L'API France Travail impose des restrictions strictes que notre client doit resp
 > Les secrets doivent être stockés uniquement dans le fichier local `.env` (qui est strictement ignoré par Git via `.gitignore`).
 > Le fichier `.env.example` sert de modèle pour configurer l'environnement de développement.
 
+Voici le bloc de configuration attendu dans le fichier `.env` local :
+```env
+FRANCE_TRAVAIL_CLIENT_ID=votre_client_id
+FRANCE_TRAVAIL_CLIENT_SECRET=votre_client_secret
+FRANCE_TRAVAIL_TOKEN_URL=https://entreprise.francetravail.io/connexion/oauth2/access_token?realm=/partenaire
+FRANCE_TRAVAIL_API_BASE_URL=https://api.francetravail.io/partenaires
+FRANCE_TRAVAIL_SCOPE=api_romev1 metierrecherche
+```
+
 ---
 
 ## 5. Sortie JSON attendue (Lot 1)
