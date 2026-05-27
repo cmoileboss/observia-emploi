@@ -26,7 +26,7 @@ Statistiques mensuelles d'entrées et sorties en formation par certification. Co
 
 - `annee_mois`, `annee`, `mois` — période concernée
 - `type_referentiel` — type de référentiel (`RNCP` ou `RS`)
-- `code_rncp`, `code_rs`, `code_certifinfo` — identifiants de la certification selon le référentiel
+- `code_rncp`, `code_rs`, `code_certifinfo` — identifiants de la certification selon le référentiel - `code_rncp` est à -1 dans un référentiel `RS` et inversement
 - `intitule_certification` — nom de la certification
 - `siret_of_contractant`, `raison_sociale_of_contractant` — organisme de formation
 - `entrees_formation` — nombre d'entrées en formation sur la période
@@ -56,3 +56,16 @@ Sitemap: https://www.welcometothejungle.com/sitemaps/index.xml.gz
 ### CGU
 
 https://www.welcometothejungle.com/fr/pages/terms
+
+## Nettoyage des données
+
+### Fichiers csv
+
+Fichier entre_sortie_formation.csv : 
+Suppression des colonnes annee, mois, code_rs, code_certifinfo, type_referentiel, siret_of_contractant, raison_sociale_of_contractant car il n'y a pas de telles données dans l'API France Travail
+Uniformisation du code RNCP : c'est un entier dans entree_sortie mais possède le préfixe dans correspondance, comme l'API le possède en tant qu'entier, on retire le préfixe RNCP du fichier correspondance
+
+### France Travail
+
+Comme les fichiers csv contiennent les niveaux en entier mais l'API France Travail string, il faudra les convertir en entier. Cf l'enum NiveauRNCP.
+A déterminer : les champs que l'on gardera.
