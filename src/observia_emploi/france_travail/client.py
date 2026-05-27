@@ -106,10 +106,14 @@ class MockFranceTravailClient(FranceTravailClient):
         url = f"{self.config.api_base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.info("Performing mock GET request to France Travail API...")
 
-        if "partenaire/rome/v1/metiers" in url:
+        if "partenaire/offresdemploi/v2/referentiel/metiers" in url:
             return [
+                {
+                    "code": "M1801",
+                    "libelle": "Administration de systèmes d'information",
+                },
+                {"code": "M1802", "libelle": "Expertise et support technique en SI"},
                 {"code": "M1805", "libelle": "Études et développement informatique"},
-                {"code": "M1802", "libelle": "Expertise et support IT"},
-                {"code": "A1201", "libelle": "Bûcheronnage"},
+                {"code": "A1201", "libelle": "Bûcheronnage / Sylviculture"},
             ]
         return {}

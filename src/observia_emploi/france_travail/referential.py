@@ -5,10 +5,19 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+import requests
+
 from observia_emploi.france_travail.client import FranceTravailClient
-from observia_emploi.france_travail.models import ReferentialExport, RomeMetier
+from observia_emploi.france_travail.models import (
+    NormalizedReferentialExport,
+    RomeMetierItem,
+    RomeSelectionMetadata,
+)
 
 logger = logging.getLogger(__name__)
+
+# Test ROME codes specified for V1 selection
+TEST_ROME_CODES = ["M1801", "M1802", "M1805", "M1806", "M1810"]
 
 
 class RomeReferentialService:
@@ -18,45 +27,84 @@ class RomeReferentialService:
         """Initialize service with client."""
         self.client = client
 
-    def fetch_and_filter_rome(self, validated_rome_codes: set[str]) -> list[RomeMetier]:
-        """Fetch all ROME métiers and filter against the validated list of codes."""
-        logger.info("Fetching ROME referential...")
-        raw_data = self.client.get("partenaire/rome/v1/metiers")
+    def fetch_and_filter_rome(
+        self, requested_codes: list[str], scope: str = "v1_test_tech_ia"
+    ) -> NormalizedReferentialExport:
+        """Fetch ROME métiers and filter them using selection parameters."""
+        logger.info("Fetching France Travail ROME referential...")
 
-        filtered_metiers: list[RomeMetier] = []
+        try:
+            # Query the required partner referentiel metiers endpoint
+            raw_data = self.client.get(
+                "partenaire/offresdemploi/v2/referentiel/metiers"
+            )
+        except requests.RequestException:
+            logger.error("Failed to query referentiel métiers endpoint.")
+            raise
+
+        if not isinstance(raw_data, list):
+            logger.error("Unexpected response format from API: expected a list.")
+            raise ValueError("Unexpected response format from API.")
+
+        requested_set = set(requested_codes)
+        found_set: set[str] = set()
+
+        items: list[RomeMetierItem] = []
         for item in raw_data:
+            if not isinstance(item, dict):
+                continue
             code = item.get("code")
             libelle = item.get("libelle", "")
-            if code in validated_rome_codes:
-                filtered_metiers.append(
-                    RomeMetier(code_rome=code, libelle=libelle, validated=True)
+
+            if code in requested_set:
+                found_set.add(code)
+                items.append(
+                    RomeMetierItem(
+                        code_rome=code,
+                        libelle_rome=libelle,
+                        source_api="france_travail",
+                        is_selected_for_v1=True,
+                        theme="tech",
+                    )
                 )
 
+        missing_codes = list(requested_set - found_set)
+        # Sort for stable/predictable output ordering
+        found_codes = sorted(found_set)
+        missing_codes.sort()
+
         logger.info(
-            "Filtered %d matching ROME codes out of %d total.",
-            len(filtered_metiers),
-            len(raw_data),
+            "Found %d ROME codes out of %d requested.",
+            len(found_codes),
+            len(requested_codes),
         )
-        return filtered_metiers
 
-    def export_to_json(self, metiers: list[RomeMetier], output_path: Path) -> None:
-        """Export the filtered list of ROME métiers to a clean JSON file.
+        metadata = RomeSelectionMetadata(
+            scope=scope,
+            rome_codes_requested=requested_codes,
+            rome_codes_found=found_codes,
+            rome_codes_missing=missing_codes,
+        )
 
-        The JSON file will be compatible with the pipeline.
-        """
-        logger.info(f"Exporting referential to {output_path}...")
+        return NormalizedReferentialExport(
+            generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            selection=metadata,
+            items=items,
+        )
+
+    def export_to_json(
+        self, export_data: NormalizedReferentialExport, output_path: Path
+    ) -> None:
+        """Export the consolidated referential metadata to a clean JSON file."""
+        logger.info("Exporting referential to %s...", output_path)
 
         # Ensure parent directories exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        export_data = ReferentialExport(
-            extracted_at=datetime.now(UTC).isoformat(),
-            source="France Travail ROME",
-            count=len(metiers),
-            metiers=metiers,
-        )
-
-        with output_path.open("w", encoding="utf-8") as f:
-            json.dump(export_data.to_dict(), f, ensure_ascii=False, indent=2)
-
-        logger.info("Export completed successfully.")
+        try:
+            with output_path.open("w", encoding="utf-8") as f:
+                json.dump(export_data.to_dict(), f, ensure_ascii=False, indent=2)
+            logger.info("Export completed successfully.")
+        except Exception:
+            logger.error("Failed to write ROME referential export file.")
+            raise
