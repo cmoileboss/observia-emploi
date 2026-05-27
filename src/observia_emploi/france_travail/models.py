@@ -5,12 +5,13 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class RomeMetier:
-    """Represents a ROME job code and details."""
+class RomeSelectionMetadata:
+    """Represents the filtering metadata selection block."""
 
-    code_rome: str
-    libelle: str
-    validated: bool = True
+    scope: str
+    rome_codes_requested: list[str]
+    rome_codes_found: list[str]
+    rome_codes_missing: list[str]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert object to standard dictionary."""
@@ -18,19 +19,36 @@ class RomeMetier:
 
 
 @dataclass(frozen=True)
-class ReferentialExport:
+class RomeMetierItem:
+    """Represents a single normalized ROME job code item in the selection."""
+
+    code_rome: str
+    libelle_rome: str
+    source_api: str = "france_travail"
+    is_selected_for_v1: bool = True
+    theme: str = "tech"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert object to standard dictionary."""
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class NormalizedReferentialExport:
     """Represents the final structured export JSON schema."""
 
-    extracted_at: str
-    source: str
-    count: int
-    metiers: list[RomeMetier]
+    generated_at: str
+    selection: RomeSelectionMetadata
+    items: list[RomeMetierItem]
+    source: str = "france_travail_api"
+    dataset: str = "referentiel_metiers_rome"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert object to exportable dictionary."""
         return {
-            "extracted_at": self.extracted_at,
             "source": self.source,
-            "count": self.count,
-            "metiers": [m.to_dict() for m in self.metiers],
+            "dataset": self.dataset,
+            "generated_at": self.generated_at,
+            "selection": self.selection.to_dict(),
+            "items": [item.to_dict() for item in self.items],
         }
