@@ -3,7 +3,6 @@
 ## Sources de données
 
 API France Travail : https://www.francetravail.io
-Doc API : https://francetravail.io/produits-partages/catalogue/offres-emploi/documentation#/api-reference/operations/recupererListeOffre
 Mon Compte Formation : fichier csv
 Welcome To The Jungle : https://www.welcometothejungle.com/fr
 
