@@ -1,0 +1,78 @@
+# Intégration API France Travail - Brique ROME et Offres d'Emploi
+
+Ce document spécifie l'intégration technique de la source **API France Travail** (anciennement Pôle Emploi) au sein du projet **ObservIA Emploi**.
+
+---
+
+## 1. Objectif de la brique
+
+L'objectif de ce module (`src/observia_emploi/france_travail/`) est de récupérer et de consolider les données d'emploi issues de France Travail pour alimenter la suite du pipeline d'analyse de données d'ObservIA.
+
+### Lot 1 (Cible Immédiate)
+*   Se connecter à l'API via le protocole **OAuth 2.0 (Client Credentials Grant)**.
+*   Interroger le **Référentiel des Métiers ROME** pour obtenir la liste officielle des codes métiers.
+*   **Filtrer** cette liste par rapport à un ensemble défini de codes ROME d'intérêt pour le projet.
+*   Produire un **export JSON structuré et typé**, propre et compatible avec le reste du pipeline.
+
+---
+
+## 2. Endpoints prévus (V1)
+
+| Fonctionnalité | Méthode | URL Endpoint | Description |
+|---|---|---|---|
+| **Authentification** | `POST` | `{{FRANCE_TRAVAIL_TOKEN_URL}}` | Récupération du jeton OAuth 2.0 (`access_token`) |
+| **Référentiel ROME** | `GET` | `{{FRANCE_TRAVAIL_API_BASE_URL}}/partenaire/rome/v1/metiers` | Récupération de tous les métiers du référentiel ROME |
+| **Recherche d'offres**| `GET` | `{{FRANCE_TRAVAIL_API_BASE_URL}}/partenaire/offresdemploi/v2/offres/search` | Recherche des offres d'emploi (prévu pour le lot suivant) |
+
+---
+
+## 3. Contraintes techniques & Rate Limiting
+
+L'API France Travail impose des restrictions strictes que notre client doit respecter pour éviter les erreurs HTTP `429 Too Many Requests` :
+
+1.  **Rate Limiting** :
+    *   **Maximum 3 requêtes par seconde** sur les services partenaires.
+    *   Notre implémentation intégrera une limitation de débit automatique (*rate limiting*) en V1.
+2.  **Limite de volume par requête** :
+    *   Le service de recherche d'offres retourne au maximum **150 offres par requête**.
+3.  **Nécessité de pagination** :
+    *   Pour récupérer plus de 150 offres, l'utilisation des en-têtes HTTP `Range` (ex. `Range: offres=0-149`, `Range: offres=150-299`) est obligatoire.
+    *   Le client API gérera automatiquement la pagination séquentielle.
+4.  **Pas de parallélisme en V1** :
+    *   Pour garantir le respect strict des limites de taux et maintenir un code simple et robuste, **aucun parallélisme** (threads/processus multiples) ne sera implémenté dans la V1. Tout sera séquentiel.
+
+---
+
+## 4. Sécurité des Secrets
+
+> [!CAUTION]
+> **Aucun secret (clés API, identifiants client, tokens) ne doit être poussé sur Git.**
+>
+> Les secrets doivent être stockés uniquement dans le fichier local `.env` (qui est strictement ignoré par Git via `.gitignore`).
+> Le fichier `.env.example` sert de modèle pour configurer l'environnement de développement.
+
+---
+
+## 5. Sortie JSON attendue (Lot 1)
+
+Le service `referential.py` exportera un fichier JSON propre dans le dossier `data/processed/` respectant le format suivant :
+
+```json
+{
+  "extracted_at": "2026-05-27T15:24:00Z",
+  "source": "France Travail ROME",
+  "count": 2,
+  "metiers": [
+    {
+      "code_rome": "M1805",
+      "libelle": "Études et développement informatique",
+      "validated": true
+    },
+    {
+      "code_rome": "M1802",
+      "libelle": "Expertise et support technique en systèmes d'information",
+      "validated": true
+    }
+  ]
+}
+```
