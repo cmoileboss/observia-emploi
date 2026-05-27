@@ -1,7 +1,7 @@
 import pandas as pd
 
-corr = pd.read_csv("Ressources/correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv", sep=";")
-form = pd.read_csv("Ressources/entree_sortie_formation.csv", sep=";")
+corr = pd.read_csv("Ressources/correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv", sep=";", dtype={"code_rncp": str})
+form = pd.read_csv("Ressources/entree_sortie_formation.csv", sep=";", dtype={"code_rncp": str})
 
 result = form.merge(corr[["code_rncp", "code_rome", "intitule_rome", "niveau_rncp"]], 
                     on="code_rncp", how="left")
