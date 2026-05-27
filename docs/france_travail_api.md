@@ -98,11 +98,9 @@ python -m observia_emploi.cli
 
 ### Options d'exécution :
 *   **Mode Production (Réel)** : Assurez-vous d'avoir configuré vos identifiants réels dans votre fichier local `.env`.
-*   **Mode Hors-ligne (Mock / Démonstration)** : Si vos variables d'environnement de clé ne sont pas définies ou si vous souhaitez tester le script sans connexion internet, l'application basculera automatiquement sur le client Mock. Vous pouvez également forcer ce comportement via la variable d'environnement `FRANCE_TRAVAIL_OFFLINE` :
-    ```powershell
-    # Windows (PowerShell) :
-    $env:FRANCE_TRAVAIL_OFFLINE="true"
-    python -m observia_emploi.cli
+*   **Mode Hors-ligne (Mock / Démonstration)** : Si vos variables d'environnement ne sont pas configurées ou si vous souhaitez exécuter le script sans connexion réseau, vous devez utiliser explicitement l'argument `--offline`. Sans cette option, l'application échouera proprement en cas d'identifiants absents.
+    ```bash
+    python -m observia_emploi.cli --offline
     ```
 
 ### Fichier produit :
