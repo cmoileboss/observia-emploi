@@ -106,3 +106,18 @@ python -m observia_emploi.cli
 ### Fichier produit :
 L'export JSON consolidé et normalisé est sauvegardé à l'adresse suivante :
 `data/processed/reference/rome_metiers_v1.json` (ignoré par Git pour éviter le versionnage des fichiers de données).
+
+---
+
+## 7. Tests d'intégration avec Postman
+
+Pour tester les appels réels vers l'API France Travail (authentification OAuth2 et récupération du référentiel ROME), consultez la procédure Postman dédiée :
+
+**→ [`docs/postman_france_travail.md`](postman_france_travail.md)**
+
+Cette procédure décrit :
+- la configuration des variables d'environnement Postman (sans jamais exposer de secrets) ;
+- la requête POST de récupération du token OAuth2 avec script de capture automatique ;
+- la requête GET vers le référentiel ROME métiers ;
+- la checklist sécurité avant tout partage de collection.
+
