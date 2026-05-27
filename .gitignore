@@ -27,3 +27,8 @@ __pycache__/
 .venv/
 venv/
 env/
+
+# Caches d'outils & Agent IA local
+.kilo/
+.pytest_cache/
+.ruff_cache/
