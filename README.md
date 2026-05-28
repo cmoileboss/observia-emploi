@@ -62,11 +62,26 @@ https://www.welcometothejungle.com/fr/pages/terms
 
 ### Fichiers csv
 
-Fichier entre_sortie_formation.csv : 
-Suppression des colonnes annee_mois car nous avons déjà annee et mois et code_rs, code_certifinfo, type_referentiel, siret_of_contractant et raison_sociale_of_contractant car il n'y a pas de telles données dans l'API France Travail
-Uniformisation du code RNCP : c'est un entier dans entree_sortie mais possède le préfixe dans correspondance, comme l'API le possède en tant qu'entier, on retire le préfixe RNCP du fichier correspondance
+#### `entree_sortie_formation.csv`
 
-On passe de plus de 700 000 lignes à un peu plus de 100 000.
+| Règle | Détail |
+|---|---|
+| Suppression des colonnes inutiles | `annee_mois` (redondant avec `annee` + `mois`), `type_referentiel`, `code_rs`, `code_certifinfo`, `siret_of_contractant`, `raison_sociale_of_contractant`, `date_chargement` (valeur unique) |
+| Filtre sur le référentiel | Suppression des lignes `type_referentiel = RS` (code_rncp = -1), non joinables avec la table de correspondance |
+| Filtre sur l'activité | Suppression des lignes avec `entrees_formation = 0` (aucune entrée en formation) |
+
+#### `correspondance-rome-rncp-tech-*.csv`
+
+| Règle | Détail |
+|---|---|
+| Suppression de `intitule_rncp` | Redondant avec `intitule_certification` de `entree_sortie_formation` |
+| Normalisation de `code_rncp` | Suppression du préfixe `RNCP` pour uniformisation avec `entree_sortie_formation` |
+
+#### Merge
+
+Jointure `inner` sur `code_rncp` : seules les certifications du secteur tech (présentes dans les deux fichiers) sont conservées.
+
+**Réduction du volume de données :** > 749 000 lignes → ~4 700 lignes après nettoyage et merge.
 
 ### France Travail
 
