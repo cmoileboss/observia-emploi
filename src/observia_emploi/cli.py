@@ -10,6 +10,9 @@ from observia_emploi.france_travail.client import (
     FranceTravailClient,
     MockFranceTravailClient,
 )
+from observia_emploi.france_travail.offer_collector import (
+    FranceTravailOfferCollectorService,
+)
 from observia_emploi.france_travail.referential import (
     TEST_ROME_CODES,
     RomeReferentialService,
@@ -24,7 +27,7 @@ logger = logging.getLogger("observia_emploi.cli")
 
 
 def main() -> None:
-    """Execute ROME tasks (referential retrieval or volume measurement)."""
+    """Execute ROME tasks (referential, volume or offer collection)."""
     setup_logging(logging.INFO)
     logger.info("Initializing ObservIA Emploi - France Travail Toolbelt...")
 
@@ -55,6 +58,14 @@ def main() -> None:
         action="store_true",
         help=(
             "Mesurer la volumétrie pour tous les codes ROME "
+            "extraits de merged_data.csv."
+        ),
+    )
+    parser.add_argument(
+        "--collect-offers-from-merged",
+        action="store_true",
+        help=(
+            "Collecter les offres d'emploi détaillées pour tous les codes ROME "
             "extraits de merged_data.csv."
         ),
     )
@@ -111,7 +122,21 @@ def main() -> None:
         client = FranceTravailClient(config)
 
     # Branch logic depending on requested command
-    if args.measure_volumes_from_merged:
+    if getattr(args, "collect_offers_from_merged", False):
+        logger.info("Starting Lot 2D: Detailed job offers collection...")
+        service = FranceTravailOfferCollectorService(client)
+        merged_ref_path = Path("data/reference/rome_codes_from_merged_data.json")
+        offers_output_path = Path(
+            "data/processed/offers/france_travail_offers_from_merged_rome.json"
+        )
+        try:
+            payload = service.collect_all_offers_from_file(merged_ref_path)
+            service.export_offers_to_json(payload, offers_output_path)
+            logger.info("Lot 2D execution completed successfully.")
+        except Exception as e:
+            logger.error("Lot 2D offers collection failed: %s", e)
+            sys.exit(1)
+    elif getattr(args, "measure_volumes_from_merged", False):
         logger.info("Starting Lot 2C: Rome volume measurement from merged data...")
         service = RomeVolumeMeasurementService(client)
         merged_ref_path = Path("data/reference/rome_codes_from_merged_data.json")
