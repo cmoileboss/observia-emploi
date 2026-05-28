@@ -180,4 +180,53 @@ Les résultats consolidés de la volumétrie par code ROME sont exportés en UTF
 > Le fichier généré `rome_volumes_v1.json` contient des données d'exécution de pipeline. Il est strictement ignoré par Git via le fichier `.gitignore` et **ne doit jamais être commité ou poussé sur le dépôt distant**.
 
 
+## 10. Lot 2C : Mesure de volume pour tous les codes ROME du référentiel fusionné
 
+L'objectif du Lot 2C est d'étendre la mesure du Lot 2A à l'intégralité des 51 codes ROME extraits des données historiques, en faisant une requête par code ROME.
+
+### Commande d'exécution CLI
+* **En production (réel)** :
+  ```bash
+  python -m observia_emploi.cli --measure-volumes-from-merged
+  ```
+* **En mode hors-ligne (offline / simulé)** :
+  ```bash
+  python -m observia_emploi.cli --measure-volumes-from-merged --offline
+  ```
+
+### Fichier généré
+`data/processed/reference/rome_volumes_from_merged_data.json` (exclu de Git).
+
+---
+
+## 11. Lot 2D : Collecte détaillée des offres France Travail
+
+L'objectif du Lot 2D est de collecter de manière exhaustive et séquentielle les offres d'emploi détaillées depuis l'API de recherche.
+
+### Spécifications de la collecte
+* **Endpoint utilisé** : `GET /partenaire/offresdemploi/v2/offres/search`
+* **Paramètre de filtrage** : `codeROME` (ex: `M1805`). Ne jamais utiliser `rome`.
+* **Pagination** : Envoi séquentiel du paramètre `range` par blocs de **150** résultats maximum par requête (ex. `/search?codeROME=M1805&range=0-149`, `range=150-299`).
+* **Rate Limiting** : 5 appels/seconde maximum (pause prudente de `0.25` seconde entre chaque appel). Aucun parallélisme n'est implémenté pour respecter strictement cette limite.
+* **Résilience** : En cas de code d'erreur technique lié à la pagination (ex. HTTP 416 lorsque la limite maximale de pagination de l'API est atteinte), le service logue proprement un avertissement et passe automatiquement au code ROME suivant.
+
+### Protection des données personnelles & Anonymisation
+Conformément au RGPD et aux règles de conformité :
+1. **Exclusion complète** : Les structures `contact` et `agence` de l'API brute sont lues mais marquées avec `Field(..., exclude=True)`. Elles sont **totalement exclues** lors de la sérialisation et ne figurent jamais dans le JSON exporté.
+2. **Exclusion de la description brute** : Le champ brut `description` est exclu de l'export.
+3. **Description anonymisée (`description_clean`)** : Seule cette description nettoyée est exportée. Un validateur Pydantic masque automatiquement tous les e-mails et numéros de téléphone à l'aide des jetons `[EMAIL MASQUÉ]` et `[TÉLÉPHONE MASQUÉ]`.
+
+### Commande d'exécution CLI
+* **En production (réel)** :
+  > [!WARNING]
+  > Ne lancez pas de collecte réelle complète sans validation.
+  ```bash
+  python -m observia_emploi.cli --collect-offers-from-merged
+  ```
+* **En mode hors-ligne (offline / simulé)** :
+  ```bash
+  python -m observia_emploi.cli --collect-offers-from-merged --offline
+  ```
+
+### Fichier produit
+`data/processed/offers/france_travail_offers_from_merged_rome.json` (strictement ignoré par Git via `.gitignore` et **ne doit jamais être versionné**).
