@@ -7,6 +7,15 @@ API endpoints used by ObservIA Emploi.
 > Always use Postman variables. Never commit your Postman environment file if it
 > contains real secrets.
 
+## 0. Prerequisite: API Authorization in France Travail Portal
+
+Before configuring Postman or running any token request:
+1. Log in to your developer account on the **France Travail** developer portal.
+2. Navigate to your application dashboard.
+3. In the **"API autorisées"** (Authorized APIs) section, ensure that the **"Offres d'emploi v2"** API is explicitly added.
+4. Verify that it appears with an active/authorized status.
+5. ⚠️ **Important Troubleshooting**: If this API is not added, any token request will fail with an `invalid_client` error, even if your `client_id` and `client_secret` are perfectly valid.
+
 ---
 
 ## 1. Create a Postman Environment

@@ -43,26 +43,41 @@ L'API France Travail impose des restrictions strictes que notre client doit resp
 
 ---
 
-## 4. Sécurité des Secrets
+## 4. Prérequis d'autorisation de l'API
+
+> [!IMPORTANT]
+> **Autorisation de l'API dans la console France Travail**
+>
+> Avant de tenter d'obtenir un token OAuth2 (via le client ou via Postman), vous devez impérativement :
+> 1. Vous connecter à votre compte sur le portail développeur de France Travail.
+> 2. Aller dans la section de gestion de votre application.
+> 3. Ajouter l'API **"Offres d'emploi v2"** dans la liste des **API autorisées**.
+> 4. Vérifier qu'elle est bien activée pour cette application.
+>
+> **En cas d'oubli** : L'API renverra une erreur `invalid_client` lors de l'appel d'authentification, même si votre `client_id` et votre `client_secret` sont parfaitement corrects.
+
+---
+
+## 5. Sécurité des Secrets
 
 > [!CAUTION]
 > **Aucun secret (clés API, identifiants client, tokens) ne doit être poussé sur Git.**
 >
 > Les secrets doivent être stockés uniquement dans le fichier local `.env` (qui est strictement ignoré par Git via `.gitignore`).
 > Le fichier `.env.example` sert de modèle pour configurer l'environnement de développement.
-
-Voici le bloc de configuration attendu dans le fichier `.env` local :
-```env
-FRANCE_TRAVAIL_CLIENT_ID=votre_client_id
-FRANCE_TRAVAIL_CLIENT_SECRET=votre_client_secret
-FRANCE_TRAVAIL_TOKEN_URL=https://entreprise.francetravail.io/connexion/oauth2/access_token?realm=/partenaire
-FRANCE_TRAVAIL_API_BASE_URL=https://api.francetravail.io/partenaires
-FRANCE_TRAVAIL_SCOPE=api_romev1 metierrecherche
-```
+>
+> Voici le bloc de configuration attendu dans le fichier `.env` local :
+> ```env
+> FRANCE_TRAVAIL_CLIENT_ID=votre_client_id
+> FRANCE_TRAVAIL_CLIENT_SECRET=votre_client_secret
+> FRANCE_TRAVAIL_TOKEN_URL=https://entreprise.francetravail.io/connexion/oauth2/access_token?realm=/partenaire
+> FRANCE_TRAVAIL_API_BASE_URL=https://api.francetravail.io/partenaires
+> FRANCE_TRAVAIL_SCOPE=api_romev1 metierrecherche
+> ```
 
 ---
 
-## 5. Sortie JSON attendue (Lot 1)
+## 6. Sortie JSON attendue (Lot 1)
 
 Le service `referential.py` exportera un fichier JSON propre dans le dossier `data/processed/` respectant le format suivant :
 
@@ -88,7 +103,7 @@ Le service `referential.py` exportera un fichier JSON propre dans le dossier `da
 
 ---
 
-## 6. Procédure d'exécution locale
+## 7. Procédure d'exécution locale
 
 Pour exécuter la récupération, le filtrage et la génération du référentiel ROME consolidé, vous pouvez lancer le point d'entrée de l'application via la commande suivante :
 
@@ -109,7 +124,7 @@ L'export JSON consolidé et normalisé est sauvegardé à l'adresse suivante :
 
 ---
 
-## 7. Tests d'intégration avec Postman
+## 8. Tests d'intégration avec Postman
 
 Pour tester les appels réels vers l'API France Travail (authentification OAuth2 et récupération du référentiel ROME), consultez la procédure Postman dédiée :
 
@@ -120,4 +135,5 @@ Cette procédure décrit :
 - la requête POST de récupération du token OAuth2 avec script de capture automatique ;
 - la requête GET vers le référentiel ROME métiers ;
 - la checklist sécurité avant tout partage de collection.
+
 
