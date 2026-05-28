@@ -123,9 +123,9 @@ class FranceTravailOfferCollectorService:
                 try:
                     # Validate and clean with Pydantic
                     schema_instance = OffreEmploiSchema.model_validate(item)
-                    # Exclude raw description, contact, agence
+                    # Exclude raw description, contact, agence, and serialize dates
                     offers.append(
-                        schema_instance.model_dump(by_alias=True, exclude_unset=True)
+                        schema_instance.model_dump(mode="json", by_alias=True)
                     )
                     parsed_count += 1
                 except Exception as e:

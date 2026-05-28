@@ -284,3 +284,67 @@ def test_offer_collector_max_codes(tmp_path: Path) -> None:
     # Assert
     assert len(codes_requested) == 2
     assert codes_requested == ["M1805", "M1802"]
+
+
+def test_offer_collector_datetime_serialization_non_regression(tmp_path: Path) -> None:
+    """Test datetime serialization to ISO strings and exclusions."""
+    # Arrange
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Dév"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    raw_offer = {
+        "id": "OFFRE_DATE_TEST",
+        "intitule": "Ingénieur",
+        "description": "Contact: contact@test.com ou 06 11 22 33 44.",
+        "dateCreation": "2026-05-28T14:38:25.000Z",
+        "dateActualisation": "2026-05-28T14:39:12.000Z",
+        "contact": {"email": "contact@test.com"},
+        "agence": {"courriel": "agence@test.com"},
+        "formations": None,  # Optional absent field
+    }
+
+    mock_client.get_raw.return_value = MockResponse(
+        status_code=200,
+        json_data={"resultats": [raw_offer]},
+        headers={"Content-Range": "offres 0-0/1"},
+    )
+
+    service = FranceTravailOfferCollectorService(mock_client)
+    output_json = tmp_path / "exported_offers.json"
+
+    # Act
+    payload = service.collect_all_offers_from_file(ref_file)
+    # Asserts that this does not raise TypeError (not JSON serializable)
+    service.export_offers_to_json(payload, output_json)
+
+    # Assert
+    assert output_json.exists()
+    with output_json.open("r", encoding="utf-8") as f:
+        exported_data = json.load(f)
+
+    offer = exported_data["offers"][0]
+    # Check that dates are serialized as strings
+    assert isinstance(offer.get("dateCreation"), str)
+    assert offer.get("dateCreation").startswith("2026-05-28")
+    assert isinstance(offer.get("dateActualisation"), str)
+
+    # Check exclusions and clean field
+    assert "description" not in offer
+    assert "contact" not in offer
+    assert "agence" not in offer
+    assert offer.get("description_clean") == (
+        "Contact: [EMAIL MASQUÉ] ou [TÉLÉPHONE MASQUÉ]."
+    )
+
+    # Check optional fields are preserved as null or default lists
+    assert "formations" in offer
+    assert offer["formations"] is None  # Preserved as null instead of disappearing
