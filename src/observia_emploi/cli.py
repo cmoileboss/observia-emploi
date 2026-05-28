@@ -69,6 +69,24 @@ def main() -> None:
             "extraits de merged_data.csv."
         ),
     )
+    parser.add_argument(
+        "--rome-code",
+        type=str,
+        default=None,
+        help="Code ROME spécifique à collecter pour limiter la collecte.",
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=None,
+        help="Nombre maximum de pages (150 offres/page) à collecter par code ROME.",
+    )
+    parser.add_argument(
+        "--max-codes",
+        type=int,
+        default=None,
+        help="Nombre maximum de codes ROME distincts à traiter.",
+    )
     args = parser.parse_args()
 
     # Handle ROME extraction first to avoid loading client/config or needing secrets
@@ -123,18 +141,23 @@ def main() -> None:
 
     # Branch logic depending on requested command
     if getattr(args, "collect_offers_from_merged", False):
-        logger.info("Starting Lot 2D: Detailed job offers collection...")
+        logger.info("Starting Lot 2D/2E: Controlled detailed job offers collection...")
         service = FranceTravailOfferCollectorService(client)
         merged_ref_path = Path("data/reference/rome_codes_from_merged_data.json")
         offers_output_path = Path(
             "data/processed/offers/france_travail_offers_from_merged_rome.json"
         )
         try:
-            payload = service.collect_all_offers_from_file(merged_ref_path)
+            payload = service.collect_all_offers_from_file(
+                merged_ref_path,
+                rome_code=args.rome_code,
+                max_pages=args.max_pages,
+                max_codes=args.max_codes,
+            )
             service.export_offers_to_json(payload, offers_output_path)
-            logger.info("Lot 2D execution completed successfully.")
+            logger.info("Lot 2D/2E execution completed successfully.")
         except Exception as e:
-            logger.error("Lot 2D offers collection failed: %s", e)
+            logger.error("Lot 2D/2E offers collection failed: %s", e)
             sys.exit(1)
     elif getattr(args, "measure_volumes_from_merged", False):
         logger.info("Starting Lot 2C: Rome volume measurement from merged data...")
