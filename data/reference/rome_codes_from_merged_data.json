@@ -1,0 +1,415 @@
+{
+  "source": "merged_data.csv",
+  "dataset": "rome_codes_from_training_mapping",
+  "total_unique_rome_codes": 51,
+  "items": [
+    {
+      "code_rome": "E1101",
+      "intitule_rome": "Animation de site multimédia",
+      "rncp_count": 2,
+      "total_entrees_formation": 71,
+      "total_sorties_realisation_partielle": 1,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "E1103",
+      "intitule_rome": "Communication",
+      "rncp_count": 5,
+      "total_entrees_formation": 99,
+      "total_sorties_realisation_partielle": 2,
+      "total_sorties_realisation_totale": 29
+    },
+    {
+      "code_rome": "E1104",
+      "intitule_rome": "Conception de contenus multimédias",
+      "rncp_count": 5,
+      "total_entrees_formation": 39,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 17
+    },
+    {
+      "code_rome": "E1106",
+      "intitule_rome": "Journalisme et information média",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "E1205",
+      "intitule_rome": "Réalisation de contenus multimédias",
+      "rncp_count": 6,
+      "total_entrees_formation": 557,
+      "total_sorties_realisation_partielle": 4,
+      "total_sorties_realisation_totale": 186
+    },
+    {
+      "code_rome": "E1401",
+      "intitule_rome": "Développement et promotion publicitaire",
+      "rncp_count": 2,
+      "total_entrees_formation": 55,
+      "total_sorties_realisation_partielle": 2,
+      "total_sorties_realisation_totale": 22
+    },
+    {
+      "code_rome": "E1402",
+      "intitule_rome": "Élaboration de plan média",
+      "rncp_count": 2,
+      "total_entrees_formation": 34,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 3
+    },
+    {
+      "code_rome": "F1105",
+      "intitule_rome": "Études géologiques",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "F1106",
+      "intitule_rome": "Ingénierie et études du BTP",
+      "rncp_count": 1,
+      "total_entrees_formation": 507,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 490
+    },
+    {
+      "code_rome": "F1107",
+      "intitule_rome": "Mesures topographiques",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "F1201",
+      "intitule_rome": "Conduite de travaux du BTP et de travaux paysagers",
+      "rncp_count": 2,
+      "total_entrees_formation": 39,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 2
+    },
+    {
+      "code_rome": "F1605",
+      "intitule_rome": "Montage de réseaux électriques et télécoms",
+      "rncp_count": 1,
+      "total_entrees_formation": 37,
+      "total_sorties_realisation_partielle": 1,
+      "total_sorties_realisation_totale": 28
+    },
+    {
+      "code_rome": "F1702",
+      "intitule_rome": "Construction de routes et voies",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "H1101",
+      "intitule_rome": "Assistance et support technique client",
+      "rncp_count": 1,
+      "total_entrees_formation": 15,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 1
+    },
+    {
+      "code_rome": "H1202",
+      "intitule_rome": "Conception et dessin de produits électriques et électroniques",
+      "rncp_count": 2,
+      "total_entrees_formation": 509,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 490
+    },
+    {
+      "code_rome": "H1206",
+      "intitule_rome": "Management et ingénierie études, recherche et développement industriel",
+      "rncp_count": 6,
+      "total_entrees_formation": 10,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 3
+    },
+    {
+      "code_rome": "H1208",
+      "intitule_rome": "Intervention technique en études et conception en automatisme",
+      "rncp_count": 3,
+      "total_entrees_formation": 14,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 2
+    },
+    {
+      "code_rome": "H1209",
+      "intitule_rome": "Intervention technique en études et développement électronique",
+      "rncp_count": 3,
+      "total_entrees_formation": 511,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 490
+    },
+    {
+      "code_rome": "H1302",
+      "intitule_rome": "Management et ingénierie Hygiène Sécurité Environnement -HSE- industriels",
+      "rncp_count": 2,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "H1402",
+      "intitule_rome": "Management et ingénierie méthodes et industrialisation",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "H1504",
+      "intitule_rome": "Intervention technique en contrôle essai qualité en électricité et électronique",
+      "rncp_count": 2,
+      "total_entrees_formation": 4,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "H2501",
+      "intitule_rome": "Encadrement de production de matériel électrique et électronique",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "H2502",
+      "intitule_rome": "Management et ingénierie de production",
+      "rncp_count": 3,
+      "total_entrees_formation": 5,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 3
+    },
+    {
+      "code_rome": "I1102",
+      "intitule_rome": "Management et ingénierie de maintenance industrielle",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "I1302",
+      "intitule_rome": "Installation et maintenance d'automatismes",
+      "rncp_count": 1,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "I1305",
+      "intitule_rome": "Installation et maintenance électronique",
+      "rncp_count": 2,
+      "total_entrees_formation": 7,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "I1307",
+      "intitule_rome": "Installation et maintenance télécoms et courants faibles",
+      "rncp_count": 3,
+      "total_entrees_formation": 14,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 6
+    },
+    {
+      "code_rome": "I1401",
+      "intitule_rome": "Maintenance informatique et bureautique",
+      "rncp_count": 7,
+      "total_entrees_formation": 3042,
+      "total_sorties_realisation_partielle": 408,
+      "total_sorties_realisation_totale": 1107
+    },
+    {
+      "code_rome": "I1402",
+      "intitule_rome": "Réparation de biens électrodomestiques et multimédia",
+      "rncp_count": 1,
+      "total_entrees_formation": 5,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "K1102",
+      "intitule_rome": "Aide aux bénéficiaires d'une mesure de protection juridique",
+      "rncp_count": 1,
+      "total_entrees_formation": 40,
+      "total_sorties_realisation_partielle": 1,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "K2402",
+      "intitule_rome": "Recherche en sciences de l'univers, de la matière et du vivant",
+      "rncp_count": 1,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "L1103",
+      "intitule_rome": "Présentation de spectacles ou d'émissions",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "L1302",
+      "intitule_rome": "Production et administration spectacle, cinéma et audiovisuel",
+      "rncp_count": 1,
+      "total_entrees_formation": 3,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1202",
+      "intitule_rome": "Audit et contrôle comptables et financiers",
+      "rncp_count": 1,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1204",
+      "intitule_rome": "Contrôle de gestion",
+      "rncp_count": 1,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1205",
+      "intitule_rome": "Direction administrative et financière",
+      "rncp_count": 1,
+      "total_entrees_formation": 2,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1206",
+      "intitule_rome": "Management de groupe ou de service comptable",
+      "rncp_count": 2,
+      "total_entrees_formation": 3,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1302",
+      "intitule_rome": "Direction de petite ou moyenne entreprise",
+      "rncp_count": 1,
+      "total_entrees_formation": 27,
+      "total_sorties_realisation_partielle": 1,
+      "total_sorties_realisation_totale": 8
+    },
+    {
+      "code_rome": "M1402",
+      "intitule_rome": "Conseil en organisation et management d'entreprise",
+      "rncp_count": 3,
+      "total_entrees_formation": 7,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1403",
+      "intitule_rome": "Études et prospectives socio-économiques",
+      "rncp_count": 6,
+      "total_entrees_formation": 1910,
+      "total_sorties_realisation_partielle": 55,
+      "total_sorties_realisation_totale": 853
+    },
+    {
+      "code_rome": "M1705",
+      "intitule_rome": "Marketing",
+      "rncp_count": 7,
+      "total_entrees_formation": 555,
+      "total_sorties_realisation_partielle": 7,
+      "total_sorties_realisation_totale": 254
+    },
+    {
+      "code_rome": "M1706",
+      "intitule_rome": "Promotion des ventes",
+      "rncp_count": 1,
+      "total_entrees_formation": 43,
+      "total_sorties_realisation_partielle": 2,
+      "total_sorties_realisation_totale": 22
+    },
+    {
+      "code_rome": "M1707",
+      "intitule_rome": "Stratégie commerciale",
+      "rncp_count": 1,
+      "total_entrees_formation": 43,
+      "total_sorties_realisation_partielle": 2,
+      "total_sorties_realisation_totale": 22
+    },
+    {
+      "code_rome": "M1801",
+      "intitule_rome": "Administration de systèmes d'information",
+      "rncp_count": 32,
+      "total_entrees_formation": 1365,
+      "total_sorties_realisation_partielle": 56,
+      "total_sorties_realisation_totale": 395
+    },
+    {
+      "code_rome": "M1802",
+      "intitule_rome": "Expertise et support en systèmes d'information",
+      "rncp_count": 41,
+      "total_entrees_formation": 2721,
+      "total_sorties_realisation_partielle": 167,
+      "total_sorties_realisation_totale": 1050
+    },
+    {
+      "code_rome": "M1803",
+      "intitule_rome": "Direction des systèmes d'information",
+      "rncp_count": 26,
+      "total_entrees_formation": 1399,
+      "total_sorties_realisation_partielle": 22,
+      "total_sorties_realisation_totale": 441
+    },
+    {
+      "code_rome": "M1804",
+      "intitule_rome": "Études et développement de réseaux de télécoms",
+      "rncp_count": 11,
+      "total_entrees_formation": 88,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 9
+    },
+    {
+      "code_rome": "M1805",
+      "intitule_rome": "Études et développement informatique",
+      "rncp_count": 58,
+      "total_entrees_formation": 16408,
+      "total_sorties_realisation_partielle": 1981,
+      "total_sorties_realisation_totale": 8237
+    },
+    {
+      "code_rome": "M1806",
+      "intitule_rome": "Conseil et maîtrise d'ouvrage en systèmes d'information",
+      "rncp_count": 29,
+      "total_entrees_formation": 614,
+      "total_sorties_realisation_partielle": 14,
+      "total_sorties_realisation_totale": 118
+    },
+    {
+      "code_rome": "M1808",
+      "intitule_rome": "Information géographique",
+      "rncp_count": 1,
+      "total_entrees_formation": 1,
+      "total_sorties_realisation_partielle": 0,
+      "total_sorties_realisation_totale": 0
+    },
+    {
+      "code_rome": "M1810",
+      "intitule_rome": "Production et exploitation de systèmes d'information",
+      "rncp_count": 18,
+      "total_entrees_formation": 3438,
+      "total_sorties_realisation_partielle": 409,
+      "total_sorties_realisation_totale": 1347
+    }
+  ]
+}
