@@ -29,6 +29,7 @@ class RomeVolumeMeasure:
     nature_contract_aggregations: dict[str, int] = field(default_factory=dict)
     first_result_rome_code: str | None = None
     first_result_id: str | None = None
+    first_result_rome_valid: bool | None = None
     collected_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
@@ -88,7 +89,11 @@ class RomeVolumeMeasurementService:
     def extract_aggregations(
         self, raw_data: dict[str, Any], filter_name: str
     ) -> dict[str, int]:
-        """Extract a specific aggregation dictionary from filtresPossibles list."""
+        """Extract a specific aggregation dictionary from filtresPossibles list.
+
+        Supports standard API ('agregation', 'valeurPossible', 'nbResultats')
+        and historical mock structures ('valeurs', 'valeur', 'nb').
+        """
         aggregations: dict[str, int] = {}
         filtres = raw_data.get("filtresPossibles")
         if not filtres or not isinstance(filtres, list):
@@ -96,11 +101,18 @@ class RomeVolumeMeasurementService:
 
         for f in filtres:
             if isinstance(f, dict) and f.get("filtre") == filter_name:
-                valeurs = f.get("valeurs", [])
+                valeurs = f.get("agregation") or f.get("valeurs") or []
                 if isinstance(valeurs, list):
                     for item in valeurs:
-                        if isinstance(item, dict) and "valeur" in item and "nb" in item:
-                            aggregations[str(item["valeur"])] = int(item["nb"])
+                        if isinstance(item, dict):
+                            val_key = (
+                                "valeurPossible"
+                                if "valeurPossible" in item
+                                else "valeur"
+                            )
+                            nb_key = "nbResultats" if "nbResultats" in item else "nb"
+                            if val_key in item and nb_key in item:
+                                aggregations[str(item[val_key])] = int(item[nb_key])
 
         return aggregations
 
@@ -159,6 +171,10 @@ class RomeVolumeMeasurementService:
                 first_rome_code = first_offer.get("romeCode")
                 first_id = first_offer.get("id")
 
+        first_rome_valid: bool | None = None
+        if first_rome_code is not None:
+            first_rome_valid = first_rome_code == code_rome
+
         # Extract aggregations
         contracts = self.extract_aggregations(raw_json, "typeContrat")
         experience = self.extract_aggregations(raw_json, "experience")
@@ -177,6 +193,7 @@ class RomeVolumeMeasurementService:
             nature_contract_aggregations=natures,
             first_result_rome_code=first_rome_code,
             first_result_id=first_id,
+            first_result_rome_valid=first_rome_valid,
         )
 
     def measure_rome_volumes(self, referential_path: Path) -> VolumeReport:

@@ -42,7 +42,7 @@ def test_parse_content_range_valid() -> None:
 
 
 def test_extract_aggregations_nominal() -> None:
-    """Test nominal extraction of aggregates from filtresPossibles list."""
+    """Test nominal extraction of aggregates with legacy format."""
     service = RomeVolumeMeasurementService(MagicMock())
     raw_data = {
         "filtresPossibles": [
@@ -71,8 +71,43 @@ def test_extract_aggregations_nominal() -> None:
     assert qual == {}
 
 
+def test_extract_aggregations_real_api_format() -> None:
+    """Test extraction with real API structure (agregation, valeurPossible)."""
+    service = RomeVolumeMeasurementService(MagicMock())
+    raw_data = {
+        "filtresPossibles": [
+            {
+                "filtre": "typeContrat",
+                "agregation": [
+                    {"valeurPossible": "CDI", "nbResultats": 10},
+                    {"valeurPossible": "CDD", "nbResultats": 5},
+                ],
+            },
+            {
+                "filtre": "experience",
+                "agregation": [{"valeurPossible": "0", "nbResultats": 3}],
+            },
+            {
+                "filtre": "qualification",
+                "agregation": [{"valeurPossible": "9", "nbResultats": 2}],
+            },
+            {
+                "filtre": "natureContrat",
+                "agregation": [{"valeurPossible": "E1", "nbResultats": 8}],
+            },
+        ]
+    }
+    assert service.extract_aggregations(raw_data, "typeContrat") == {
+        "CDI": 10,
+        "CDD": 5,
+    }
+    assert service.extract_aggregations(raw_data, "experience") == {"0": 3}
+    assert service.extract_aggregations(raw_data, "qualification") == {"9": 2}
+    assert service.extract_aggregations(raw_data, "natureContrat") == {"E1": 8}
+
+
 def test_measure_single_rome_success() -> None:
-    """Test successful single ROME code volume query."""
+    """Test volume query with first_result_rome_valid == True."""
     # Arrange
     mock_client = MagicMock(spec=FranceTravailClient)
     mock_json = {
@@ -85,7 +120,7 @@ def test_measure_single_rome_success() -> None:
         "filtresPossibles": [
             {
                 "filtre": "typeContrat",
-                "valeurs": [{"valeur": "CDI", "nb": 10}],
+                "agregation": [{"valeurPossible": "CDI", "nbResultats": 10}],
             }
         ],
     }
@@ -109,10 +144,39 @@ def test_measure_single_rome_success() -> None:
     assert measure.contract_aggregations == {"CDI": 10}
     assert measure.first_result_rome_code == "M1805"
     assert measure.first_result_id == "OFFRE_1"
+    assert measure.first_result_rome_valid is True
 
 
-def test_measure_single_rome_no_content() -> None:
-    """Test behavior when API returns 204 or 404 for a ROME code."""
+def test_measure_single_rome_rome_invalid() -> None:
+    """Test volume query with first_result_rome_valid == False."""
+    # Arrange
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_json = {
+        "resultats": [
+            {
+                "id": "OFFRE_OTHER",
+                "romeCode": "M1802",
+            }
+        ]
+    }
+    mock_client.get_raw.return_value = MockResponse(
+        status_code=200,
+        json_data=mock_json,
+        headers={"Content-Range": "offres 0-0/50"},
+    )
+
+    service = RomeVolumeMeasurementService(mock_client)
+
+    # Act
+    measure = service.measure_single_rome("M1805", "Dév informatique")
+
+    # Assert
+    assert measure.first_result_rome_code == "M1802"
+    assert measure.first_result_rome_valid is False
+
+
+def test_measure_single_rome_no_results_valid_none() -> None:
+    """Test volume query returning no results yields first_result_rome_valid == None."""
     # Arrange
     mock_client = MagicMock(spec=FranceTravailClient)
     mock_client.get_raw.return_value = MockResponse(
@@ -130,6 +194,8 @@ def test_measure_single_rome_no_content() -> None:
     assert measure.http_status == 204
     assert measure.contract_aggregations == {}
     assert measure.first_result_id is None
+    assert measure.first_result_rome_code is None
+    assert measure.first_result_rome_valid is None
 
 
 def test_measure_single_rome_http_error() -> None:
@@ -146,6 +212,7 @@ def test_measure_single_rome_http_error() -> None:
     assert measure.total_offres_disponibles == 0
     assert measure.http_status == 500
     assert measure.first_result_id is None
+    assert measure.first_result_rome_valid is None
 
 
 def test_measure_rome_volumes_and_export(
