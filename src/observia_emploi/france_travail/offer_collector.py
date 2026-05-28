@@ -20,15 +20,27 @@ class FranceTravailOfferCollectorService:
         """Initialize with France Travail client."""
         self.client = client
 
-    def collect_single_rome_offers(self, code_rome: str) -> list[dict[str, Any]]:
+    def collect_single_rome_offers(
+        self, code_rome: str, max_pages: int | None = None
+    ) -> list[dict[str, Any]]:
         """Collect all offers for a single ROME code with pagination."""
         offers: list[dict[str, Any]] = []
         page_size = 150
         start = 0
+        page_count = 0
 
         logger.info("Starting detailed offer collection for ROME code: %s", code_rome)
 
         while True:
+            # Check maximum pages limit
+            if max_pages is not None and page_count >= max_pages:
+                logger.info(
+                    "Reached maximum requested pages limit: %d for ROME %s",
+                    max_pages,
+                    code_rome,
+                )
+                break
+
             end = start + page_size - 1
             range_str = f"{start}-{end}"
             endpoint = "partenaire/offresdemploi/v2/offres/search"
@@ -126,6 +138,8 @@ class FranceTravailOfferCollectorService:
                 code_rome,
             )
 
+            page_count += 1
+
             # If we received less than the requested page size, we are at the end
             if len(resultats) < page_size:
                 logger.info(
@@ -140,8 +154,17 @@ class FranceTravailOfferCollectorService:
 
         return offers
 
-    def collect_all_offers_from_file(self, referential_path: Path) -> dict[str, Any]:
-        """Collect job offers for all ROME codes listed in the referential file."""
+    def collect_all_offers_from_file(
+        self,
+        referential_path: Path,
+        rome_code: str | None = None,
+        max_pages: int | None = None,
+        max_codes: int | None = None,
+    ) -> dict[str, Any]:
+        """Collect job offers for all ROME codes listed in the referential file.
+
+        Allows filtering by specific ROME code and restricting page limits.
+        """
         logger.info(
             "Loading ROME codes for detailed collection from %s", referential_path
         )
@@ -163,6 +186,20 @@ class FranceTravailOfferCollectorService:
             logger.warning("No ROME items found in referential.")
             return self._build_export_payload([])
 
+        # 1. Filter by specific ROME code if requested
+        if rome_code:
+            logger.info("Filtering collection for a single ROME code: %s", rome_code)
+            items = [item for item in items if item.get("code_rome") == rome_code]
+            if not items:
+                logger.warning(
+                    "No matching ROME code %s found in referential.", rome_code
+                )
+
+        # 2. Limit the number of ROME codes to treat
+        if max_codes is not None and max_codes > 0:
+            logger.info("Limiting ROME codes count to treat to: %d", max_codes)
+            items = items[:max_codes]
+
         all_offers: list[dict[str, Any]] = []
 
         for item in items:
@@ -170,7 +207,7 @@ class FranceTravailOfferCollectorService:
             if not code:
                 continue
             try:
-                rome_offers = self.collect_single_rome_offers(code)
+                rome_offers = self.collect_single_rome_offers(code, max_pages=max_pages)
                 all_offers.extend(rome_offers)
             except Exception as e:
                 logger.error("Error collecting offers for ROME code %s: %s", code, e)
