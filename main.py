@@ -2,7 +2,6 @@ import os
 
 from csv_extractor import CsvExtractor
 
-
 def process_data(raw_data_folder, output_file):
     extractor = CsvExtractor()
     extractor.charge_raw_data(raw_data_folder)
