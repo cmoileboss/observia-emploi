@@ -81,33 +81,77 @@ class FranceTravailClient:
 
     def get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
         """Wrapper around requests.get with authentication."""
+        response = self.get_raw(endpoint, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_raw(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> requests.Response:
+        """Wrapper around requests.get returning the full response."""
         url = f"{self.config.api_base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.info("Performing GET request to France Travail API...")
+
+        merged_headers = self._get_headers()
+        if headers:
+            merged_headers.update(headers)
 
         try:
             response = requests.get(
                 url,
-                headers=self._get_headers(),
+                headers=merged_headers,
                 params=params,
                 timeout=15,
             )
-            response.raise_for_status()
-            return response.json()
+            return response
         except requests.RequestException:
             logger.error("GET request to France Travail API failed.")
             raise
+
+
+class MockResponse:
+    """Mock of requests.Response for offline testing."""
+
+    def __init__(
+        self, status_code: int, json_data: Any, headers: dict[str, str]
+    ) -> None:
+        self.status_code = status_code
+        self._json_data = json_data
+        self.headers = headers
+
+    def json(self) -> Any:
+        return self._json_data
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.exceptions.HTTPError(f"Mock HTTP Error: {self.status_code}")
 
 
 class MockFranceTravailClient(FranceTravailClient):
     """Mock client for local and offline testing of France Travail API."""
 
     def get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
-        """Mock GET requests without hitting the network."""
+        """Mock GET requests returning JSON data."""
+        response = self.get_raw(endpoint, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_raw(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Mock GET requests returning a MockResponse."""
         url = f"{self.config.api_base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.info("Performing mock GET request to France Travail API...")
 
+        # Case 1: ROME Métiers Referential
         if "partenaire/offresdemploi/v2/referentiel/metiers" in url:
-            return [
+            data = [
                 {
                     "code": "M1801",
                     "libelle": "Administration de systèmes d'information",
@@ -122,4 +166,72 @@ class MockFranceTravailClient(FranceTravailClient):
                 },
                 {"code": "A1201", "libelle": "Bûcheronnage / Sylviculture"},
             ]
-        return {}
+            return MockResponse(200, data, {"Content-Type": "application/json"})
+
+        # Case 2: Job Offers Search API (v2)
+        if "partenaire/offresdemploi/v2/offres/search" in url:
+            code_rome = "M1805"
+            if params and "codeROME" in params:
+                code_rome = params["codeROME"]
+            elif (
+                headers and "codeROME" in headers
+            ):  # fallback or fallback in URL/headers
+                code_rome = headers.get("codeROME", "M1805")
+
+            # Determine simulation volumes depending on ROME code for variation in tests
+            volumes = {
+                "M1801": 150,
+                "M1802": 85,
+                "M1805": 4152,
+                "M1806": 0,
+                "M1810": 0,
+            }
+            total = volumes.get(code_rome, 10)
+
+            if total == 0:
+                # Return empty list or 204/404 depending on how search behaves
+                return MockResponse(
+                    204,
+                    [],
+                    {
+                        "Content-Type": "application/json",
+                        "Content-Range": "offres 0-0/0",
+                    },
+                )
+
+            # Return mock single offer for range=0-0 and mock aggregations
+            mock_data = {
+                "resultats": [
+                    {
+                        "id": f"OFFRE_{code_rome}_001",
+                        "intitule": f"Mock Job for {code_rome}",
+                        "romeCode": code_rome,
+                    }
+                ],
+                "filtresPossibles": [
+                    {
+                        "filtre": "typeContrat",
+                        "valeurs": [
+                            {"valeur": "CDI", "nb": int(total * 0.7)},
+                            {"valeur": "CDD", "nb": int(total * 0.3)},
+                        ],
+                    },
+                    {
+                        "filtre": "experience",
+                        "valeurs": [
+                            {"valeur": "Débutant accepté", "nb": int(total * 0.2)},
+                            {"valeur": "De 1 à 3 ans", "nb": int(total * 0.8)},
+                        ],
+                    },
+                ],
+            }
+            return MockResponse(
+                206,
+                mock_data,
+                {
+                    "Content-Type": "application/json",
+                    "Content-Range": f"offres 0-0/{total}",
+                },
+            )
+
+        return MockResponse(404, {"error": "Not Found"}, {})
