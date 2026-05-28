@@ -66,7 +66,7 @@ https://www.welcometothejungle.com/fr/pages/terms
 
 | Règle | Détail |
 |---|---|
-| Suppression des colonnes inutiles | `annee_mois` (redondant avec `annee` + `mois`), `type_referentiel`, `code_rs`, `code_certifinfo`, `siret_of_contractant`, `raison_sociale_of_contractant`, `date_chargement` (valeur unique) |
+| Suppression des colonnes inutiles | `annee_mois` (redondant avec `annee` + `mois`), `type_referentiel`, `code_rs`, `code_certifinfo`, `date_chargement` (valeur unique) |
 | Filtre sur le référentiel | Suppression des lignes `type_referentiel = RS` (code_rncp = -1), non joinables avec la table de correspondance |
 | Filtre sur l'activité | Suppression des lignes avec `entrees_formation = 0` (aucune entrée en formation) |
 
