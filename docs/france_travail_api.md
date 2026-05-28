@@ -136,4 +136,48 @@ Cette procédure décrit :
 - la requête GET vers le référentiel ROME métiers ;
 - la checklist sécurité avant tout partage de collection.
 
+---
+
+## 9. Lot 2A : Mesure de volume et agrégations des offres par ROME
+
+L'objectif du Lot 2A est de mesurer la volumétrie globale et de récupérer les agrégations de base par code ROME sans réaliser de collecte massive de données (aucun appel d'offres en masse).
+
+### Requête de mesure prioritaire
+*   **Méthode** : `GET`
+*   **Endpoint** : `{{api_base_url}}/partenaire/offresdemploi/v2/offres/search`
+*   **Paramètres obligatoires** :
+    - `codeROME` : Le code ROME cible à tester (ex: `M1805`). **Attention** : le paramètre exact attendu par l'API France Travail est bien `codeROME`, et non pas `rome`.
+    - `range` (ou en-tête `Range`) : `0-0` pour limiter le retour à la toute première offre et éviter les charges réseau inutiles.
+*   **Critère de validation** :
+    - La liste de résultats doit contenir au moins une offre, et le champ `romeCode` (dans `resultats[*].romeCode`) de la première offre retournée doit correspondre strictement au code ROME de la demande.
+
+### Rôle du header `Content-Range`
+Sur un appel restreint avec `range=0-0`, l'API France Travail renvoie un statut `206 Partial Content`.
+Le header de réponse HTTP **`Content-Range`** contient le total exact d'offres disponibles pour ce code ROME.
+*   *Exemple de header* : `Content-Range: offres 0-0/4152`
+*   *Interprétation* : Il y a un volume total de **4152 offres** valides sur le réseau national pour ce code ROME à l'instant T.
+
+### Commande d'exécution CLI (Lot 2A)
+
+Pour mesurer la volumétrie et les agrégations pour les 5 codes ROME prioritaires (`M1801`, `M1802`, `M1805`, `M1806`, `M1810`) :
+
+*   **En production (réel)** :
+    ```bash
+    python -m observia_emploi.cli --measure-volume
+    ```
+*   **En mode hors-ligne (offline / simulé)** :
+    ```bash
+    python -m observia_emploi.cli --measure-volume --offline
+    ```
+
+### Fichier de synthèse généré
+Les résultats consolidés de la volumétrie par code ROME sont exportés en UTF-8 dans :
+`data/processed/reference/rome_volumes_v1.json`
+
+> [!CAUTION]
+> **Règle de versionnage Git**
+>
+> Le fichier généré `rome_volumes_v1.json` contient des données d'exécution de pipeline. Il est strictement ignoré par Git via le fichier `.gitignore` et **ne doit jamais être commité ou poussé sur le dépôt distant**.
+
+
 

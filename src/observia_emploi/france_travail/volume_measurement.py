@@ -203,7 +203,10 @@ class RomeVolumeMeasurementService:
                     if code:
                         items_dict[code] = libelle or ""
             except Exception as e:
-                logger.warning("Failed to parse ROME referential JSON: %s. Using targets.", e)
+                logger.warning(
+                    "Failed to parse ROME referential JSON: %s. Using targets.",
+                    e,
+                )
 
         # 2. Build complete list of items to measure (guarantee all targets are present)
         final_items: list[dict[str, str]] = []
@@ -217,7 +220,9 @@ class RomeVolumeMeasurementService:
         }
 
         for code in target_codes:
-            libelle = items_dict.get(code) or default_names.get(code, "Métier ROME inconnu")
+            libelle = items_dict.get(code) or default_names.get(
+                code, "Métier ROME inconnu"
+            )
             final_items.append({"code_rome": code, "libelle_rome": libelle})
 
         measures: list[RomeVolumeMeasure] = []

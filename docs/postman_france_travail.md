@@ -127,6 +127,34 @@ This endpoint does not require parameters for a full list. To paginate:
 
 ---
 
+## 3.2. GET Job Offers Search (Lot 2A)
+
+### Request
+
+- **Method**: `GET`
+- **URL**: `{{api_base_url}}/partenaire/offresdemploi/v2/offres/search?codeROME={{rome_code}}&range=0-0`
+
+### Headers
+
+| Key             | Value                      |
+|-----------------|----------------------------|
+| `Authorization` | `Bearer {{access_token}}`  |
+| `Accept`        | `application/json`         |
+
+### Query Parameters
+
+| Key        | Value           | Description |
+|------------|-----------------|-------------|
+| `codeROME` | `M1805`         | **Obligatoire**. Code ROME ciblé (ex: `M1805`). Ne pas utiliser `rome`. |
+| `range`    | `0-0`           | **Restreint**. Utilisé pour capter uniquement la première offre et mesurer le volume total d'offres via `Content-Range`. |
+
+### Validation Criteria
+1.  **ROME Code Match**: The returned JSON must contain a `resultats` list, and `resultats[0].romeCode` must match exactly the requested `codeROME` (e.g. `M1805`).
+2.  **HTTP Status**: Returns `206 Partial Content` when multiple offers exist, or `200 OK` if there is exactly one offer.
+3.  **Volume Header**: The response HTTP header `Content-Range` must be parsed to read the total volume (e.g., `offres 0-0/4152` represents 4152 jobs).
+
+---
+
 ## 4. Recommended Test Sequence
 
 1. Select the **`FranceTravail - Dev`** environment.
