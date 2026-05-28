@@ -68,3 +68,24 @@ def test_cli_missing_config_in_production_exits_with_error(
         main()
 
     assert excinfo.value.code == 1
+
+
+@patch("sys.argv", ["cli.py", "--extract-rome"])
+@patch("observia_emploi.cli.RomeExtractorService")
+def test_cli_extract_rome_calls_extractor_service(
+    mock_extractor_class: MagicMock,
+) -> None:
+    """Test that --extract-rome flag runs RomeExtractorService and exits cleanly."""
+    # Arrange
+    mock_extractor = MagicMock()
+    mock_extractor_class.return_value = mock_extractor
+
+    # Act
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+
+    # Assert
+    assert excinfo.value.code == 0
+    mock_extractor_class.assert_called_once()
+    mock_extractor.extract_from_csv.assert_called_once()
+    mock_extractor.export_to_json.assert_called_once()

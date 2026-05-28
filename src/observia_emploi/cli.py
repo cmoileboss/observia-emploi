@@ -18,6 +18,7 @@ from observia_emploi.france_travail.volume_measurement import (
     RomeVolumeMeasurementService,
 )
 from observia_emploi.logging_config import setup_logging
+from observia_emploi.referentials.rome_extractor import RomeExtractorService
 
 logger = logging.getLogger("observia_emploi.cli")
 
@@ -41,7 +42,33 @@ def main() -> None:
         action="store_true",
         help="Mesurer la volumétrie des offres par ROME.",
     )
+    parser.add_argument(
+        "--extract-rome",
+        action="store_true",
+        help=(
+            "Extraire les codes ROME uniques et leurs statistiques "
+            "depuis merged_data.csv."
+        ),
+    )
     args = parser.parse_args()
+
+    # Handle ROME extraction first to avoid loading client/config or needing secrets
+    if args.extract_rome:
+        logger.info(
+            "Starting Lot 2B: ROME codes and aggregation extraction from CSV..."
+        )
+        csv_input_path = Path("data/processed/merged_data.csv")
+        ref_output_path = Path("data/reference/rome_codes_from_merged_data.json")
+
+        extractor = RomeExtractorService()
+        try:
+            extracted = extractor.extract_from_csv(csv_input_path)
+            extractor.export_to_json(extracted, ref_output_path)
+            logger.info("ROME codes extraction completed successfully.")
+            sys.exit(0)
+        except Exception as e:
+            logger.error("Extraction execution failed: %s", e)
+            sys.exit(1)
 
     # Paths
     ref_path = Path("data/processed/reference/rome_metiers_v1.json")
