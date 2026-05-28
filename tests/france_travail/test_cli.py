@@ -110,3 +110,24 @@ def test_cli_measure_volumes_from_merged_calls_service(
     mock_service_class.assert_called_once()
     mock_service.measure_all_rome_from_file.assert_called_once()
     mock_service.export_report_to_json.assert_called_once()
+
+
+@patch("sys.argv", ["cli.py", "--collect-offers-from-merged", "--offline"])
+@patch("observia_emploi.cli.FranceTravailOfferCollectorService")
+@patch("observia_emploi.cli.MockFranceTravailClient")
+def test_cli_collect_offers_from_merged_calls_service(
+    mock_client_class: MagicMock,
+    mock_service_class: MagicMock,
+) -> None:
+    """Test that --collect-offers-from-merged flag calls the right service."""
+    # Arrange
+    mock_service = MagicMock()
+    mock_service_class.return_value = mock_service
+
+    # Act
+    main()
+
+    # Assert
+    mock_service_class.assert_called_once()
+    mock_service.collect_all_offers_from_file.assert_called_once()
+    mock_service.export_offers_to_json.assert_called_once()
