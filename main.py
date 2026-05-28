@@ -1,4 +1,8 @@
+import argparse
+import logging
 import os
+import sys
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
@@ -59,6 +63,7 @@ def create_output():
     else:
         step_csv_extractor(RAW_DATA_FOLDER, output_file)
         print(f"Le fichier {output_file} a été créé avec succès.")
+
 
 def main():
     raw_folder       = os.getenv("RAW_DATA_FOLDER", r"data\raw")
