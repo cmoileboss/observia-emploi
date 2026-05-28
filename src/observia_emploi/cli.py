@@ -14,15 +14,18 @@ from observia_emploi.france_travail.referential import (
     TEST_ROME_CODES,
     RomeReferentialService,
 )
+from observia_emploi.france_travail.volume_measurement import (
+    RomeVolumeMeasurementService,
+)
 from observia_emploi.logging_config import setup_logging
 
 logger = logging.getLogger("observia_emploi.cli")
 
 
 def main() -> None:
-    """Execute ROME referential fetch, filter and export task."""
+    """Execute ROME tasks (referential retrieval or volume measurement)."""
     setup_logging(logging.INFO)
-    logger.info("Initializing ObservIA Emploi - Lot 1B referential tool...")
+    logger.info("Initializing ObservIA Emploi - France Travail Toolbelt...")
 
     # CLI arguments parser
     parser = argparse.ArgumentParser(
@@ -33,10 +36,16 @@ def main() -> None:
         action="store_true",
         help="Exécuter en mode hors-ligne avec des données simulées (Mock).",
     )
+    parser.add_argument(
+        "--measure-volume",
+        action="store_true",
+        help="Mesurer la volumétrie des offres par ROME.",
+    )
     args = parser.parse_args()
 
-    # Output file target destination
-    output_path = Path("data/processed/reference/rome_metiers_v1.json")
+    # Paths
+    ref_path = Path("data/processed/reference/rome_metiers_v1.json")
+    volumes_path = Path("data/processed/reference/rome_volumes_v1.json")
 
     # Client selection logic based on --offline argument
     if args.offline:
@@ -66,18 +75,30 @@ def main() -> None:
             sys.exit(1)
         client = FranceTravailClient(config)
 
-    # Initialize and execute ROME service
-    service = RomeReferentialService(client)
-    try:
-        export_data = service.fetch_and_filter_rome(
-            requested_codes=TEST_ROME_CODES,
-            scope="v1_test_tech_ia",
-        )
-        service.export_to_json(export_data, output_path)
-        logger.info("Referential execution completed successfully.")
-    except Exception as e:
-        logger.error("Referential retrieval execution failed: %s", e)
-        sys.exit(1)
+    # Branch logic depending on requested command
+    if args.measure_volume:
+        logger.info("Starting Lot 2A: Rome volume and aggregation measurement...")
+        service = RomeVolumeMeasurementService(client)
+        try:
+            report = service.measure_rome_volumes(ref_path)
+            service.export_report_to_json(report, volumes_path)
+            logger.info("Volume and aggregation measurement completed successfully.")
+        except Exception as e:
+            logger.error("Volume measurement execution failed: %s", e)
+            sys.exit(1)
+    else:
+        logger.info("Starting Lot 1B: Rome referential retrieval...")
+        service_ref = RomeReferentialService(client)
+        try:
+            export_data = service_ref.fetch_and_filter_rome(
+                requested_codes=TEST_ROME_CODES,
+                scope="v1_test_tech_ia",
+            )
+            service_ref.export_to_json(export_data, ref_path)
+            logger.info("Referential execution completed successfully.")
+        except Exception as e:
+            logger.error("Referential retrieval execution failed: %s", e)
+            sys.exit(1)
 
 
 if __name__ == "__main__":
