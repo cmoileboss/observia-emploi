@@ -111,11 +111,10 @@ class RomeVolumeMeasurementService:
         logger.info("Measuring volume for ROME code: %s (%s)", code_rome, libelle_rome)
 
         endpoint = "partenaire/offresdemploi/v2/offres/search"
-        params = {"codeROME": code_rome}
-        headers = {"Range": "offres=0-0"}
+        params = {"codeROME": code_rome, "range": "0-0"}
 
         try:
-            response = self.client.get_raw(endpoint, params=params, headers=headers)
+            response = self.client.get_raw(endpoint, params=params)
             status_code = response.status_code
         except Exception as e:
             logger.error(
@@ -240,6 +239,56 @@ class RomeVolumeMeasurementService:
 
             code = item["code_rome"]
             libelle = item["libelle_rome"]
+            measure = self.measure_single_rome(code, libelle)
+            measures.append(measure)
+
+        return VolumeReport(measures=measures)
+
+    def measure_all_rome_from_file(self, referential_path: Path) -> VolumeReport:
+        """Measure job offers metrics for all ROME codes present in the JSON file.
+
+        Reads the merged referential JSON and queries France Travail for
+        every ROME code. Enforces a 0.25s delay between requests to respect
+        the 5 req/s limit.
+        """
+        logger.info("Loading extracted ROME referential from %s", referential_path)
+
+        if not referential_path.exists():
+            logger.error("Referential file not found: %s", referential_path)
+            raise FileNotFoundError(f"Referential file missing: {referential_path}")
+
+        try:
+            with referential_path.open("r", encoding="utf-8") as f:
+                ref_data = json.load(f)
+        except Exception as e:
+            logger.error("Failed to parse ROME referential JSON: %s", e)
+            raise
+
+        items = ref_data.get("items", [])
+        if not items:
+            logger.warning("No items found in the referential file.")
+            return VolumeReport(measures=[])
+
+        measures: list[RomeVolumeMeasure] = []
+
+        for index, item in enumerate(items):
+            code = item.get("code_rome")
+            # The new format uses 'intitule_rome', fallback to 'libelle_rome' if needed
+            libelle = item.get("intitule_rome") or item.get("libelle_rome") or "Inconnu"
+
+            if not code:
+                continue
+
+            # Enforce 0.25s sequential delay on real client (max 5 req/s)
+            if index > 0 and not hasattr(self.client, "_is_mock_client"):
+                from observia_emploi.france_travail.client import (
+                    MockFranceTravailClient,
+                )
+
+                if not isinstance(self.client, MockFranceTravailClient):
+                    logger.debug("Applying 250ms rate limit delay...")
+                    time.sleep(0.25)
+
             measure = self.measure_single_rome(code, libelle)
             measures.append(measure)
 

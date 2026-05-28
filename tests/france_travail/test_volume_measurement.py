@@ -155,7 +155,10 @@ def test_measure_rome_volumes_and_export(
     # Arrange
     mock_client = MagicMock(spec=FranceTravailClient)
 
-    def mock_get_raw(endpoint: str, params: dict, headers: dict) -> MockResponse:
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
         rome = params.get("codeROME", "M1801")
         if rome == "M1801":
             tot = 150
@@ -204,3 +207,46 @@ def test_measure_rome_volumes_and_export(
     assert len(data["measures"]) == 5
     assert data["measures"][0]["code_rome"] == "M1801"
     assert data["measures"][0]["total_offres_disponibles"] == 150
+
+
+def test_measure_all_rome_from_file(tmp_path: Path) -> None:
+    """Test measure_all_rome_from_file extracts intitule_rome and calls API."""
+    # Arrange
+    ref_data = {
+        "items": [
+            {"code_rome": "A1201", "intitule_rome": "Bûcheronnage"},
+            {"code_rome": "A1202", "libelle_rome": "Sylviculture"},
+        ]
+    }
+    file_path = tmp_path / "merged_rome.json"
+    with file_path.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f, ensure_ascii=False)
+
+    mock_client = MagicMock(spec=FranceTravailClient)
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        # Unused variable rome removed
+        return MockResponse(
+            status_code=206,
+            json_data={"resultats": [], "filtresPossibles": []},
+            headers={"Content-Range": "offres 0-0/10"},
+        )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    # Pour simuler le rate-limit
+    mock_client._is_mock_client = True
+
+    service = RomeVolumeMeasurementService(mock_client)
+
+    # Act
+    report = service.measure_all_rome_from_file(file_path)
+
+    # Assert
+    assert len(report.measures) == 2
+    assert report.measures[0].code_rome == "A1201"
+    assert report.measures[0].libelle_rome == "Bûcheronnage"
+    assert report.measures[1].code_rome == "A1202"
+    assert report.measures[1].libelle_rome == "Sylviculture"
