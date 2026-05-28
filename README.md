@@ -5,6 +5,7 @@
 ### API France Travail
 
 Lien : https://www.francetravail.io
+Doc API : https://francetravail.io/produits-partages/catalogue/offres-emploi/documentation#/api-reference/
 
 ### Mon Compte Formation
 
