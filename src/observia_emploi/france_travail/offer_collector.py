@@ -215,6 +215,78 @@ class FranceTravailOfferCollectorService:
         logger.info("Total detailed offers collected: %d", len(all_offers))
         return self._build_export_payload(all_offers)
 
+    def collect_all_offers_grouped_from_file(
+        self,
+        referential_path: Path,
+        input_csv: str = "data/processed/merged_data.csv",
+        rome_code: str | None = None,
+        max_pages: int | None = None,
+        max_codes: int | None = None,
+    ) -> dict[str, Any]:
+        """Collect job offers grouped by ROME code from the referential file.
+
+        Returns a grouped payload with per-code metadata instead of a flat list.
+        """
+        logger.info(
+            "Loading ROME codes for grouped collection from %s", referential_path
+        )
+
+        if not referential_path.exists():
+            raise FileNotFoundError(
+                f"ROME referential file not found: {referential_path}"
+            )
+
+        try:
+            with referential_path.open("r", encoding="utf-8") as f:
+                ref_data = json.load(f)
+        except Exception as e:
+            logger.error("Failed to parse ROME referential: %s", e)
+            raise
+
+        items = ref_data.get("items", [])
+        if not items:
+            logger.warning("No ROME items found in referential.")
+            return self._build_grouped_payload([], input_csv, str(referential_path))
+
+        if rome_code:
+            logger.info("Filtering collection for a single ROME code: %s", rome_code)
+            items = [item for item in items if item.get("code_rome") == rome_code]
+            if not items:
+                logger.warning(
+                    "No matching ROME code %s found in referential.", rome_code
+                )
+
+        if max_codes is not None and max_codes > 0:
+            logger.info("Limiting ROME codes count to treat to: %d", max_codes)
+            items = items[:max_codes]
+
+        rome_groups: list[dict[str, Any]] = []
+
+        for item in items:
+            code = item.get("code_rome")
+            libelle = item.get("intitule_rome", "")
+            if not code:
+                continue
+            try:
+                offers = self.collect_single_rome_offers(code, max_pages=max_pages)
+                rome_groups.append(
+                    {
+                        "code_rome": code,
+                        "intitule_rome": libelle,
+                        "offers_count": len(offers),
+                        "offers": offers,
+                    }
+                )
+            except Exception as e:
+                logger.error("Error collecting offers for ROME code %s: %s", code, e)
+
+        logger.info(
+            "Total ROME codes processed in grouped collection: %d", len(rome_groups)
+        )
+        return self._build_grouped_payload(
+            rome_groups, input_csv, str(referential_path)
+        )
+
     def _build_export_payload(self, offers: list[dict[str, Any]]) -> dict[str, Any]:
         """Wrap offers array in a standardized clean metadata payload."""
         return {
@@ -223,6 +295,23 @@ class FranceTravailOfferCollectorService:
             "collected_at": datetime.now(UTC).isoformat(),
             "offers_count": len(offers),
             "offers": offers,
+        }
+
+    def _build_grouped_payload(
+        self,
+        rome_groups: list[dict[str, Any]],
+        input_csv: str,
+        rome_reference_file: str,
+    ) -> dict[str, Any]:
+        """Wrap grouped ROME offers in a standardized metadata payload."""
+        return {
+            "source": "france_travail_api",
+            "dataset": "offres_par_code_rome",
+            "generated_at": datetime.now(UTC).isoformat(),
+            "input_csv": input_csv,
+            "rome_reference_file": rome_reference_file,
+            "total_rome_codes": len(rome_groups),
+            "items": rome_groups,
         }
 
     def export_offers_to_json(self, payload: dict[str, Any], output_path: Path) -> None:

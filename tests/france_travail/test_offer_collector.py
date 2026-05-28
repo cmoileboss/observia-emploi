@@ -348,3 +348,150 @@ def test_offer_collector_datetime_serialization_non_regression(tmp_path: Path) -
     # Check optional fields are preserved as null or default lists
     assert "formations" in offer
     assert offer["formations"] is None  # Preserved as null instead of disappearing
+
+
+def test_collect_all_offers_grouped_structure(tmp_path: Path) -> None:
+    """Test grouped payload structure: keys code_rome, intitule_rome,
+    offers_count, offers, input_csv, rome_reference_file."""
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Développement informatique"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    mock_client.get_raw.return_value = MockResponse(
+        status_code=200,
+        json_data={"resultats": [{"id": "OFFRE_1"}]},
+        headers={"Content-Range": "offres 0-0/1"},
+    )
+
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    payload = service.collect_all_offers_grouped_from_file(
+        ref_file, input_csv="data/processed/merged_data.csv"
+    )
+
+    assert payload["source"] == "france_travail_api"
+    assert payload["dataset"] == "offres_par_code_rome"
+    assert "generated_at" in payload
+    assert payload["input_csv"] == "data/processed/merged_data.csv"
+    assert payload["rome_reference_file"] == str(ref_file)
+    assert payload["total_rome_codes"] == 1
+    assert len(payload["items"]) == 1
+
+    group = payload["items"][0]
+    assert group["code_rome"] == "M1805"
+    assert group["intitule_rome"] == "Développement informatique"
+    assert group["offers_count"] == 1
+    assert len(group["offers"]) == 1
+    assert group["offers"][0]["id"] == "OFFRE_1"
+
+
+def test_collect_all_offers_grouped_multiple_romes(tmp_path: Path) -> None:
+    """Test that 2 ROME codes produce 2 groups with offers split across them."""
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Développement"},
+            {"code_rome": "M1802", "intitule_rome": "Expertise technique"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        rome = params.get("codeROME", "M1805")
+        if rome == "M1805":
+            return MockResponse(
+                status_code=200,
+                json_data={
+                    "resultats": [
+                        {"id": "M1805_OFFRE"},
+                        {"id": "M1805_OFFRE_2"},
+                    ]
+                },
+                headers={"Content-Range": "offres 0-1/2"},
+            )
+        else:
+            return MockResponse(
+                status_code=200,
+                json_data={"resultats": [{"id": "M1802_OFFRE"}]},
+                headers={"Content-Range": "offres 0-0/1"},
+            )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    payload = service.collect_all_offers_grouped_from_file(ref_file)
+
+    assert payload["total_rome_codes"] == 2
+    assert len(payload["items"]) == 2
+
+    m1805_group = next(g for g in payload["items"] if g["code_rome"] == "M1805")
+    assert m1805_group["intitule_rome"] == "Développement"
+    assert m1805_group["offers_count"] == 2
+    assert len(m1805_group["offers"]) == 2
+
+    m1802_group = next(g for g in payload["items"] if g["code_rome"] == "M1802")
+    assert m1802_group["intitule_rome"] == "Expertise technique"
+    assert m1802_group["offers_count"] == 1
+    assert len(m1802_group["offers"]) == 1
+
+
+def test_collect_all_offers_grouped_filters(tmp_path: Path) -> None:
+    """Test that rome_code and max_codes filters work on grouped collection."""
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Développement"},
+            {"code_rome": "M1802", "intitule_rome": "Expertise"},
+            {"code_rome": "M1801", "intitule_rome": "Administration"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    codes_requested = []
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        codes_requested.append(params.get("codeROME"))
+        return MockResponse(
+            status_code=200,
+            json_data={"resultats": [{"id": f"OFFRE_{params.get('codeROME')}"}]},
+            headers={"Content-Range": "offres 0-0/1"},
+        )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    payload = service.collect_all_offers_grouped_from_file(ref_file, rome_code="M1802")
+
+    assert payload["total_rome_codes"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["code_rome"] == "M1802"
+    assert len(codes_requested) == 1
+    assert codes_requested[0] == "M1802"
+
+    payload2 = service.collect_all_offers_grouped_from_file(ref_file, max_codes=2)
+
+    assert payload2["total_rome_codes"] == 2
+    codes_in_payload2 = [g["code_rome"] for g in payload2["items"]]
+    assert codes_in_payload2 == ["M1805", "M1802"]
