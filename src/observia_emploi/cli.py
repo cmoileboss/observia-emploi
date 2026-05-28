@@ -50,6 +50,14 @@ def main() -> None:
             "depuis merged_data.csv."
         ),
     )
+    parser.add_argument(
+        "--measure-volumes-from-merged",
+        action="store_true",
+        help=(
+            "Mesurer la volumétrie pour tous les codes ROME "
+            "extraits de merged_data.csv."
+        ),
+    )
     args = parser.parse_args()
 
     # Handle ROME extraction first to avoid loading client/config or needing secrets
@@ -103,7 +111,21 @@ def main() -> None:
         client = FranceTravailClient(config)
 
     # Branch logic depending on requested command
-    if args.measure_volume:
+    if args.measure_volumes_from_merged:
+        logger.info("Starting Lot 2C: Rome volume measurement from merged data...")
+        service = RomeVolumeMeasurementService(client)
+        merged_ref_path = Path("data/reference/rome_codes_from_merged_data.json")
+        merged_volumes_path = Path(
+            "data/processed/reference/rome_volumes_from_merged_data.json"
+        )
+        try:
+            report = service.measure_all_rome_from_file(merged_ref_path)
+            service.export_report_to_json(report, merged_volumes_path)
+            logger.info("Lot 2C execution completed successfully.")
+        except Exception as e:
+            logger.error("Lot 2C volume measurement failed: %s", e)
+            sys.exit(1)
+    elif args.measure_volume:
         logger.info("Starting Lot 2A: Rome volume and aggregation measurement...")
         service = RomeVolumeMeasurementService(client)
         try:
