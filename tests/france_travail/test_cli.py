@@ -1,5 +1,4 @@
-"""Tests for the CLI entry point."""
-
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -130,4 +129,43 @@ def test_cli_collect_offers_from_merged_calls_service(
     # Assert
     mock_service_class.assert_called_once()
     mock_service.collect_all_offers_from_file.assert_called_once()
+    mock_service.export_offers_to_json.assert_called_once()
+
+
+@patch(
+    "sys.argv",
+    [
+        "cli.py",
+        "--collect-offers-from-merged",
+        "--rome-code",
+        "M1805",
+        "--max-pages",
+        "2",
+        "--max-codes",
+        "1",
+        "--offline",
+    ],
+)
+@patch("observia_emploi.cli.FranceTravailOfferCollectorService")
+@patch("observia_emploi.cli.MockFranceTravailClient")
+def test_cli_collect_offers_with_limiting_flags(
+    mock_client_class: MagicMock,
+    mock_service_class: MagicMock,
+) -> None:
+    """Test that CLI limiting flags are correctly parsed and passed to the service."""
+    # Arrange
+    mock_service = MagicMock()
+    mock_service_class.return_value = mock_service
+
+    # Act
+    main()
+
+    # Assert
+    mock_service_class.assert_called_once()
+    mock_service.collect_all_offers_from_file.assert_called_once_with(
+        Path("data/reference/rome_codes_from_merged_data.json"),
+        rome_code="M1805",
+        max_pages=2,
+        max_codes=1,
+    )
     mock_service.export_offers_to_json.assert_called_once()

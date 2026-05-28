@@ -162,3 +162,125 @@ def test_offer_collector_resilience_to_errors(tmp_path: Path) -> None:
     # Assert
     assert payload["offers_count"] == 1
     assert payload["offers"][0]["id"] == "NOMINAL_OFFRE"
+
+
+def test_offer_collector_max_pages(tmp_path: Path) -> None:
+    """Test that max_pages controls the page loops for a single code ROME."""
+    # Arrange
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Dév"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    calls = []
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        range_str = params.get("range")
+        calls.append(range_str)
+        return MockResponse(
+            status_code=206,
+            json_data={"resultats": [{"id": f"ID_{range_str}"} for _ in range(150)]},
+            headers={"Content-Range": "offres 0-149/1000"},
+        )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    # Act
+    payload = service.collect_all_offers_from_file(ref_file, max_pages=1)
+
+    # Assert
+    assert len(calls) == 1
+    assert calls[0] == "0-149"
+    assert payload["offers_count"] == 150
+
+
+def test_offer_collector_rome_code_filter(tmp_path: Path) -> None:
+    """Test that specifying rome_code limits the collection to that single code."""
+    # Arrange
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Dév"},
+            {"code_rome": "M1802", "intitule_rome": "Expertise"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    codes_requested = []
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        codes_requested.append(params.get("codeROME"))
+        return MockResponse(
+            status_code=200,
+            json_data={"resultats": []},
+            headers={"Content-Range": "offres 0-0/0"},
+        )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    # Act
+    service.collect_all_offers_from_file(ref_file, rome_code="M1802")
+
+    # Assert
+    assert len(codes_requested) == 1
+    assert codes_requested[0] == "M1802"
+
+
+def test_offer_collector_max_codes(tmp_path: Path) -> None:
+    """Test that max_codes limits the number of ROME codes treated."""
+    # Arrange
+    mock_client = MagicMock(spec=FranceTravailClient)
+    mock_client._is_mock_client = True
+
+    ref_data = {
+        "items": [
+            {"code_rome": "M1805", "intitule_rome": "Dév"},
+            {"code_rome": "M1802", "intitule_rome": "Expertise"},
+            {"code_rome": "M1801", "intitule_rome": "Admin"},
+        ]
+    }
+    ref_file = tmp_path / "merged_rome.json"
+    with ref_file.open("w", encoding="utf-8") as f:
+        json.dump(ref_data, f)
+
+    codes_requested = []
+
+    def mock_get_raw(
+        endpoint: str, params: dict = None, headers: dict = None, **kwargs
+    ) -> MockResponse:
+        params = params or {}
+        codes_requested.append(params.get("codeROME"))
+        return MockResponse(
+            status_code=200,
+            json_data={"resultats": []},
+            headers={"Content-Range": "offres 0-0/0"},
+        )
+
+    mock_client.get_raw.side_effect = mock_get_raw
+    service = FranceTravailOfferCollectorService(mock_client)
+
+    # Act
+    service.collect_all_offers_from_file(ref_file, max_codes=2)
+
+    # Assert
+    assert len(codes_requested) == 2
+    assert codes_requested == ["M1805", "M1802"]
