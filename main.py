@@ -61,7 +61,7 @@ def create_output():
         print(f"Le fichier {output_file} a été créé avec succès.")
 
 def main():
-    raw_folder       = os.getenv("RAW_DATA_FOLDER", r"data\raw")
+    raw_folder = os.getenv("RAW_DATA_FOLDER", r"data\raw")
     processed_folder = os.getenv("PROCESSED_DATA_FOLDER", r"data\processed")
 
     # Garde-fou : si la variable d'env pointe sur un fichier (ancien .env), on prend le parent
@@ -72,9 +72,9 @@ def main():
         raise FileNotFoundError(f"Dossier introuvable : {raw_folder}")
     os.makedirs(processed_folder, exist_ok=True)
 
-    merged_path     = os.path.join(processed_folder, "merged_data.csv")
+    merged_path = os.path.join(processed_folder, "merged_data.csv")
     organismes_path = os.path.join(processed_folder, "organismes_enriched.csv")
-    cdc_path        = os.path.join(raw_folder, "cdc_filtered_tech.csv")
+    cdc_path = os.path.join(raw_folder, "cdc_filtered_tech.csv")
     formations_path = os.path.join(processed_folder, "formations_enriched.csv")
 
     print("=== 1. Extraction et nettoyage MCF ===")
