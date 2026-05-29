@@ -86,3 +86,45 @@ Jointure `inner` sur `code_rncp` : seules les certifications du secteur tech (pr
 
 Comme les fichiers csv contiennent les niveaux en entier mais l'API France Travail string, il faudra les convertir en entier. Cf l'enum NiveauRNCP.
 A déterminer : les champs que l'on gardera.
+
+## Installation & Lancement
+
+Pour exécuter le projet localement, suivez les étapes ci-dessous :
+
+### 1. Créer l'environnement virtuel (`venv`)
+```bash
+python -m venv .venv
+```
+
+### 2. Activer l'environnement virtuel
+* **Sur Windows (PowerShell) :**
+  ```powershell
+  .venv\Scripts\Activate.ps1
+  ```
+* **Sur Windows (Invite de commandes CMD) :**
+  ```cmd
+  .venv\Scripts\activate.bat
+  ```
+* **Sur Linux / macOS :**
+  ```bash
+  source .venv/bin/activate
+  ```
+
+### 3. Installer les dépendances
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configurer l'environnement
+Créez votre fichier de configuration `.env` à partir de l'exemple :
+```bash
+cp .env.example .env
+```
+*(ou `copy .env.example .env` sous Windows CMD)*
+
+### 5. Lancer l'application
+Pour démarrer le serveur API FastAPI avec rechargement automatique :
+```bash
+python main.py
+```
+Le serveur démarrera localement sur `http://localhost:8000`.
