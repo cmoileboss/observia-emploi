@@ -74,7 +74,6 @@ https://www.welcometothejungle.com/fr/pages/terms
 
 | Règle | Détail |
 |---|---|
-| Suppression de `intitule_rncp` | Redondant avec `intitule_certification` de `entree_sortie_formation` |
 | Normalisation de `code_rncp` | Suppression du préfixe `RNCP` pour uniformisation avec `entree_sortie_formation` |
 
 #### Merge

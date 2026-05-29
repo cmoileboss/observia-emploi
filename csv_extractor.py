@@ -11,7 +11,7 @@ class CsvExtractor:
         """Nettoyage des données : suppression des colonnes inutiles, des code RNCP égaux à -1 et uniformisation des codes RNCP"""
         self.formation = self.formation.drop(columns=["annee_mois", "type_referentiel", "code_rs", "code_certifinfo", "date_chargement"])
         self.formation = self.formation[self.formation["code_rncp"] != "-1"]
-        self.correspondance = self.correspondance.drop(columns=["intitule_rncp"])
+        #self.correspondance = self.correspondance.drop(columns=["intitule_rncp"])
         self.correspondance["code_rncp"] = self.correspondance["code_rncp"].str.replace("RNCP", "", regex=False)
 
     def merge_data(self):
