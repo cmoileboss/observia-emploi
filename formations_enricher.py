@@ -1,0 +1,42 @@
+"""
+Enrichit merged_data.csv avec :
+- la géolocalisation des organismes (depuis organismes_enriched.csv issu de SIRENE)
+- la modalité dominante par RNCP (depuis le CDC filtré)
+
+Produit : data/processed/formations_enriched.csv
+"""
+
+import pandas as pd
+
+
+class FormationsEnricher:
+
+    GEO_COLS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal",
+                "ville", "code_commune", "departement", "region"]
+
+    def load(self, merged_path: str, organismes_path: str, modalite_df: pd.DataFrame) -> None:
+        self.merged = pd.read_csv(
+            merged_path, sep=";",
+            dtype={"siret_of_contractant": str, "code_rncp": str},
+        )
+        self.organismes = pd.read_csv(
+            organismes_path, sep=";", dtype={"siret": str},
+        )[self.GEO_COLS]
+        self.modalite = modalite_df
+
+    def enrich(self) -> None:
+        with_geo = self.merged.merge(
+            self.organismes,
+            left_on="siret_of_contractant",
+            right_on="siret",
+            how="left",
+        ).drop(columns=["siret"])
+
+        self.result = with_geo.merge(self.modalite, on="code_rncp", how="left")
+
+    def export(self, output_path: str) -> None:
+        self.result.to_csv(output_path, sep=";", index=False, encoding="utf-8")
+        n = len(self.result)
+        n_reg = self.result["region"].notna().sum()
+        n_mod = self.result["modalite"].notna().sum()
+        print(f"formations_enriched : {n:,} lignes  (région: {n_reg/n*100:.1f}%, modalité: {n_mod/n*100:.1f}%)")
