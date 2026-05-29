@@ -2,7 +2,6 @@ import os
 
 from csv_extractor import CsvExtractor
 from sirene_enricher import enrich as enrich_sirene
-from modalite_extractor import extract_modalite_dominante
 from formations_enricher import FormationsEnricher
 
 
@@ -30,9 +29,8 @@ def step_formations(merged_path: str, organismes_path: str,
     if os.path.exists(output_path):
         print(f"[skip] {output_path} existe deja.")
         return
-    modalite_df = extract_modalite_dominante(cdc_path)
     enricher = FormationsEnricher()
-    enricher.load(merged_path, organismes_path, modalite_df)
+    enricher.load(merged_path, organismes_path, cdc_path)
     enricher.enrich()
     enricher.export(output_path)
 

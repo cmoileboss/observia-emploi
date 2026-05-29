@@ -14,7 +14,7 @@ class FormationsEnricher:
     GEO_COLS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal",
                 "ville", "code_commune", "departement", "region"]
 
-    def load(self, merged_path: str, organismes_path: str, modalite_df: pd.DataFrame) -> None:
+    def load(self, merged_path: str, organismes_path: str, cdc_path: str) -> None:
         self.merged = pd.read_csv(
             merged_path, sep=";",
             dtype={"siret_of_contractant": str, "code_rncp": str},
@@ -22,7 +22,25 @@ class FormationsEnricher:
         self.organismes = pd.read_csv(
             organismes_path, sep=";", dtype={"siret": str},
         )[self.GEO_COLS]
-        self.modalite = modalite_df
+        self.modalite = self._compute_modalite_dominante(cdc_path)
+
+    @staticmethod
+    def _compute_modalite_dominante(cdc_path: str) -> pd.DataFrame:
+        """Retourne [code_rncp, modalite] avec la modalite majoritaire par RNCP."""
+        cdc = pd.read_csv(
+            cdc_path, sep=";",
+            dtype={"code_rncp": str, "nb_dossiers": "Int64"},
+            encoding="utf-8",
+        )
+        return (
+            cdc.groupby(["code_rncp", "modalite_presence"])["nb_dossiers"]
+            .sum()
+            .reset_index()
+            .sort_values("nb_dossiers", ascending=False)
+            .drop_duplicates("code_rncp")
+            [["code_rncp", "modalite_presence"]]
+            .rename(columns={"modalite_presence": "modalite"})
+        )
 
     def enrich(self) -> None:
         with_geo = self.merged.merge(
@@ -39,4 +57,4 @@ class FormationsEnricher:
         n = len(self.result)
         n_reg = self.result["region"].notna().sum()
         n_mod = self.result["modalite"].notna().sum()
-        print(f"formations_enriched : {n:,} lignes  (région: {n_reg/n*100:.1f}%, modalité: {n_mod/n*100:.1f}%)")
+        print(f"formations_enriched : {n:,} lignes  (region: {n_reg/n*100:.1f}%, modalite: {n_mod/n*100:.1f}%)")
