@@ -13,9 +13,8 @@ class CorrespondanceFormationRepository(BaseRepository[CorrespondanceFormationMo
         """Initialise le repository des correspondances formation."""
         super().__init__(db, CorrespondanceFormationModel)
 
-    def create_correspondance(self, **kwargs) -> CorrespondanceFormationModel:
-        """Cree et persiste une correspondance formation."""
-        correspondance = CorrespondanceFormationModel(**kwargs)
+    def create_correspondance(self, correspondance: CorrespondanceFormationModel) -> CorrespondanceFormationModel:
+        """Persiste une correspondance formation deja instanciee."""
         return self.add(correspondance)
 
     def list_by_code_rome(self, code_rome: str) -> list[CorrespondanceFormationModel]:

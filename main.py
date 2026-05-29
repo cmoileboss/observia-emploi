@@ -8,8 +8,8 @@ from postgres_connection import Base, engine
 from models import francetravail_model, correspondance_formation_model
 from routers import francetravail_router
 
-from sirene_enricher import enrich as enrich_sirene
-from formations_enricher import FormationsEnricher
+from scripts.sirene_enricher import enrich as enrich_sirene
+from scripts.formations_enricher import FormationsEnricher
 
 
 def step_csv_extractor(raw_folder: str, merged_path: str) -> None:

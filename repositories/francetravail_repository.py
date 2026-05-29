@@ -13,9 +13,8 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
         """Initialise le repository des offres."""
         super().__init__(db, FranceTravailModel)
 
-    def create_offre(self, **kwargs) -> FranceTravailModel:
-        """Cree et persiste une offre France Travail."""
-        offre = FranceTravailModel(**kwargs)
+    def create_offre(self, offre: FranceTravailModel) -> FranceTravailModel:
+        """Persiste une offre France Travail deja instanciee."""
         return self.add(offre)
 
     def list_offres(self, rome_code: str | None = None, limit: int = 50) -> list[FranceTravailModel]:
@@ -47,33 +46,33 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_or_create_formation(self, offre: FranceTravailModel, **kwargs) -> FranceTravailModel:
+    def attach_or_create_formation(self, offre: FranceTravailModel, formation: FormationModel) -> FranceTravailModel:
         """Associe une formation a l'offre en la creant si necessaire."""
         formation_repository = FormationRepository(self.db)
-        code_formation = kwargs.get("code_formation")
+        code_formation = formation.code_formation
 
-        formation = None
+        existing_formation = None
         if code_formation:
-            formation = formation_repository.find_by_code(code_formation)
+            existing_formation = formation_repository.find_by_code(code_formation)
 
-        if formation is None:
-            formation = formation_repository.create_formation(**kwargs)
+        if existing_formation is None:
+            existing_formation = formation_repository.create_formation(formation)
 
-        return self.attach_formation(offre, formation)
+        return self.attach_formation(offre, existing_formation)
 
-    def attach_or_create_competence(self, offre: FranceTravailModel, **kwargs) -> FranceTravailModel:
+    def attach_or_create_competence(self, offre: FranceTravailModel, competence: CompetenceModel) -> FranceTravailModel:
         """Associe une competence a l'offre en la creant si necessaire."""
         competence_repository = CompetenceRepository(self.db)
-        code = kwargs.get("code")
+        code = competence.code
 
-        competence = None
+        existing_competence = None
         if code:
-            competence = competence_repository.find_by_code(code)
+            existing_competence = competence_repository.find_by_code(code)
 
-        if competence is None:
-            competence = competence_repository.create_competence(**kwargs)
+        if existing_competence is None:
+            existing_competence = competence_repository.create_competence(competence)
 
-        return self.attach_competence(offre, competence)
+        return self.attach_competence(offre, existing_competence)
 
 
 class FormationRepository(BaseRepository[FormationModel]):
@@ -83,9 +82,8 @@ class FormationRepository(BaseRepository[FormationModel]):
         """Initialise le repository des formations."""
         super().__init__(db, FormationModel)
 
-    def create_formation(self, **kwargs) -> FormationModel:
-        """Cree et persiste une formation."""
-        formation = FormationModel(**kwargs)
+    def create_formation(self, formation: FormationModel) -> FormationModel:
+        """Persiste une formation deja instanciee."""
         return self.add(formation)
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
@@ -100,9 +98,8 @@ class CompetenceRepository(BaseRepository[CompetenceModel]):
         """Initialise le repository des competences."""
         super().__init__(db, CompetenceModel)
 
-    def create_competence(self, **kwargs) -> CompetenceModel:
-        """Cree et persiste une competence."""
-        competence = CompetenceModel(**kwargs)
+    def create_competence(self, competence: CompetenceModel) -> CompetenceModel:
+        """Persiste une competence deja instanciee."""
         return self.add(competence)
 
     def find_by_code(self, code: str) -> CompetenceModel | None:

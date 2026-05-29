@@ -52,10 +52,8 @@ def _departement_from_code_commune(code_commune: str | None) -> str | None:
     if not code_commune:
         return None
     code = str(code_commune)
-    # DOM : codes communes à 5 chiffres commençant par 97x
     if code.startswith("97"):
         return code[:3]
-    # Corse
     if code.startswith("2A") or code.startswith("2B"):
         return code[:2]
     return code[:2]
@@ -68,16 +66,13 @@ def extract_data_from_response(json_response: dict) -> dict:
     adresse = etab.get("adresseEtablissement", {})
     periodes = etab.get("periodesEtablissement", [])
 
-    # Nom entreprise
     nom = unite.get("denominationUniteLegale")
     if not nom:
         nom_parts = [unite.get("nomUniteLegale"), unite.get("prenom1UniteLegale")]
         nom = " ".join(p for p in nom_parts if p) or None
 
-    # Enseigne (période la plus récente = index 0)
     enseigne = periodes[0].get("enseigne1Etablissement") if periodes else None
 
-    # Adresse : ignorer les segments None
     adresse_parts = [
         adresse.get("numeroVoieEtablissement"),
         adresse.get("typeVoieEtablissement"),
@@ -131,7 +126,6 @@ def enrich(input_csv: str, output_csv: str) -> None:
     sirets = df["siret_of_contractant"].dropna().unique().tolist()
     print(f"{len(sirets)} SIRETs uniques à enrichir.")
 
-    # Reprise : charger les SIRETs déjà traités
     already_done: set[str] = set()
     write_header = True
     if os.path.exists(output_csv):
@@ -149,7 +143,7 @@ def enrich(input_csv: str, output_csv: str) -> None:
             row = fetch_siret(siret, session)
             row_df = pd.DataFrame([row], columns=OUTPUT_COLUMNS)
             row_df.to_csv(f, sep=";", index=False, header=write_header)
-            write_header = False  # header écrit une seule fois
+            write_header = False
             f.flush()
             if i < len(remaining) - 1:
                 time.sleep(THROTTLE_SECONDS)
