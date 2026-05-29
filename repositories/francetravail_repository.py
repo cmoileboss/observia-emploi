@@ -15,7 +15,13 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
 
     def create_offre(self, offre: FranceTravailModel) -> FranceTravailModel:
         """Persiste une offre France Travail deja instanciee."""
-        return self.add(offre)
+        if self.exists(offre.id):
+            return self.get_offre_by_id(offre.id)
+        return self.add(offre, commit=True)
+
+    def exists(self, offre_id: str) -> bool:
+        """Retourne vrai si une offre avec l'identifiant donne existe."""
+        return self.db.query(FranceTravailModel).filter(FranceTravailModel.id == offre_id).first() is not None
 
     def list_offres(self, rome_code: str | None = None, limit: int = 50) -> list[FranceTravailModel]:
         """Retourne les offres, filtrees optionnellement par code ROME."""
@@ -84,7 +90,7 @@ class FormationRepository(BaseRepository[FormationModel]):
 
     def create_formation(self, formation: FormationModel) -> FormationModel:
         """Persiste une formation deja instanciee."""
-        return self.add(formation)
+        return self.add(formation, commit=True)
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
         """Recherche une formation par son code metier."""
@@ -100,7 +106,7 @@ class CompetenceRepository(BaseRepository[CompetenceModel]):
 
     def create_competence(self, competence: CompetenceModel) -> CompetenceModel:
         """Persiste une competence deja instanciee."""
-        return self.add(competence)
+        return self.add(competence, commit=True)
 
     def find_by_code(self, code: str) -> CompetenceModel | None:
         """Recherche une competence par son code metier."""
