@@ -32,3 +32,9 @@ env/
 .kilo/
 .pytest_cache/
 .ruff_cache/
+
+# IDE & Editor
+.vscode/
+
+# Binary office documents
+*.docx
