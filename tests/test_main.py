@@ -147,3 +147,38 @@ def test_main_no_config(mock_config, mock_rome, tmp_project):
     with pytest.raises(SystemExit) as excinfo:
         main()
     assert excinfo.value.code == 1
+
+
+def test_main_direct_execution_without_pythonpath() -> None:
+    """Verify main.py can be launched directly without PYTHONPATH set.
+
+    Runs main.py --help as a subprocess with PYTHONPATH stripped from the
+    environment. Asserts exit code 0 and absence of ModuleNotFoundError.
+    """
+    import os
+    import subprocess
+    import sys as sys_module
+
+    main_py = Path(__file__).parent.parent / "main.py"
+    assert main_py.exists(), f"main.py not found at {main_py}"
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+    result = subprocess.run(
+        [sys_module.executable, str(main_py), "--help"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, (
+        f"main.py --help exited with code {result.returncode}\n"
+        f"stdout: {result.stdout}\n"
+        f"stderr: {result.stderr}"
+    )
+    assert (
+        "ModuleNotFoundError" not in result.stderr
+    ), f"ModuleNotFoundError in stderr:\n{result.stderr}"
+    assert (
+        "No module named" not in result.stderr
+    ), f"Import error in stderr:\n{result.stderr}"
