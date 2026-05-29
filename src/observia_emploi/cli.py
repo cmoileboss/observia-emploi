@@ -1,4 +1,15 @@
-"""Command line interface (CLI) to launch France Travail ROME referential tasks."""
+"""CLI entry point for France Travail referential, volume and offer tasks.
+
+This module is the **legacy** CLI, accessed via ``python -m observia_emploi.cli``.
+It predates ``main.py`` and supports the following sub-commands:
+
+- ``--extract-rome`` — extract ROME codes from ``merged_data.csv``.
+- ``--measure-volume`` — measure volumes for the 5 core V1 ROME codes.
+- ``--measure-volumes-from-merged`` — measure volumes for all codes in the JSON.
+- ``--collect-offers-from-merged`` — collect detailed offers (flat output).
+
+The new orchestrator is ``main.py`` — prefer that for the full pipeline.
+"""
 
 import argparse
 import logging

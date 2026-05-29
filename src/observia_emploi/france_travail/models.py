@@ -1,4 +1,12 @@
-"""Data models for France Travail integration."""
+"""Data models for the France Travail ROME referential and its selection metadata.
+
+These frozen dataclasses define the structure of the referential export
+produced by ``RomeReferentialService``. Each item carries a ``to_dict()``
+method for JSON serialisation.
+
+They are kept separate from ``schemas.py`` because they model a different
+domain — the ROME code referential — not individual job offers.
+"""
 
 from dataclasses import asdict, dataclass
 from typing import Any

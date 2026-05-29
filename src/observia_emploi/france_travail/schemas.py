@@ -1,3 +1,16 @@
+"""Pydantic schemas for normalising France Travail API job offers.
+
+All fields use ``by_alias=True`` during serialisation so that the
+camelCase API keys (e.g. ``romeCode``, ``dateCreation``) are preserved
+in the exported JSON.
+
+Security / privacy:
+- ``description`` (raw), ``contact``, and ``agence`` are excluded from
+  ``model_dump()`` via ``Field(exclude=True)``.
+- ``description_clean`` holds an anonymised copy of the description with
+  emails and phone numbers masked.
+"""
+
 import re
 from datetime import datetime
 
@@ -67,6 +80,18 @@ class CompetenceSchema(BaseModel):
 
 
 class OffreEmploiSchema(BaseModel):
+    """Normalised representation of a single France Travail job offer.
+
+    Fields excluded from export (will not appear in ``model_dump()``):
+    - ``description`` — raw description (replaced by ``description_clean``)
+    - ``contact`` — recruiter contact details
+    - ``agence`` — agency metadata
+
+    Dates are serialised as ISO-8601 strings via ``mode="json"``.
+    Optional fields that are absent in the API response are preserved as
+    ``null`` (``exclude_unset=False``, the Pydantic default).
+    """
+
     model_config = ConfigDict(populate_by_name=True)
 
     id: str
@@ -126,13 +151,16 @@ class OffreEmploiSchema(BaseModel):
 
     @model_validator(mode="after")
     def anonymize_description(self) -> "OffreEmploiSchema":
-        """Clean email/phone details from raw description and store in clean field."""
+        """Anonymise personally identifiable information in the raw description.
+
+        Email addresses and phone numbers are replaced with masked placeholders.
+        The unchanged description is kept in ``description`` (excluded from
+        serialisation) and the sanitised version is stored in ``description_clean``.
+        """
         if self.description:
-            # Clean emails
             email_pattern = r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"
             clean_text = re.sub(email_pattern, "[EMAIL MASQUÉ]", self.description)
 
-            # Clean French and standard international phones
             phone_pattern = (
                 r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{1,4}\)?(?:[-.\s]?\d{2,4}){3,5}\b"
             )

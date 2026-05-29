@@ -1,3 +1,17 @@
+"""Upstream CSV data extraction and merging pipeline.
+
+Reads two hard-coded CSV files from a ``raw/`` folder:
+- ``correspondance-rome-rncp-tech-...csv``
+- ``entree_sortie_formation.csv``
+
+Merges them on ``code_rncp`` and exports a single ``merged_data.csv``.
+This file is the input for the downstream France Travail pipeline.
+
+This module is called explicitly via the ``process_csv()`` utility in
+``main.py`` and is **not** invoked automatically by the France Travail
+orchestrator.
+"""
+
 import pandas as pd
 
 class CsvExtractor:

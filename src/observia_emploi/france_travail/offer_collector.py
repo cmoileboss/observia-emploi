@@ -1,4 +1,21 @@
-"""Service to collect detailed job offers by ROME code from France Travail API."""
+"""Service to collect detailed job offers by ROME code from France Travail API.
+
+Pipeline steps:
+1. Read the ROME referential JSON (``code_rome`` + ``intitule_rome``).
+2. For each ROME code, paginate through the API with ``range`` headers
+   (150 offers per page), validate offers through ``OffreEmploiSchema``,
+   and append them to a list.
+3. Two output modes:
+   - Flat list (``collect_all_offers_from_file``) — legacy, used by ``cli.py``.
+   - Grouped by ROME code (``collect_all_offers_grouped_from_file``) — used
+     by ``main.py``.
+
+Rate limiting:
+- A 250 ms delay is enforced between sequential API calls when using the
+  real ``FranceTravailClient`` (5 requests / second max).
+- ``MockFranceTravailClient`` bypasses the delay (detected via the
+  ``_is_mock_client`` attribute).
+"""
 
 import json
 import logging
@@ -23,7 +40,13 @@ class FranceTravailOfferCollectorService:
     def collect_single_rome_offers(
         self, code_rome: str, max_pages: int | None = None
     ) -> list[dict[str, Any]]:
-        """Collect all offers for a single ROME code with pagination."""
+        """Collect offers for a single ROME code, paginating 150 at a time.
+
+        Stops when:
+        - ``max_pages`` is reached.
+        - The API returns 204 (no more results) or 400/416 (range exhausted).
+        - A page contains fewer than 150 results (last page).
+        """
         offers: list[dict[str, Any]] = []
         page_size = 150
         start = 0

@@ -1,4 +1,17 @@
-"""Service to measure the volume and aggregations of job offers by ROME code."""
+"""Measure the volume and contract aggregations of job offers by ROME code.
+
+This service queries the France Travail API **without** collecting full
+offer details — it requests a single ``range=0-0`` page and reads the
+``Content-Range`` header to determine the total number of offers available.
+
+It also parses the ``filtresPossibles`` section from the response to
+extract aggregation data (contract types, experience levels, etc.).
+
+Use cases:
+- ``measure_rome_volumes()`` — measure a hard-coded set of 5 V1 ROME codes.
+- ``measure_all_rome_from_file()`` — measure every ROME code found in a
+  referential JSON file.
+"""
 
 import json
 import logging

@@ -1,4 +1,16 @@
-"""France Travail API client."""
+"""France Travail API HTTP client with OAuth2, rate limiting, and mock support.
+
+Two client classes are provided:
+- ``FranceTravailClient`` — real HTTP client that authenticates via OAuth2
+  Client Credentials and communicates with the live API.
+- ``MockFranceTravailClient`` — offline substitute that returns canned
+  data without network calls. Used for testing and development.
+
+Security notes:
+- Client id / secret are loaded from ``.env`` via ``Config``.
+- Error logs do **not** include the raw ``client_secret`` or the
+  ``access_token`` value.
+"""
 
 import logging
 import time
@@ -131,7 +143,14 @@ class MockResponse:
 
 
 class MockFranceTravailClient(FranceTravailClient):
-    """Mock client for local and offline testing of France Travail API."""
+    """Mock client for offline testing — returns canned data, no network calls.
+
+    Overrides ``get_raw()`` to return ``MockResponse`` instances.
+    Two endpoints are faked:
+    - ``referentiel/metiers`` → list of ROME codes.
+    - ``offres/search`` → single mock offer + sample aggregations for one page.
+    Other endpoints return a 404.
+    """
 
     def get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
         """Mock GET requests returning JSON data."""

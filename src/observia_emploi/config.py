@@ -21,10 +21,19 @@ class FranceTravailConfig:
 
 
 class Config:
-    """Global configuration loader."""
+    """Global configuration loader.
+
+    Reads ``FRANCE_TRAVAIL_CLIENT_ID``, ``FRANCE_TRAVAIL_CLIENT_SECRET``
+    and optional overrides for token URL, API base URL and scope.
+    All values are loaded from the environment (``.env`` via ``python-dotenv``).
+    """
 
     def __init__(self) -> None:
-        """Initialize configuration from environment variables."""
+        """Initialise configuration from environment variables.
+
+        Raises ``ValueError`` if ``FRANCE_TRAVAIL_CLIENT_ID`` or
+        ``FRANCE_TRAVAIL_CLIENT_SECRET`` are missing or empty.
+        """
         client_id = os.getenv("FRANCE_TRAVAIL_CLIENT_ID", "").strip()
         client_secret = os.getenv("FRANCE_TRAVAIL_CLIENT_SECRET", "").strip()
 

@@ -1,4 +1,18 @@
-"""France Travail ROME referential service."""
+"""France Travail ROME referential service.
+
+Fetches the full list of ROME job codes from the France Travail API
+(``/referentiel/metiers`` endpoint), then filters them against a
+requested set of codes (the V1 target list: M1801, M1802, M1805,
+M1806, M1810).
+
+The resulting export contains:
+- Metadata describing which codes were found / missing.
+- Full items with ``code_rome``, ``libelle_rome`` and selection flags.
+
+Historical role: this was the first Lot 1B implementation. The referential
+it produces is still consumed by ``volume_measurement.py`` for the core
+5-code measurement workflow.
+"""
 
 import json
 import logging
@@ -16,12 +30,11 @@ from observia_emploi.france_travail.models import (
 
 logger = logging.getLogger(__name__)
 
-# Test ROME codes specified for V1 selection
 TEST_ROME_CODES = ["M1801", "M1802", "M1805", "M1806", "M1810"]
 
 
 class RomeReferentialService:
-    """Service to interact with, filter, and export the ROME referential."""
+    """Fetch, filter, and export the ROME métiers referential from France Travail."""
 
     def __init__(self, client: FranceTravailClient) -> None:
         """Initialize service with client."""

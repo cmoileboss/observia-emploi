@@ -1,4 +1,18 @@
-"""Service to extract unique ROME codes and their statistics from the CSV."""
+"""Extract unique ROME codes and aggregated training metrics from the CSV.
+
+Reads ``merged_data.csv`` (produced by ``CsvExtractor``) and produces a
+lightweight JSON referential (``rome_codes_from_merged_data.json``) used
+by the France Travail pipeline.
+
+Each row contains a ROME code linked to an RNCP certification entry.
+The extractor aggregates:
+- Number of distinct RNCP codes per ROME code.
+- Sums of training entries, partial completions, and full completions.
+
+Required CSV columns (semicolon-separated):
+``code_rome``, ``intitule_rome``, ``code_rncp``, ``entrees_formation``,
+``sorties_realisation_partielle``, ``sorties_realisation_totale``.
+"""
 
 import csv
 import json
