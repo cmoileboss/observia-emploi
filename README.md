@@ -45,7 +45,7 @@ Mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
 - `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` et
 - `entree_sortie_formation.csv`.
 
-### Lancement du projet
+## Lancement du projet (à améliorer)
 
 En cours d'amélioration
 Il faudrait dans l'ordre :
@@ -53,6 +53,12 @@ Il faudrait dans l'ordre :
 - lancer le script d'enrichissement avec les localisations supposées des formations,
 - lancer le script de récupération des offres France Travail (API France Travail),
 - lancer le programme avec python main.py.
+
+## Endpoints (pas encore faits)
+
+- `/job/jobId/organismes` : obtenir la liste des organismes proposant des formations intéressantes pour le job `jobId`, classées par ordre décroissant du nombre d'entrées en formation
+- `/bestskills` : obtenir les compétences les plus listées dans les offres France Travail ; pour chaque compétence, on renvoie le nombre d'offres associées ainsi que la liste des formations intéressantes
+- `/nboffers` : renvoyer le nombre d'offres et la somme des entrées en formation par région et par trimestre
 
 ## Sources de données
 
@@ -147,11 +153,11 @@ Points d'attention :
 - Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP`.
 - Les champs gardés en base de données seront limités. Voir le schéma de la base de données.
 
-## Schéma d'architecture (temporaire)
+## Schéma d'architecture (à améliorer)
 
 ![schéma d'architecture](architecture.png)
 
-## Schéma de la base de données (temporaire)
+## Schéma de la base de données (à améliorer)
 
 ```mermaid
 erDiagram
