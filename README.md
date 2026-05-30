@@ -1,5 +1,59 @@
 # observia-emploi
 
+## Préparation du projet
+
+### Environnement
+
+Version Python utilisée : `3.13.13`
+
+#### Création et activation d'un environnement virtuel
+
+Sous PowerShell :
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+#### Définition des variables d'environnements
+
+Créer le fichier `.env` à partir de l'exemple :
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Il faut s'inscrire à l'API France Travail : https://www.francetravail.io et créer une application dans l'API offres-emploi.
+
+Variables à renseigner dans `.env` :
+
+- `CLIENT_ID` : identifiant de l'application créée dans l'API France Travail
+- `SECRET_KEY` : clé secrète de l'application créée dans l'API France Travail
+- `X-INSEE-Api-Key-Integration` : clé API utilisée pour récupérer les localisations des entreprises à partir de leur SIRET
+- `RAW_DATA_FOLDER` : dossier contenant les données brutes, par défaut `data\raw` ; ce dossier doit être créé manuellement
+- `PROCESSED_DATA_FOLDER` : dossier contenant les données traitées, par défaut `data\processed` ; ce dossier doit être créé manuellement
+- `PROCESSED_DATA_FILE` : nom du fichier contenant la fusion des fichiers CSV de départ, par défaut `merged_data.csv`
+- `DATABASE_NAME` : nom de la base de données PostgreSQL, par défaut `observia_emploi_db`
+- `DATABASE_USER` : utilisateur PostgreSQL utilisé pour accéder à la base de données
+- `DATABASE_PASSWORD` : mot de passe de l'utilisateur PostgreSQL utilisé pour accéder à la base de données
+
+### Préparation des données
+
+Mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
+- `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` et
+- `entree_sortie_formation.csv`.
+
+### Lancement du projet
+
+En cours d'amélioration
+Il faudrait dans l'ordre :
+- lancer le script de nettoyage et de fusion des deux fichiers de départ,
+- lancer le script d'enrichissement avec les localisations supposées des formations,
+- lancer le script de récupération des offres France Travail (API France Travail),
+- lancer le programme avec python main.py.
+
 ## Sources de données
 
 ### API France Travail
@@ -43,20 +97,24 @@ Site : https://www.welcometothejungle.com/fr
 
 ### robots.txt
 
-User-agent : *
-disallow: /me/*
-disallow: /settings/*
-disallow: /users/*
-disallow: */jobs?query=*
+Règles relevées :
+
+```txt
+User-agent: *
+Disallow: /me/*
+Disallow: /settings/*
+Disallow: /users/*
+Disallow: */jobs?query=*
 Disallow: /*?
 Allow: /*.css$
 Allow: /*.js$
+```
 
-Sitemap: https://www.welcometothejungle.com/sitemaps/index.xml.gz
+Sitemap : https://www.welcometothejungle.com/sitemaps/index.xml.gz
 
 ### CGU
 
-https://www.welcometothejungle.com/fr/pages/terms
+Lien : https://www.welcometothejungle.com/fr/pages/terms
 
 ## Nettoyage des données
 
@@ -80,9 +138,11 @@ https://www.welcometothejungle.com/fr/pages/terms
 
 Jointure `inner` sur `code_rncp` : seules les certifications du secteur tech (présentes dans les deux fichiers) sont conservées.
 
-**Réduction du volume de données :** > 749 000 lignes → ~4 700 lignes après nettoyage et merge.
+**Réduction du volume de données :** > 749 000 lignes → 4 997 lignes après nettoyage et merge.
 
 ### France Travail
 
-Comme les fichiers csv contiennent les niveaux en entier mais l'API France Travail string, il faudra les convertir en entier. Cf l'enum NiveauRNCP.
-A déterminer : les champs que l'on gardera.
+Points d'attention :
+
+- Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP`.
+- Les champs gardés en base de données seront limités. Voir le schéma de la base de données.
