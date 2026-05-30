@@ -146,3 +146,76 @@ Points d'attention :
 
 - Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP`.
 - Les champs gardés en base de données seront limités. Voir le schéma de la base de données.
+
+## Schéma d'architecture (temporaire)
+
+![schéma d'architecture](architecture.png)
+
+## Schéma de la base de données (temporaire)
+
+```mermaid
+erDiagram
+	FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
+	FRANCETRAVAIL_FORMATIONS ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
+	FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
+	FRANCETRAVAIL_COMPETENCES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
+
+	FRANCETRAVAIL_OFFRES {
+		string id PK
+		string intitule
+		string description
+		string lieu_code_postal
+		string rome_code
+		string rome_libelle
+		string appellation_libelle
+		string entreprise_nom
+	}
+
+	FRANCETRAVAIL_FORMATIONS {
+		int id PK
+		string code_formation
+		string domaine_libelle
+		string niveau_libelle
+		string commentaire
+		string exigence
+	}
+
+	FRANCETRAVAIL_COMPETENCES {
+		int id PK
+		string code
+		string libelle
+		string exigence
+	}
+
+	FRANCETRAVAIL_OFFRE_FORMATION {
+		string offre_id PK, FK
+		int formation_id PK, FK
+	}
+
+	FRANCETRAVAIL_OFFRE_COMPETENCE {
+		string offre_id PK, FK
+		int competence_id PK, FK
+	}
+
+	CORRESPONDANCE_FORMATION {
+		int id PK
+		int annee
+		int mois
+		string code_rncp
+		string intitule_certification
+		string siret_of_contractant
+		string raison_sociale_of_contractant
+		int entrees_formation
+		int sorties_realisation_partielle
+		int sorties_realisation_totale
+		string code_rome
+		string intitule_rome
+		string niveau_rncp
+		string nom_entreprise
+		string code_postal
+		string region
+		string modalite
+	}
+```
+
+La table `correspondance_formation` est actuellement indépendante des tables France Travail dans les modèles SQLAlchemy présents dans le projet.
