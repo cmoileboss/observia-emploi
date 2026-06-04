@@ -33,11 +33,11 @@ class FranceTravailModel(Base):
     appellation_libelle = Column(String)
     entreprise_nom = Column(String)
 
-    formations = relationship("FormationModel", secondary=offre_formation_association, back_populates="offres")
-    competences = relationship("CompetenceModel", secondary=offre_competence_association, back_populates="offres")
+    formations = relationship("FTFormationModel", secondary=offre_formation_association, back_populates="offres")
+    competences = relationship("FTCompetenceModel", secondary=offre_competence_association, back_populates="offres")
 
 
-class FormationModel(Base):
+class FTFormationModel(Base):
     __tablename__ = "francetravail_formations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -50,7 +50,7 @@ class FormationModel(Base):
     offres = relationship("FranceTravailModel", secondary=offre_formation_association, back_populates="formations")
 
 
-class CompetenceModel(Base):
+class FTCompetenceModel(Base):
     __tablename__ = "francetravail_competences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
