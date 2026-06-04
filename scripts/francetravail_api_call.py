@@ -7,8 +7,8 @@ import requests
 from dotenv import load_dotenv
 import pandas as pd
 
-from models.francetravail_model import FranceTravailModel, FTFormationModel, FTCompetenceModel
-from repositories.francetravail_repository import FranceTravailRepository
+from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel
+from repositories.francetravail_repository import FTOffreRepository
 from postgres_connection import SessionLocal
 
 base_url = "https://api.francetravail.io/partenaire/offresdemploi"
@@ -124,9 +124,9 @@ def get_offres_by_rome_and_departement(code_rome: str):
 
 def populate_database_with_offres(offres):
     db = SessionLocal()
-    repository = FranceTravailRepository(db)
+    repository = FTOffreRepository(db)
     for offre in offres:
-        offre_model = FranceTravailModel(
+        offre_model = FTOffreModel(
             id=offre["id"],
             intitule=offre["intitule"],
             description=offre.get("description"),

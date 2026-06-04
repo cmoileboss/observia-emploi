@@ -13,7 +13,7 @@ class FormationRepository(BaseRepository[FormationModel]):
         super().__init__(db, FormationModel)
 
     def exists_by_intitule_and_siret(self, intitule_certification: str, siret: str) -> bool:
-        """Vérifie l'existence d'une formation par sa clé naturelle (intitule + siret)."""
+        """Vérifie l'existence d'une formation par sa clé naturelle (intitulé + siret)."""
         return (
             self.db.query(FormationModel)
             .filter(
@@ -24,8 +24,13 @@ class FormationRepository(BaseRepository[FormationModel]):
             is not None
         )
 
+    def list_by_intitule(self, intitule_certification: str) -> list[FormationModel]:
+        """Retourne les formations par leur intitulé."""
+        return self.db.query(FormationModel).filter(FormationModel.intitule_certification == intitule_certification).all()
+
+
     def get_by_intitule_and_siret(self, intitule_certification: str, siret: str) -> FormationModel | None:
-        """Retourne une formation par sa clé naturelle (intitule + siret)."""
+        """Retourne une formation par sa clé naturelle (intitulé + siret)."""
         return (
             self.db.query(FormationModel)
             .filter(
@@ -33,15 +38,6 @@ class FormationRepository(BaseRepository[FormationModel]):
                 FormationModel.siret_of_contractant == siret,
             )
             .first()
-        )
-
-    def list_by_code_rome(self, code_rome: str) -> list[FormationModel]:
-        """Retourne les formations associées à un code ROME donné."""
-        return (
-            self.db.query(FormationModel)
-            .join(FormationModel.codes_rome)
-            .filter(RomeCodeModel.code_rome == code_rome)
-            .all()
         )
 
     def list_by_siret(self, siret: str) -> list[FormationModel]:
@@ -66,20 +62,7 @@ class FormationFluxMensuelRepository(BaseRepository[FormationFluxMensuelModel]):
     def __init__(self, db: Session) -> None:
         super().__init__(db, FormationFluxMensuelModel)
 
-    def exists_by_formation_and_month(self, formation_id: int, annee: int, mois: int) -> bool:
-        """Vérifie l'existence d'un flux mensuel pour une formation et un mois donnés."""
-        return (
-            self.db.query(FormationFluxMensuelModel)
-            .filter(
-                FormationFluxMensuelModel.formation_id == formation_id,
-                FormationFluxMensuelModel.annee == annee,
-                FormationFluxMensuelModel.mois == mois,
-            )
-            .first()
-            is not None
-        )
-
-class FormationRomeRepository(BaseRepository[RomeCodeModel]):
+class RomeCodeRepository(BaseRepository[RomeCodeModel]):
     """Encapsule les accès en base pour les codes ROME."""
 
     def __init__(self, db: Session) -> None:
@@ -87,9 +70,14 @@ class FormationRomeRepository(BaseRepository[RomeCodeModel]):
 
     def get_or_create(self, code_rome: str, intitule_rome: str | None) -> RomeCodeModel:
         """Retourne un code ROME existant ou le crée."""
-        existing = self.db.get(RomeCodeModel, code_rome)
+        existing = self.get_by_id(code_rome)
         if existing:
             return existing
         rome = RomeCodeModel(code_rome=code_rome, intitule_rome=intitule_rome)
-        self.db.add(rome)
+        self.add(rome)
         return rome
+    
+    def list_formations_by_rome(self, code_rome: str) -> list[FormationModel]:
+        """Retourne les formations associées à un code ROME donné."""
+        rome = self.get_by_id(code_rome)
+        return rome.formations if rome else []

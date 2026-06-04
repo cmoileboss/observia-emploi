@@ -10,7 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from models.correspondance_formation_model import FormationModel, FormationFluxMensuelModel, RomeCodeModel
 from postgres_connection import Base, SessionLocal, engine
-from repositories.correspondance_formation_repository import FormationRepository, FormationRomeRepository
+from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 
 
 CSV_PATH = PROJECT_ROOT / "data" / "processed" / "formations_enriched.csv"
@@ -47,7 +47,7 @@ def main() -> None:
     inserted_count = 0
     try:
         repository = FormationRepository(db)
-        rome_repository = FormationRomeRepository(db)
+        rome_repository = RomeCodeRepository(db)
 
         for (intitule, siret), group in formations_dict.items():
             if repository.exists_by_intitule_and_siret(intitule, siret):
@@ -65,7 +65,7 @@ def main() -> None:
                 code_postal=first["code_postal"] or None,
                 region=first["region"] or None,
             )
-
+            print(f"Import de la formation : {formation.intitule_certification} (SIRET: {formation.siret_of_contractant})")
             seen_flux: set[tuple] = set()
             seen_rome: set[str] = set()
             for row in group:
@@ -79,14 +79,16 @@ def main() -> None:
                         sorties_realisation_partielle=to_int(row["sorties_realisation_partielle"]),
                         sorties_realisation_totale=to_int(row["sorties_realisation_totale"]),
                     ))
+                    print(f"  - Ajout du flux mensuel : {flux_key}")
 
                 rome_key = row["code_rome"]
                 if rome_key and rome_key not in seen_rome:
                     seen_rome.add(rome_key)
                     rome = rome_repository.get_or_create(rome_key, row["intitule_rome"] or None)
                     formation.codes_rome.append(rome)
-
+                    print(f"  - Ajout du code ROME : {rome_key}")
             repository.add(formation)
+            db.commit()
             inserted_count += 1
 
         print(f"{inserted_count} formations importees dans la base.")

@@ -21,7 +21,7 @@ offre_competence_association = Table(
 )
 
 
-class FranceTravailModel(Base):
+class FTOffreModel(Base):
     __tablename__ = "francetravail_offres"
 
     id = Column(String, primary_key=True)
@@ -47,7 +47,7 @@ class FTFormationModel(Base):
     commentaire = Column(String)
     exigence = Column(String)
 
-    offres = relationship("FranceTravailModel", secondary=offre_formation_association, back_populates="formations")
+    offres = relationship("FTOffreModel", secondary=offre_formation_association, back_populates="formations")
 
 
 class FTCompetenceModel(Base):
@@ -58,4 +58,4 @@ class FTCompetenceModel(Base):
     libelle = Column(String)
     exigence = Column(String)
 
-    offres = relationship("FranceTravailModel", secondary=offre_competence_association, back_populates="competences")
+    offres = relationship("FTOffreModel", secondary=offre_competence_association, back_populates="competences")
