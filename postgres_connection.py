@@ -48,7 +48,7 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "observia")
 DATABASE_USER = os.getenv("DATABASE_USER", "postgres")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "postgres")
 
-url_object = URL.create(
+engine = URL.create(
     drivername="postgresql+psycopg",
     username=DATABASE_USER,
     password=DATABASE_PASSWORD,
@@ -57,7 +57,7 @@ url_object = URL.create(
     database=DATABASE_NAME,
 )
 
-engine = create_engine(url_object)
+engine = create_engine(engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):

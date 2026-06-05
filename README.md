@@ -11,7 +11,8 @@ Lien Github : https://github.com/cmoileboss/observia-emploi
 
 ### Environnement
 
-Version Python utilisée : `3.13.13`
+Version Python utilisée : `3.13.13`  
+Commande d'installation : `winget install -e --id Python.Python.3.13`  
 
 #### Création et activation d'un environnement virtuel
 
@@ -48,9 +49,11 @@ Variables à renseigner dans `.env` :
 
 ### Préparation des données
 
+Créez les dossiers et sous-dossiers renseignés dans les variables d'environnement `RAW_DATA_FOLDER` et `PROCESSED_DATA_FOLDER`.  
+
 Mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
 - `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` et
-- `entree_sortie_formation.csv`.
+- `entree_sortie_formation.csv` trouvable sur le site `https://www.data.gouv.fr/datasets/moncompteformation-entrees-et-sorties-de-formation`.
 
 ## Lancement du projet (à améliorer)
 

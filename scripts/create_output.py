@@ -1,6 +1,6 @@
 import os
 
-from csv_extractor import CsvExtractor
+from scripts.csv_extractor import CsvExtractor
 
 
 def create_output():

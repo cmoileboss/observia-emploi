@@ -26,7 +26,7 @@ def to_int(value: str | None) -> int | None:
     return int(cleaned_value)
 
 
-def main() -> None:
+def import_formations_enriched() -> None:
     """Importe toutes les lignes du fichier formations_enriched.csv dans la base."""
     if not CSV_PATH.exists():
         raise FileNotFoundError(f"Fichier introuvable : {CSV_PATH}")
@@ -97,4 +97,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import_formations_enriched()
