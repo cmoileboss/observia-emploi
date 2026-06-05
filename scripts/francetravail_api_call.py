@@ -7,9 +7,9 @@ import requests
 from dotenv import load_dotenv
 import pandas as pd
 
-from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel
+from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel, FTOffreCompetenceModel
 from repositories.francetravail_repository import FTOffreRepository
-from postgres_connection import SessionLocal
+from postgres_connection import SessionLocal, Base, engine
 
 base_url = "https://api.francetravail.io/partenaire/offresdemploi"
 access_token_url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
@@ -149,9 +149,11 @@ def populate_database_with_offres(offres):
             competence_model = FTCompetenceModel(
                 code=competence.get("code"),
                 libelle=competence.get("libelle"),
-                exigence=competence.get("exigence"),
             )
-            offre_model.competences.append(competence_model)
+            offre_model.offre_competences.append(FTOffreCompetenceModel(
+                competence=competence_model,
+                exigence=competence.get("exigence"),
+            ))
         repository.create_offre(offre_model)
     db.commit()
     db.close()
@@ -162,6 +164,7 @@ def get_unique_rome_codes_from_csv_file():
 
 if __name__ == "__main__":
     load_dotenv()
+    Base.metadata.create_all(bind=engine)
     rome_codes = get_unique_rome_codes_from_csv_file()
     print(f"Nombre de codes ROME uniques : {len(rome_codes)}")
     total_offres = 0

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from models.francetravail_model import FTCompetenceModel, FTFormationModel, FTOffreModel
+from models.francetravail_model import FTCompetenceModel, FTFormationModel, FTOffreCompetenceModel, FTOffreModel
 from repositories.base_repository import BaseRepository
 
 
@@ -16,23 +16,19 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
     def create_offre(self, offre: FTOffreModel) -> FTOffreModel:
         """Persiste une offre France Travail déjà instanciée."""
         if self.exists(offre.id):
-            return self.get_offre_by_id(offre.id)
-        return self.add(offre, commit=False)
+            return self.get_by_id(offre.id)
+        return self.add(offre)
 
     def exists(self, offre_id: str) -> bool:
         """Retourne vrai si une offre avec l'identifiant donné existe."""
         return self.db.query(FTOffreModel).filter(FTOffreModel.id == offre_id).first() is not None
 
-    def list_offres(self, rome_code: str | None = None, limit: int = 50) -> list[FTOffreModel]:
+    def list_offres(self, rome_code: str) -> list[FTOffreModel]:
         """Retourne les offres, filtrées optionnellement par code ROME."""
         query = self.db.query(FTOffreModel)
         if rome_code:
             query = query.filter(FTOffreModel.rome_code == rome_code)
-        return query.limit(limit).all()
-
-    def get_offre_by_id(self, offre_id: str) -> FTOffreModel | None:
-        """Retourne une offre à partir de son identifiant."""
-        return self.db.get(FTOffreModel, offre_id)
+        return query.all()
 
     def attach_formation(self, offre: FTOffreModel, formation: FTFormationModel, commit: bool = True) -> FTOffreModel:
         """Associe une formation existante à une offre."""
@@ -43,10 +39,13 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, commit: bool = True) -> FTOffreModel:
-        """Associe une compétence existante à une offre."""
-        if competence not in offre.competences:
-            offre.competences.append(competence)
+    def attach_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, exigence: str | None = None, commit: bool = True) -> FTOffreModel:
+        """Associe une compétence existante à une offre avec son niveau d'exigence."""
+        already_linked = any(oc.competence_id == competence.id for oc in offre.offre_competences)
+        if not already_linked:
+            offre.offre_competences.append(
+                FTOffreCompetenceModel(competence=competence, exigence=exigence)
+            )
         if commit:
             self.db.commit()
             self.db.refresh(offre)
@@ -62,11 +61,11 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             existing_formation = formation_repository.find_by_code(code_formation)
 
         if existing_formation is None:
-            existing_formation = formation_repository.create_formation(formation)
+            existing_formation = self.add(formation)
 
         return self.attach_formation(offre, existing_formation)
 
-    def attach_or_create_competence(self, offre: FTOffreModel, competence: FTCompetenceModel) -> FTOffreModel:
+    def attach_or_create_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, exigence: str | None = None) -> FTOffreModel:
         """Associe une compétence à l'offre en la créant si nécessaire."""
         competence_repository = FTCompetenceRepository(self.db)
         code = competence.code
@@ -76,21 +75,16 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             existing_competence = competence_repository.find_by_code(code)
 
         if existing_competence is None:
-            existing_competence = competence_repository.create_competence(competence)
+            existing_competence = self.add(competence)
 
-        return self.attach_competence(offre, existing_competence)
+        return self.attach_competence(offre, existing_competence, exigence=exigence)
 
 
 class FTFormationRepository(BaseRepository[FTFormationModel]):
     """Fournit les opérations d'accès aux formations."""
 
     def __init__(self, db: Session) -> None:
-        """Initialise le repository des formations."""
         super().__init__(db, FTFormationModel)
-
-    def create_formation(self, formation: FTFormationModel) -> FTFormationModel:
-        """Persiste une formation déjà instanciée."""
-        return self.add(formation, commit=False)
 
     def find_by_code(self, code_formation: str) -> FTFormationModel | None:
         """Recherche une formation par son code métier."""
@@ -101,12 +95,7 @@ class FTCompetenceRepository(BaseRepository[FTCompetenceModel]):
     """Fournit les opérations d'accès aux compétences."""
 
     def __init__(self, db: Session) -> None:
-        """Initialise le repository des compétences."""
         super().__init__(db, FTCompetenceModel)
-
-    def create_competence(self, competence: FTCompetenceModel) -> FTCompetenceModel:
-        """Persiste une compétence déjà instanciée."""
-        return self.add(competence, commit=False)
 
     def find_by_code(self, code: str) -> FTCompetenceModel | None:
         """Recherche une compétence par son code métier."""

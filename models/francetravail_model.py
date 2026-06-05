@@ -13,12 +13,17 @@ offre_formation_association = Table(
 )
 
 
-offre_competence_association = Table(
-    "francetravail_offre_competence",
-    Base.metadata,
-    Column("offre_id", String, ForeignKey("francetravail_offres.id"), primary_key=True),
-    Column("competence_id", Integer, ForeignKey("francetravail_competences.id"), primary_key=True),
-)
+
+
+class FTOffreCompetenceModel(Base):
+    __tablename__ = "francetravail_offre_competence"
+
+    offre_id = Column(String, ForeignKey("francetravail_offres.id"), primary_key=True)
+    competence_id = Column(Integer, ForeignKey("francetravail_competences.id"), primary_key=True)
+    exigence = Column(String)
+
+    offre = relationship("FTOffreModel", back_populates="offre_competences")
+    competence = relationship("FTCompetenceModel", back_populates="offre_competences")
 
 
 class FTOffreModel(Base):
@@ -34,7 +39,7 @@ class FTOffreModel(Base):
     entreprise_nom = Column(String)
 
     formations = relationship("FTFormationModel", secondary=offre_formation_association, back_populates="offres")
-    competences = relationship("FTCompetenceModel", secondary=offre_competence_association, back_populates="offres")
+    offre_competences = relationship("FTOffreCompetenceModel", back_populates="offre")
 
 
 class FTFormationModel(Base):
@@ -56,6 +61,5 @@ class FTCompetenceModel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String)
     libelle = Column(String)
-    exigence = Column(String)
 
-    offres = relationship("FTOffreModel", secondary=offre_competence_association, back_populates="competences")
+    offre_competences = relationship("FTOffreCompetenceModel", back_populates="competence")
