@@ -4,7 +4,8 @@ Le marché de l'emploi Tech et IA en France fait face à une tension forte entre
 
 L'application agrège, nettoie et enrichit ces données, puis les expose via une API FastAPI adossée à PostgreSQL afin de faciliter leur exploration et leur analyse.
 
-Par Aurélien CANDILLIER, Guillaume PEDRONA et Riad DRAOUI.
+Par Aurélien CANDILLIER, Guillaume PEDRONA et Riad DRAOUI.  
+Lien Github : https://github.com/cmoileboss/observia-emploi
 
 ## Préparation du projet
 
