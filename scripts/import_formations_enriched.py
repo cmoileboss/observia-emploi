@@ -91,7 +91,7 @@ def main() -> None:
             db.commit()
             inserted_count += 1
 
-        print(f"{inserted_count} formations importees dans la base.")
+        print(f"{inserted_count} formations importées dans la base.")
     finally:
         db.close()
 

@@ -58,3 +58,13 @@ class FormationsEnricher:
         n_reg = self.result["region"].notna().sum()
         n_mod = self.result["modalite"].notna().sum()
         print(f"formations_enriched : {n:,} lignes  (region: {n_reg/n*100:.1f}%, modalite: {n_mod/n*100:.1f}%)")
+
+if __name__ == "__main__":
+    enricher = FormationsEnricher()
+    enricher.load(
+        merged_path=r"data\processed\merged_data.csv",
+        organismes_path=r"data\processed\organismes_enriched.csv",
+        cdc_path=r"data\raw\cdc_filtered_tech.csv",
+    )
+    enricher.enrich()
+    enricher.export(r"data\processed\formations_enriched.csv")

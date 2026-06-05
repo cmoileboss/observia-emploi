@@ -65,6 +65,9 @@ def search_offres_by_rome(code_rome: str):
             print(f"Erreur lors de la récupération des offres pour le code ROME {code_rome} : {response.status_code} - {response.text}")
             break
         content_range = response.headers.get("Content-Range")
+        if content_range and content_range.split("/")[1] == "0":
+            print(f"Aucune offre trouvée pour le code ROME {code_rome}.")
+            break
         if content_range:
             total_count = int(content_range.split("/")[1])
             if total_count >= 3000:
@@ -75,16 +78,13 @@ def search_offres_by_rome(code_rome: str):
             if len(current_offers["resultats"]) == 0:
                 break
             populate_database_with_offres(current_offers["resultats"])
-            # total_offers.extend(current_offers["resultats"])
             break
         populate_database_with_offres(current_offers["resultats"])
-        # total_offers.extend(current_offers["resultats"])
+        print(f"Recherche des offres pour le code ROME : {code_rome}, range : {content_range}")
         min_range += 150
         max_range += 150
 
         
-    return total_offers
-
 def get_offres_by_rome_and_departement(code_rome: str):
     token = get_access_token()
     total_offers = []
@@ -103,24 +103,24 @@ def get_offres_by_rome_and_departement(code_rome: str):
                 },
                 timeout=30,
             )
-            content_range = response.headers.get("Content-Range")
-            print(f"Récupération des offres pour le code ROME {code_rome} et le département {departement} : {content_range}")
             if response.status_code >= 400:
                 print(f"Erreur lors de la récupération des offres pour le code ROME {code_rome} et le département {departement} : {response.status_code} - {response.text}")
+                break
+            content_range = response.headers.get("Content-Range")
+            if content_range and content_range.split("/")[1] == "0":
+                print(f"Aucune offre trouvée pour le code ROME {code_rome} et le département {departement}.")
                 break
             current_offers = response.json()
             if len(current_offers["resultats"]) < 150:
                 if len(current_offers["resultats"]) == 0:
                     break
                 populate_database_with_offres(current_offers["resultats"])
-                # total_offers.extend(current_offers["resultats"])
                 break
             populate_database_with_offres(current_offers["resultats"])
-            # total_offers.extend(current_offers["resultats"])
+            print(f"Récupération des offres pour le code ROME {code_rome} et le département {departement} : {content_range}")
             min_range += 150
             max_range += 150
  
-    return total_offers
 
 def populate_database_with_offres(offres):
     db = SessionLocal()
@@ -169,8 +169,5 @@ if __name__ == "__main__":
     print(f"Nombre de codes ROME uniques : {len(rome_codes)}")
     total_offres = 0
     for rome_code in rome_codes:
-        print(f"Recherche des offres pour le code ROME : {rome_code}")
         search_offres_by_rome(rome_code)
-        # total_offres += len(offres)
-        # print(f"Nombre d'offres trouvées pour le code ROME {rome_code} : {len(offres)}")
-    # print(f"Nombre total d'offres trouvées : {total_offres}")
+    print("Récupération des offres France Travail terminée.")
