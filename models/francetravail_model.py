@@ -28,7 +28,7 @@ class FTOffreModel(Base):
     __tablename__ = "francetravail_offres"
 
     id = Column(String, primary_key=True)
-    rome_code = Column(String, ForeignKey("rome_code.code_rome"), primary_key=True)
+    rome_code = Column(String, ForeignKey("rome_code.code_rome"), nullable=False)
     intitule = Column(String)
     description = Column(String)
     lieu_code_postal = Column(String)

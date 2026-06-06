@@ -205,7 +205,7 @@ erDiagram
 
 	FRANCETRAVAIL_OFFRES {
 		string id PK
-		string rome_code PK, FK
+		string rome_code FK
 		string intitule
 		string description
 		string lieu_code_postal
@@ -243,6 +243,7 @@ erDiagram
 	FRANCETRAVAIL_OFFRE_COMPETENCE {
 		string offre_id PK, FK
 		int competence_id PK, FK
+		string exigence
 	}
 
 	FORMATION_ROME {
