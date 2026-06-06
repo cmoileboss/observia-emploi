@@ -42,29 +42,48 @@ Variables à renseigner dans `.env` :
 - `X-INSEE-Api-Key-Integration` : clé API utilisée pour récupérer les localisations des entreprises à partir de leur SIRET
 - `RAW_DATA_FOLDER` : dossier contenant les données brutes, par défaut `data\raw` ; ce dossier doit être créé manuellement
 - `PROCESSED_DATA_FOLDER` : dossier contenant les données traitées, par défaut `data\processed` ; ce dossier doit être créé manuellement
-- `PROCESSED_DATA_FILE` : nom du fichier contenant la fusion des fichiers CSV de départ, par défaut `merged_data.csv`
 - `DATABASE_NAME` : nom de la base de données PostgreSQL, par défaut `observia_emploi_db`
 - `DATABASE_USER` : utilisateur PostgreSQL utilisé pour accéder à la base de données
 - `DATABASE_PASSWORD` : mot de passe de l'utilisateur PostgreSQL utilisé pour accéder à la base de données
+- `LOG_LEVEL` : niveau des logs (`DEBUG`, `INFO`, `WARNING`, `ERROR`), par défaut `INFO`
+- `LOG_FILE` : chemin du fichier de logs, par défaut `logs/app.log`
 
 ### Préparation des données
 
-Créez les dossiers et sous-dossiers renseignés dans les variables d'environnement `RAW_DATA_FOLDER` et `PROCESSED_DATA_FOLDER`.  
-
-Mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
-- `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` et
+Avant l'exécution de la commande de préparation des données, il faut mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
+- `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` disponible sur la page du brief Observia et
 - `entree_sortie_formation.csv` trouvable sur le site `https://www.data.gouv.fr/datasets/moncompteformation-entrees-et-sorties-de-formation`.
+
+Il faut également créer la base de données `PostgreSQL`. Le nom de la base de données doit correspondre à la valeur de la variable d'environnement `DATABASE_NAME`.
 
 ## Lancement du projet (à améliorer)
 
-En cours d'amélioration
-Il faudrait dans l'ordre :
-- lancer le script de nettoyage et de fusion des deux fichiers de départ,
-- lancer le script d'enrichissement avec les localisations supposées des formations,
-- lancer le script de récupération des offres France Travail (API France Travail),
-- lancer le programme avec python main.py.
+La commande suivante permet de lancer le pipeline de préparation des données.  
+```powershell
+python main.py --build-data
+```
 
-## Endpoints (pas encore faits)
+Le pipeline est lancé dans main.py. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `./scripts`.
+Ordre d'exécution des scripts :
+- `create_output.py` : nettoyage des deux fichiers csv de départ contenus dans `RAW_DATA_FOLDER` et fusion dans `PROCESSED_DATA_FOLDER\merged_data.csv`
+- `sirene_enricher.py` : récupération des localisations des entreprises grâce à leur numéro SIRET avec l'API de l'INSEE
+- `formations_enricher.py` : enrichissement de `PROCESSED_DATA_FOLDER\merged_data.csv` grâce aux fichiers `RAW_DATA_FOLDER\cdc_filtered_tech.csv` importé manuellement et `PROCESSED_DATA_FOLDER\organismes_enriched.csv` créé précédemment
+- `import_formations_enriched`: import des données du fichier `PROCESSED_DATA_FOLDER\formations_enriched.csv` dans la base de données
+- `francetravail_api_call.py` : récupération des offres France Travail depuis son API, la recherche se fait par code ROME puis par code ROME et département si un code ROME possède plus de 2999 offres (limite de l'API)
+  
+
+Si `formations_enriched.csv` est déjà présent dans `PROCESSED_DATA_FOLDER`, la commande suivante permettra de simplement récupérer les offres de France Travail et de ranger ces offres et les données du fichier dans la base de données.
+```powershell
+python main.py --stock-data
+```   
+  
+
+Une fois les données prêtes dans la base de données, l'API FastAPI sera fonctionnelle et la commande suivante permettra de démarrer un serveur HTTP local avec uvicorn. Il sera accessible depuis `http:\\localhost:8000`.
+```powershell
+python main.py
+```
+
+## Routes exposées (pas encore faits)
 
 - `/job/jobId/organismes` : obtenir la liste des organismes proposant des formations intéressantes pour le job `jobId`, classées par ordre décroissant du nombre d'entrées en formation
 - `/bestskills` : obtenir les compétences les plus listées dans les offres France Travail ; pour chaque compétence, on renvoie le nombre d'offres associées ainsi que la liste des formations intéressantes
