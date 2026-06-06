@@ -67,14 +67,16 @@ python main.py --build-data
 
 Le pipeline est lancé dans main.py. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `./scripts`.
 Ordre d'exécution des scripts :
-- `create_output.py` : nettoyage des deux fichiers csv de départ contenus dans `RAW_DATA_FOLDER` et fusion dans `PROCESSED_DATA_FOLDER\merged_data.csv`
-- `sirene_enricher.py` : récupération des localisations des entreprises grâce à leur numéro SIRET avec l'API de l'INSEE
-- `formations_enricher.py` : enrichissement de `PROCESSED_DATA_FOLDER\merged_data.csv` grâce aux fichiers `RAW_DATA_FOLDER\cdc_filtered_tech.csv` importé manuellement et `PROCESSED_DATA_FOLDER\organismes_enriched.csv` créé précédemment
-- `import_formations_enriched`: import des données du fichier `PROCESSED_DATA_FOLDER\formations_enriched.csv` dans la base de données
-- `francetravail_api_call.py` : récupération des offres France Travail depuis son API, la recherche se fait par code ROME puis par code ROME et département si un code ROME possède plus de 2999 offres (limite de l'API)
+- `create_output.py` : nettoyage des deux fichiers csv de départ contenus dans `RAW_DATA_FOLDER` et fusion dans `PROCESSED_DATA_FOLDER\merged_data.csv`,
+- `sirene_enricher.py` : récupération des localisations des entreprises grâce à leur numéro SIRET avec l'API de l'INSEE,
+- `formations_enricher.py` : enrichissement de `PROCESSED_DATA_FOLDER\merged_data.csv` grâce aux fichiers `RAW_DATA_FOLDER\cdc_filtered_tech.csv` importé manuellement et `PROCESSED_DATA_FOLDER\organismes_enriched.csv` créé précédemment,
+- `import_formations_enriched`: import des données du fichier,`PROCESSED_DATA_FOLDER\formations_enriched.csv` dans la base de données,
+- `francetravail_api_call.py` : récupération des offres France Travail depuis son API, la recherche se fait par code ROME puis par code ROME et département si un code ROME possède plus de 2999 offres (limite de l'API).
   
 
-Si `formations_enriched.csv` est déjà présent dans `PROCESSED_DATA_FOLDER`, la commande suivante permettra de simplement récupérer les offres de France Travail et de ranger ces offres et les données du fichier dans la base de données.
+Cette commande n'est pas nécessaire si on désarchive le fichier `data.zip`. Il contient toutes les données brutes et traitées nécessaires.
+
+Si `data.zip` a été désarchivé ou si `formations_enriched.csv` est déjà présent dans `PROCESSED_DATA_FOLDER`, la commande suivante permettra de simplement récupérer les offres de France Travail et de ranger ces offres et les données du fichier dans la base de données.
 ```powershell
 python main.py --stock-data
 ```   
@@ -260,4 +262,8 @@ erDiagram
 		string code_postal
 		string region
 	}
-```
+```  
+  
+## Améliorations  
+  
+Résilience en cas de problème dans les appels API France Travail et INSEE.
