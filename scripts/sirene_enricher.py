@@ -1,9 +1,11 @@
 import os
 import time
+import logging
 import requests
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
+from logging_config import configure_logging
 
 load_dotenv()
 
@@ -11,6 +13,8 @@ INSEE_API_KEY = os.getenv("X-INSEE-Api-Key-Integration")
 API_BASE_URL = "https://api.insee.fr/api-sirene/3.11/siret"
 OUTPUT_COLUMNS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal", "ville", "code_commune", "departement", "region", "statut"]
 THROTTLE_SECONDS = 2
+
+logger = logging.getLogger(__name__)
 
 DEPT_TO_REGION = {
     "01": "Auvergne-Rhône-Alpes", "03": "Auvergne-Rhône-Alpes", "07": "Auvergne-Rhône-Alpes",
@@ -124,7 +128,7 @@ def enrich(input_csv: str, output_csv: str) -> None:
     """Enrichit les SIRETs uniques du CSV d'entrée et écrit le résultat dans output_csv."""
     df = pd.read_csv(input_csv, sep=";", dtype={"siret_of_contractant": str})
     sirets = df["siret_of_contractant"].dropna().unique().tolist()
-    print(f"{len(sirets)} SIRETs uniques à enrichir.")
+    logger.info("%s SIRETs uniques a enrichir.", len(sirets))
 
     already_done: set[str] = set()
     write_header = True
@@ -132,10 +136,10 @@ def enrich(input_csv: str, output_csv: str) -> None:
         done_df = pd.read_csv(output_csv, sep=";", dtype={"siret": str})
         already_done = set(done_df["siret"].tolist())
         write_header = False
-        print(f"Reprise : {len(already_done)} SIRETs déjà traités.")
+        logger.info("Reprise : %s SIRETs deja traites.", len(already_done))
 
     remaining = [s for s in sirets if s not in already_done]
-    print(f"{len(remaining)} SIRETs restants.")
+    logger.info("%s SIRETs restants.", len(remaining))
 
     session = requests.Session()
     with open(output_csv, mode="a", newline="", encoding="utf-8") as f:
@@ -148,11 +152,13 @@ def enrich(input_csv: str, output_csv: str) -> None:
             if i < len(remaining) - 1:
                 time.sleep(THROTTLE_SECONDS)
 
-    print(f"Terminé. Résultat : {output_csv}")
+    logger.info("Termine. Resultat : %s", output_csv)
 
 
 if __name__ == "__main__":
     import argparse
+
+    configure_logging()
 
     parser = argparse.ArgumentParser(description="Enrichit les SIRETs via l'API INSEE SIRENE")
     parser.add_argument("--input", default="data/processed/merged_data.csv")

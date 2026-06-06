@@ -1,15 +1,19 @@
 import os
 import sys
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests
 from dotenv import load_dotenv
 import pandas as pd
+from logging_config import configure_logging
 
 from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel, FTOffreCompetenceModel
 from repositories.francetravail_repository import FTOffreRepository
 from postgres_connection import SessionLocal, Base, engine
+
+logger = logging.getLogger(__name__)
 
 base_url = "https://api.francetravail.io/partenaire/offresdemploi"
 access_token_url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
@@ -62,16 +66,26 @@ def search_offres_by_rome(code_rome: str):
             timeout=30,
         )
         if response.status_code >= 400:
-            print(f"Erreur lors de la récupération des offres pour le code ROME {code_rome} : {response.status_code} - {response.text}")
+            logger.error(
+                "Erreur lors de la recuperation des offres pour le code ROME %s : %s - %s",
+                code_rome,
+                response.status_code,
+                response.text,
+            )
             break
         content_range = response.headers.get("Content-Range")
         if content_range and content_range.split("/")[1] == "0":
-            print(f"Aucune offre trouvée pour le code ROME {code_rome}.")
+            logger.info("Aucune offre trouvee pour le code ROME %s.", code_rome)
             break
         if content_range:
             total_count = int(content_range.split("/")[1])
             if total_count >= 3000:
-                print(f"Attention : le nombre total d'offres pour le code ROME {code_rome} est de {total_count}, ce qui dépasse la limite de 3000 offres. Seules les 3000 premières offres seront récupérées. On passe donc à un filtrage par département.")
+                logger.warning(
+                    "Le nombre total d'offres pour le code ROME %s est de %s, "
+                    "ce qui depasse la limite de 3000. Bascule sur un filtrage par departement.",
+                    code_rome,
+                    total_count,
+                )
                 return get_offres_by_rome_and_departement(code_rome)
         current_offers = response.json()
         if len(current_offers["resultats"]) < 150:
@@ -80,7 +94,7 @@ def search_offres_by_rome(code_rome: str):
             populate_database_with_offres(current_offers["resultats"])
             break
         populate_database_with_offres(current_offers["resultats"])
-        print(f"Recherche des offres pour le code ROME : {code_rome}, range : {content_range}")
+        logger.info("Recherche des offres pour le code ROME : %s, range : %s", code_rome, content_range)
         min_range += 150
         max_range += 150
 
@@ -104,11 +118,21 @@ def get_offres_by_rome_and_departement(code_rome: str):
                 timeout=30,
             )
             if response.status_code >= 400:
-                print(f"Erreur lors de la récupération des offres pour le code ROME {code_rome} et le département {departement} : {response.status_code} - {response.text}")
+                logger.error(
+                    "Erreur lors de la recuperation des offres pour le code ROME %s et le departement %s : %s - %s",
+                    code_rome,
+                    departement,
+                    response.status_code,
+                    response.text,
+                )
                 break
             content_range = response.headers.get("Content-Range")
             if content_range and content_range.split("/")[1] == "0":
-                print(f"Aucune offre trouvée pour le code ROME {code_rome} et le département {departement}.")
+                logger.info(
+                    "Aucune offre trouvee pour le code ROME %s et le departement %s.",
+                    code_rome,
+                    departement,
+                )
                 break
             current_offers = response.json()
             if len(current_offers["resultats"]) < 150:
@@ -117,7 +141,12 @@ def get_offres_by_rome_and_departement(code_rome: str):
                 populate_database_with_offres(current_offers["resultats"])
                 break
             populate_database_with_offres(current_offers["resultats"])
-            print(f"Récupération des offres pour le code ROME {code_rome} et le département {departement} : {content_range}")
+            logger.info(
+                "Recuperation des offres pour le code ROME %s et le departement %s : %s",
+                code_rome,
+                departement,
+                content_range,
+            )
             min_range += 150
             max_range += 150
  
@@ -163,11 +192,12 @@ def get_unique_rome_codes_from_csv_file():
     return df["code_rome"].unique().tolist()
 
 if __name__ == "__main__":
+    configure_logging()
     load_dotenv()
     Base.metadata.create_all(bind=engine)
     rome_codes = get_unique_rome_codes_from_csv_file()
-    print(f"Nombre de codes ROME uniques : {len(rome_codes)}")
+    logger.info("Nombre de codes ROME uniques : %s", len(rome_codes))
     total_offres = 0
     for rome_code in rome_codes:
         search_offres_by_rome(rome_code)
-    print("Récupération des offres France Travail terminée.")
+    logger.info("Recuperation des offres France Travail terminee.")

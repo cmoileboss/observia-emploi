@@ -1,11 +1,15 @@
 import os
 import argparse
+import logging
 
 import uvicorn
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from logging_config import configure_logging
 
 load_dotenv()
+configure_logging()
+logger = logging.getLogger(__name__)
 
 from postgres_connection import Base, engine
 from models import francetravail_model, correspondance_formation_model
@@ -30,7 +34,6 @@ DATABASE_ENV_VARS = (
 PIPELINE_ENV_VARS = DATABASE_ENV_VARS + (
     "RAW_DATA_FOLDER",
     "PROCESSED_DATA_FOLDER",
-    "PROCESSED_DATA_FILE",
     "X-INSEE-Api-Key-Integration",
     "CLIENT_ID",
     "SECRET_KEY",
@@ -47,7 +50,7 @@ def validate_env_vars(*variable_names: str) -> None:
 
 def initialize_database() -> None:
     validate_env_vars(*DATABASE_ENV_VARS)
-    print("Initialisation de la base de données")
+    logger.info("Initialisation de la base de données")
     Base.metadata.create_all(bind=engine)
 
 
@@ -58,46 +61,41 @@ def run_data_pipeline() -> None:
 
     raw_folder = os.environ["RAW_DATA_FOLDER"]
     processed_folder = os.environ["PROCESSED_DATA_FOLDER"]
-    processed_file = os.environ["PROCESSED_DATA_FILE"]
 
-    merged_path = os.path.join(processed_folder, processed_file)
+    merged_path = os.path.join(processed_folder, "merged_data.csv")
     organismes_path = os.path.join(processed_folder, "organismes_enriched.csv")
     cdc_path = os.path.join(raw_folder, "cdc_filtered_tech.csv")
     formations_path = os.path.join(processed_folder, "formations_enriched.csv")
     
-    print("Démarrage du pipeline de construction des données")
+    logger.info("Démarrage du pipeline de construction des données")
 
-    print("=== 1. Création du fichier de merge des données initiales nettoyées ===")
+    logger.info("=== 1. Création du fichier de merge des données initiales nettoyées ===")
     create_output()
 
-    print("\n=== 2. Récupération des données géographiques grâce aux numéros Sirene ===")
+    logger.info("=== 2. Récupération des données géographiques grâce aux numéros Sirene ===")
     enrich(merged_path, organismes_path)
 
-    print("\n=== 3. Enrichissement des formations avec les données géographiques ===")
+    logger.info("=== 3. Enrichissement des formations avec les données géographiques ===")
     formations_enricher = FormationsEnricher()
     formations_enricher.load(merged_path, organismes_path, cdc_path)
     formations_enricher.enrich()
     formations_enricher.export(formations_path)
 
-    print("\n=== 4. Import des formations enrichies dans la base ===")
+    logger.info("=== 4. Import des formations enrichies dans la base ===")
     import_formations_enriched()
 
-    print("\n=== 5. Appel à l'API France Travail ===")
+    logger.info("=== 5. Appel à l'API France Travail ===")
     rome_codes = get_unique_rome_codes_from_csv_file()
-    print(f"Nombre de codes ROME uniques : {len(rome_codes)}")
+    logger.info("Nombre de codes ROME uniques : %s", len(rome_codes))
     for rome_code in rome_codes:
         search_offres_by_rome(rome_code)
 
-    print("\nPipeline de construction des données terminé.")
+    logger.info("Pipeline de construction des données terminé.")
 
 
 app = FastAPI(title="Observia Emploi API")
 app.include_router(francetravail_router.router)
 
-
-@app.on_event("startup")
-def startup() -> None:
-    initialize_database()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -111,5 +109,5 @@ if __name__ == "__main__":
     if args.build_data:
         run_data_pipeline()
     else:
-        print("Démarrage de l'API FastAPI")
+        logger.info("Démarrage de l'API FastAPI")
         uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

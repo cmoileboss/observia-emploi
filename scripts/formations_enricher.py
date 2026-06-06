@@ -6,7 +6,12 @@ Enrichit merged_data.csv avec :
 Produit : data/processed/formations_enriched.csv
 """
 
+import logging
 import pandas as pd
+from logging_config import configure_logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class FormationsEnricher:
@@ -57,9 +62,15 @@ class FormationsEnricher:
         n = len(self.result)
         n_reg = self.result["region"].notna().sum()
         n_mod = self.result["modalite"].notna().sum()
-        print(f"formations_enriched : {n:,} lignes  (region: {n_reg/n*100:.1f}%, modalite: {n_mod/n*100:.1f}%)")
+        logger.info(
+            "formations_enriched : %s lignes (region: %.1f%%, modalite: %.1f%%)",
+            f"{n:,}",
+            n_reg / n * 100,
+            n_mod / n * 100,
+        )
 
 if __name__ == "__main__":
+    configure_logging()
     enricher = FormationsEnricher()
     enricher.load(
         merged_path=r"data\processed\merged_data.csv",

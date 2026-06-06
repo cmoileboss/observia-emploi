@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import sys
+import logging
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -9,11 +10,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from models.correspondance_formation_model import FormationModel, FormationFluxMensuelModel, RomeCodeModel
+from logging_config import configure_logging
 from postgres_connection import Base, SessionLocal, engine
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 
 
 CSV_PATH = PROJECT_ROOT / "data" / "processed" / "formations_enriched.csv"
+logger = logging.getLogger(__name__)
 
 
 def to_int(value: str | None) -> int | None:
@@ -65,7 +68,11 @@ def import_formations_enriched() -> None:
                 code_postal=first["code_postal"] or None,
                 region=first["region"] or None,
             )
-            print(f"Import de la formation : {formation.intitule_certification} (SIRET: {formation.siret_of_contractant})")
+            logger.info(
+                "Import de la formation : %s (SIRET: %s)",
+                formation.intitule_certification,
+                formation.siret_of_contractant,
+            )
             seen_flux: set[tuple] = set()
             seen_rome: set[str] = set()
             for row in group:
@@ -79,22 +86,23 @@ def import_formations_enriched() -> None:
                         sorties_realisation_partielle=to_int(row["sorties_realisation_partielle"]),
                         sorties_realisation_totale=to_int(row["sorties_realisation_totale"]),
                     ))
-                    print(f"  - Ajout du flux mensuel : {flux_key}")
+                    logger.info("  - Ajout du flux mensuel : %s", flux_key)
 
                 rome_key = row["code_rome"]
                 if rome_key and rome_key not in seen_rome:
                     seen_rome.add(rome_key)
                     rome = rome_repository.get_or_create(rome_key, row["intitule_rome"] or None)
                     formation.codes_rome.append(rome)
-                    print(f"  - Ajout du code ROME : {rome_key}")
+                    logger.info("  - Ajout du code ROME : %s", rome_key)
             repository.add(formation)
             db.commit()
             inserted_count += 1
 
-        print(f"{inserted_count} formations importées dans la base.")
+        logger.info("%s formations importees dans la base.", inserted_count)
     finally:
         db.close()
 
 
 if __name__ == "__main__":
+    configure_logging()
     import_formations_enriched()
