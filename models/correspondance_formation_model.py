@@ -56,3 +56,4 @@ class RomeCodeModel(Base):
     intitule_rome = Column(String)
 
     formations = relationship("FormationModel", secondary=formation_rome_association, back_populates="codes_rome")
+    offres = relationship("FTOffreModel", back_populates="rome")

@@ -30,16 +30,17 @@ class FTOffreModel(Base):
     __tablename__ = "francetravail_offres"
 
     id = Column(String, primary_key=True)
+    rome_code = Column(String, ForeignKey("rome_code.code_rome"), primary_key=True)
     intitule = Column(String)
     description = Column(String)
     lieu_code_postal = Column(String)
-    rome_code = Column(String)
     rome_libelle = Column(String)
     appellation_libelle = Column(String)
     entreprise_nom = Column(String)
 
     formations = relationship("FTFormationModel", secondary=offre_formation_association, back_populates="offres")
     offre_competences = relationship("FTOffreCompetenceModel", back_populates="offre")
+    rome = relationship("RomeCodeModel", back_populates="offres")
 
 
 class FTFormationModel(Base):

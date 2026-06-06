@@ -11,6 +11,7 @@ from logging_config import configure_logging
 
 from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel, FTOffreCompetenceModel
 from repositories.francetravail_repository import FTOffreRepository
+from repositories.correspondance_formation_repository import RomeCodeRepository
 from postgres_connection import SessionLocal, Base, engine
 
 logger = logging.getLogger(__name__)
@@ -154,17 +155,25 @@ def get_offres_by_rome_and_departement(code_rome: str):
 def populate_database_with_offres(offres):
     db = SessionLocal()
     repository = FTOffreRepository(db)
+    rome_repository = RomeCodeRepository(db)
     for offre in offres:
+        rome_code = offre.get("romeCode")
+        rome = None
+        if rome_code:
+            rome = rome_repository.get_or_create(rome_code, offre.get("romeLibelle"))
+
         offre_model = FTOffreModel(
             id=offre["id"],
             intitule=offre["intitule"],
             description=offre.get("description"),
             lieu_code_postal=offre.get("lieuTravail", {}).get("codePostal"),
-            rome_code=offre.get("romeCode"),
+            rome_code=rome_code,
             rome_libelle=offre.get("romeLibelle"),
             appellation_libelle=offre.get("appellationlibelle"),
             entreprise_nom=offre.get("entreprise", {}).get("nom"),
         )
+        if rome is not None:
+            offre_model.rome = rome
         for formation in offre.get("formations", []):
             formation_model = FTFormationModel(
                 code_formation=formation.get("codeFormation"),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 
@@ -22,7 +23,15 @@ class BaseRepository(Generic[ModelType]):
 
     def get_by_id(self, entity_id):
         """Retourne une entité par sa clé primaire."""
-        return self.db.get(self.model, entity_id)
+        primary_key_columns = inspect(self.model).primary_key
+        if len(primary_key_columns) == 1:
+            return self.db.get(self.model, entity_id)
+
+        if not isinstance(entity_id, (tuple, list)):
+            first_primary_key = primary_key_columns[0]
+            return self.db.query(self.model).filter(first_primary_key == entity_id).first()
+
+        return self.db.get(self.model, tuple(entity_id))
 
     def add(self, entity: ModelType) -> ModelType:
         """Ajoute une entité à la session."""

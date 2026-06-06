@@ -189,7 +189,7 @@ Points d'attention :
 
 ![schéma d'architecture](architecture.png)
 
-## Schéma de la base de données (à améliorer)
+## Schéma de la base de données
 
 ```mermaid
 erDiagram
@@ -197,16 +197,24 @@ erDiagram
 	FRANCETRAVAIL_FORMATIONS ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
 	FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
 	FRANCETRAVAIL_COMPETENCES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
+	ROME_CODE ||--o{ FRANCETRAVAIL_OFFRES : reference
+	ROME_CODE ||--o{ FORMATION_ROME : associe
+	FORMATION ||--o{ FORMATION_ROME : associe
 
 	FRANCETRAVAIL_OFFRES {
 		string id PK
+		string rome_code PK, FK
 		string intitule
 		string description
 		string lieu_code_postal
-		string rome_code
 		string rome_libelle
 		string appellation_libelle
 		string entreprise_nom
+	}
+
+	ROME_CODE {
+		string code_rome PK
+		string intitule_rome
 	}
 
 	FRANCETRAVAIL_FORMATIONS {
@@ -235,25 +243,21 @@ erDiagram
 		int competence_id PK, FK
 	}
 
-	CORRESPONDANCE_FORMATION {
+	FORMATION_ROME {
+		int formation_id PK, FK
+		string code_rome PK, FK
+	}
+
+	FORMATION {
 		int id PK
-		int annee
-		int mois
-		string code_rncp
 		string intitule_certification
 		string siret_of_contractant
+		string code_rncp
 		string raison_sociale_of_contractant
-		int entrees_formation
-		int sorties_realisation_partielle
-		int sorties_realisation_totale
-		string code_rome
-		string intitule_rome
 		string niveau_rncp
+		string modalite
 		string nom_entreprise
 		string code_postal
 		string region
-		string modalite
 	}
 ```
-
-La table `correspondance_formation` est actuellement indépendante des tables France Travail dans les modèles SQLAlchemy présents dans le projet.

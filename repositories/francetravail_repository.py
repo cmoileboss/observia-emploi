@@ -15,13 +15,16 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
 
     def create_offre(self, offre: FTOffreModel) -> FTOffreModel:
         """Persiste une offre France Travail déjà instanciée."""
-        if self.exists(offre.id):
+        if self.exists(offre.id, offre.rome_code):
             return self.get_by_id(offre.id)
         return self.add(offre)
 
-    def exists(self, offre_id: str) -> bool:
+    def exists(self, offre_id: str, rome_code: str | None = None) -> bool:
         """Retourne vrai si une offre avec l'identifiant donné existe."""
-        return self.db.query(FTOffreModel).filter(FTOffreModel.id == offre_id).first() is not None
+        query = self.db.query(FTOffreModel).filter(FTOffreModel.id == offre_id)
+        if rome_code is not None:
+            query = query.filter(FTOffreModel.rome_code == rome_code)
+        return query.first() is not None
 
     def list_offres(self, rome_code: str) -> list[FTOffreModel]:
         """Retourne les offres, filtrées optionnellement par code ROME."""
