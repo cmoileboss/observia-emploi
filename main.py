@@ -46,6 +46,7 @@ def validate_env_vars(*variable_names: str) -> None:
         raise EnvironmentError(
             "Variables d'environnement non initialisées : " + ", ".join(missing_vars)
         )
+    logger.info("Les variables d'environnement %s sont bien initialisées.", ", ".join(variable_names))
 
 
 def initialize_database() -> None:
@@ -57,7 +58,6 @@ def initialize_database() -> None:
 def run_data_pipeline() -> None:
     """Lance les scripts métier dans l'ordre de production des données."""
     validate_env_vars(*PIPELINE_ENV_VARS)
-    initialize_database()
 
     raw_folder = os.environ["RAW_DATA_FOLDER"]
     processed_folder = os.environ["PROCESSED_DATA_FOLDER"]
@@ -104,10 +104,28 @@ if __name__ == "__main__":
         action="store_true",
         help="Lance le pipeline de construction des données au lieu de démarrer l'API.",
     )
+    parser.add_argument(
+        "--stock-data",
+        action="store_true",
+        help="Stocke les données enrichies dans la base de données sans démarrer l'API et sans exécuter le pipeline complet.",
+    )
     args = parser.parse_args()
-
+    logger.info("Démarrage du script principal avec les arguments : %s", args)
+    logger.info("Initialisation de la base de données et des tables si nécessaire.")
+    initialize_database()
     if args.build_data:
         run_data_pipeline()
+    elif args.stock_data:
+        logger.info("Stockage des données enrichies dans la base de données sans démarrer l'API.")
+        logger.info("=== Import des formations enrichies dans la base de données ===")
+        import_formations_enriched()
+        logger.info("=== Appel à l'API France Travail ===")
+        rome_codes = get_unique_rome_codes_from_csv_file()
+        logger.info("Nombre de codes ROME uniques : %s", len(rome_codes))
+        for rome_code in rome_codes:
+            search_offres_by_rome(rome_code)
+        logger.info("Stockage des données terminé.")
+
     else:
         logger.info("Démarrage de l'API FastAPI")
         uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -13,8 +13,6 @@ offre_formation_association = Table(
 )
 
 
-
-
 class FTOffreCompetenceModel(Base):
     __tablename__ = "francetravail_offre_competence"
 

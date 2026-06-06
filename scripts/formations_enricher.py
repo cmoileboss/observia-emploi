@@ -31,7 +31,7 @@ class FormationsEnricher:
 
     @staticmethod
     def _compute_modalite_dominante(cdc_path: str) -> pd.DataFrame:
-        """Retourne [code_rncp, modalite] avec la modalite majoritaire par RNCP."""
+        """Retourne [code_rncp, modalite] avec la modalité majoritaire par RNCP."""
         cdc = pd.read_csv(
             cdc_path, sep=";",
             dtype={"code_rncp": str, "nb_dossiers": "Int64"},
@@ -63,7 +63,7 @@ class FormationsEnricher:
         n_reg = self.result["region"].notna().sum()
         n_mod = self.result["modalite"].notna().sum()
         logger.info(
-            "formations_enriched : %s lignes (region: %.1f%%, modalite: %.1f%%)",
+            "formations_enriched : %s lignes (région: %.1f%%, modalité: %.1f%%)",
             f"{n:,}",
             n_reg / n * 100,
             n_mod / n * 100,

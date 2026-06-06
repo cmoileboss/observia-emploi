@@ -128,7 +128,7 @@ def enrich(input_csv: str, output_csv: str) -> None:
     """Enrichit les SIRETs uniques du CSV d'entrée et écrit le résultat dans output_csv."""
     df = pd.read_csv(input_csv, sep=";", dtype={"siret_of_contractant": str})
     sirets = df["siret_of_contractant"].dropna().unique().tolist()
-    logger.info("%s SIRETs uniques a enrichir.", len(sirets))
+    logger.info("%s SIRETs uniques à enrichir.", len(sirets))
 
     already_done: set[str] = set()
     write_header = True
@@ -136,7 +136,7 @@ def enrich(input_csv: str, output_csv: str) -> None:
         done_df = pd.read_csv(output_csv, sep=";", dtype={"siret": str})
         already_done = set(done_df["siret"].tolist())
         write_header = False
-        logger.info("Reprise : %s SIRETs deja traites.", len(already_done))
+        logger.info("Reprise : %s SIRETs déjà traités.", len(already_done))
 
     remaining = [s for s in sirets if s not in already_done]
     logger.info("%s SIRETs restants.", len(remaining))

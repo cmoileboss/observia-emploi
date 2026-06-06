@@ -16,7 +16,7 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
     def create_offre(self, offre: FTOffreModel) -> FTOffreModel:
         """Persiste une offre France Travail déjà instanciée."""
         if self.exists(offre.id, offre.rome_code):
-            return self.get_by_id(offre.id)
+            return self.get_by_id((offre.id, offre.rome_code))
         return self.add(offre)
 
     def exists(self, offre_id: str, rome_code: str | None = None) -> bool:
