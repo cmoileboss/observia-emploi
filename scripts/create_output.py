@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_output():
+    """Crée le fichier data/processed/merged_data.csv à partir des données brutes.
+    Le fichier merged_data.csv est une fusion des données brutes avec après nettoyage (retrait colonnes inutiles, uniformisation des codes RNCP). Il est utilisé comme source principale pour les étapes suivantes du pipeline de données."""
     raw_data_folder = os.getenv("RAW_DATA_FOLDER", r"data\raw")
     processed_data_folder = os.getenv("PROCESSED_DATA_FOLDER", r"data\processed")
 

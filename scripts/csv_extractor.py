@@ -20,16 +20,15 @@ class CsvExtractor:
         logger.info("Données nettoyées : colonnes inutiles supprimées")
         self.formation = self.formation[self.formation["code_rncp"] != "-1"]
         logger.info("Données nettoyées : lignes avec code RNCP égal à -1 supprimées")
-        #self.correspondance = self.correspondance.drop(columns=["intitule_rncp"])
         self.correspondance["code_rncp"] = self.correspondance["code_rncp"].str.replace("RNCP", "", regex=False)
         logger.info("Données nettoyées : codes RNCP uniformisés")
-
 
     def merge_data(self):
         """Fusion des données formation et correspondance"""
         self.merged = self.formation.merge(self.correspondance, on="code_rncp", how="inner")
         self.merged = self.merged[self.merged["entrees_formation"] > 0]
         logger.info("Données fusionnées : lignes avec entrées formation supérieures à 0 conservées")
+
     def export(self, filepath: str):
         """Export des données agrégées vers le dossier processed, dans le fichier merged_data.csv"""
         self.merged.to_csv(f"{filepath}", sep=";", index=False)

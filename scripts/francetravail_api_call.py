@@ -35,6 +35,10 @@ departements = [
 ]
 
 def get_access_token() -> str:
+    """Obtient un token d'accès OAuth2 pour l'API France Travail.
+    Nécessite les variables d'environnement CLIENT_ID et SECRET_KEY.
+    Returns:
+        str: Le token d'accès à utiliser dans les requêtes API."""
     response = requests.post(
         access_token_url,
         params={"realm": "/partenaire"},
@@ -51,6 +55,11 @@ def get_access_token() -> str:
     return response.json()["access_token"]
 
 def search_offres_by_rome(code_rome: str):
+    """Recherche des offres d'emploi par code ROME.
+    Si le nombre total d'offres dépasse 3000, bascule sur une recherche par code ROME et département.
+    Injection des offres dans la BDD.
+    Args:
+        code_rome (str): Le code ROME pour lequel rechercher les offres."""
     token = get_access_token()
     total_offers = []
     min_range = 0
@@ -99,6 +108,11 @@ def search_offres_by_rome(code_rome: str):
 
         
 def get_offres_by_rome_and_departement(code_rome: str):
+    """Recherche des offres d'emploi par code ROME et département.
+    Injection des offres dans la BDD.
+    Args:
+        code_rome (str): Le code ROME pour lequel rechercher les offres.
+    """
     token = get_access_token()
     for departement in departements:
         min_range = 0
@@ -151,6 +165,10 @@ def get_offres_by_rome_and_departement(code_rome: str):
 
 
 def populate_database_with_offres(offres):
+    """Injection des offres dans la BDD.
+    Args:
+        offres (list): Liste des offres à injecter.
+    """
     db = SessionLocal()
     repository = FTOffreRepository(db)
     rome_repository = RomeCodeRepository(db)
@@ -195,6 +213,9 @@ def populate_database_with_offres(offres):
     db.close()
 
 def get_unique_rome_codes_from_csv_file():
+    """Lit le fichier CSV des formations enrichies et retourne la liste des codes ROME uniques.
+    Returns:
+        list: Liste des codes ROME uniques présents dans le fichier CSV."""
     df = pd.read_csv("data/processed/formations_enriched.csv", sep=";")
     return df["code_rome"].unique().tolist()
 
