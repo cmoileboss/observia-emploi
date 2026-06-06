@@ -4,6 +4,8 @@ Le marché de l'emploi Tech et IA en France fait face à une tension forte entre
 
 L'application agrège, nettoie et enrichit ces données, puis les expose via une API FastAPI adossée à PostgreSQL afin de faciliter leur exploration et leur analyse.
 
+Toutes les opérations réalisées après l'exécution d'une commande valide sont consignées dans un fichier `logs\app.log` grâce à un logger.  
+
 Par Aurélien CANDILLIER, Guillaume PEDRONA et Riad DRAOUI.  
 Lien Github : https://github.com/cmoileboss/observia-emploi
 
@@ -173,14 +175,15 @@ Lien : https://www.welcometothejungle.com/fr/pages/terms
 
 Jointure `inner` sur `code_rncp` : seules les certifications du secteur tech (présentes dans les deux fichiers) sont conservées.
 
-**Réduction du volume de données :** > 749 000 lignes → 4 997 lignes après nettoyage et merge.
+**Réduction du volume de données :** > 749 000 lignes → 5 167 lignes après nettoyage et merge.
 
 ### France Travail
-
+ 
+Nous avons volontairement limités le nombre de champs gardés en base de données à ce qui est utile pour un croisement avec les données du fichier csv. Seules les informations relatives aux formations, aux compétences et au lieu de travail ont ainsi été gardées. 
+  
 Points d'attention :
 
-- Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP`.
-- Les champs gardés en base de données seront limités. Voir le schéma de la base de données.
+- Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP` (à corriger également).
 
 ## Schéma d'architecture (à améliorer)
 
