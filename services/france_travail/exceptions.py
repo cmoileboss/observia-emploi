@@ -85,3 +85,7 @@ class FranceTravailStorageError(FranceTravailError):
 
 class FranceTravailNormalizationError(FranceTravailError):
     """Raised when the France Travail offer normalization fails due to invalid or missing data."""
+
+
+class FranceTravailProcessingError(FranceTravailError):
+    """Raised when the raw archive processing encounters an error."""
