@@ -62,3 +62,23 @@ class FranceTravailPaginationError(FranceTravailError):
     Callers that catch this exception should treat the collected data as
     potentially incomplete and decide explicitly whether to use it or discard it.
     """
+
+
+class FranceTravailStorageError(FranceTravailError):
+    """Raised when the local raw-archive storage mechanism fails.
+
+    This covers the following situations:
+
+    * The root directory or the run directory cannot be created.
+    * A page payload cannot be serialised to JSON.
+    * A page file or the manifest cannot be written to disk.
+    * The temporary directory cannot be renamed to its final name.
+    * The iterable of pages is empty (nothing to archive).
+    * A ``search_params`` mapping contains a sensitive key that must not be
+      persisted (e.g. ``access_token``, ``client_secret``).
+    * The ``now_provider`` returns a naive (timezone-unaware) datetime.
+    * A page has an invalid or missing ``range_start`` / ``range_end``.
+
+    The temporary work directory is always cleaned up before this exception
+    propagates, so no partial archive is left on disk.
+    """
