@@ -109,8 +109,6 @@ def build_search_params(params_list: Sequence[str] | None) -> dict[str, str]:
             )
 
         seen_keys_lower.add(normalized_key)
-        # Store original key (stripped) or lowercase key? The prompt says "ne pas modifier les valeurs", 
-        # but let's preserve the original stripped key name with the value.
         search_params[key] = val
 
     return search_params
