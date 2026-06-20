@@ -82,3 +82,6 @@ class FranceTravailStorageError(FranceTravailError):
     The temporary work directory is always cleaned up before this exception
     propagates, so no partial archive is left on disk.
     """
+
+class FranceTravailNormalizationError(FranceTravailError):
+    """Raised when the France Travail offer normalization fails due to invalid or missing data."""
