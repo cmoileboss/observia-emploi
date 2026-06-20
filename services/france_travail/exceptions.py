@@ -49,3 +49,16 @@ class FranceTravailInvalidResponseError(FranceTravailError):
 
 class FranceTravailApiError(FranceTravailError):
     """Raised when the France Travail API endpoint returns an HTTP error or functional error."""
+
+
+class FranceTravailPaginationError(FranceTravailError):
+    """Raised when the pagination mechanism encounters an unrecoverable state.
+
+    This exception is distinct from API or network errors.  It is raised when
+    the paginator's own safety constraints are violated — for example, when
+    ``max_pages`` pages have been consumed without any natural end condition
+    (empty page, partial page, or Content-Range total reached) being detected.
+
+    Callers that catch this exception should treat the collected data as
+    potentially incomplete and decide explicitly whether to use it or discard it.
+    """
