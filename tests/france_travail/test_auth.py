@@ -37,10 +37,12 @@ def _make_config(**overrides: str) -> FranceTravailConfig:
         "FRANCE_TRAVAIL_CLIENT_SECRET": "super_secret",
         "FRANCE_TRAVAIL_TOKEN_URL": "https://example.com/token",
         "FRANCE_TRAVAIL_SCOPE": "api_offresdemploiv2",
+        "FRANCE_TRAVAIL_OFFERS_SEARCH_URL": "https://example.com/offers/search",
         "FRANCE_TRAVAIL_REQUEST_TIMEOUT_SECONDS": "10",
     }
     base.update(overrides)
     return FranceTravailConfig.from_mapping(base)
+
 
 
 def _make_ok_response(access_token: any = "tok_abc", expires_in: any = 3600) -> MagicMock:

@@ -59,6 +59,8 @@ class FranceTravailConfig:
         Full URL of the OAuth token endpoint.
     scope:
         Space-separated OAuth scope string.
+    offers_search_url:
+        Full URL of the job search endpoint.
     request_timeout_seconds:
         Timeout applied to every HTTP request, in seconds.
     """
@@ -67,6 +69,7 @@ class FranceTravailConfig:
     client_secret: str = field(repr=False)
     token_url: str
     scope: str
+    offers_search_url: str
     request_timeout_seconds: int
 
     def __repr__(self) -> str:  # noqa: D105
@@ -76,6 +79,7 @@ class FranceTravailConfig:
             f"client_secret=<hidden>, "
             f"token_url={self.token_url!r}, "
             f"scope={self.scope!r}, "
+            f"offers_search_url={self.offers_search_url!r}, "
             f"request_timeout_seconds={self.request_timeout_seconds!r}"
             f")"
         )
@@ -125,6 +129,7 @@ class FranceTravailConfig:
         return _build_config(os.environ)
 
 
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -142,8 +147,10 @@ def _build_config(mapping: Mapping[str, str]) -> FranceTravailConfig:
     client_secret = _require(mapping, "FRANCE_TRAVAIL_CLIENT_SECRET")
     token_url = _require(mapping, "FRANCE_TRAVAIL_TOKEN_URL")
     scope = _require(mapping, "FRANCE_TRAVAIL_SCOPE")
+    offers_search_url = _require(mapping, "FRANCE_TRAVAIL_OFFERS_SEARCH_URL")
 
-    _validate_token_url(token_url)
+    _validate_url(token_url, "FRANCE_TRAVAIL_TOKEN_URL")
+    _validate_url(offers_search_url, "FRANCE_TRAVAIL_OFFERS_SEARCH_URL")
 
     if "FRANCE_TRAVAIL_REQUEST_TIMEOUT_SECONDS" in mapping:
         raw_timeout = mapping["FRANCE_TRAVAIL_REQUEST_TIMEOUT_SECONDS"]
@@ -158,6 +165,7 @@ def _build_config(mapping: Mapping[str, str]) -> FranceTravailConfig:
         client_secret=client_secret,
         token_url=token_url,
         scope=scope,
+        offers_search_url=offers_search_url,
         request_timeout_seconds=request_timeout_seconds,
     )
 
@@ -190,7 +198,7 @@ def _require(
     return value
 
 
-def _validate_token_url(url: str) -> None:
+def _validate_url(url: str, var_name: str) -> None:
     """Validate *url* to ensure it's a valid HTTPS URL with a hostname.
 
     Raises
@@ -201,20 +209,20 @@ def _validate_token_url(url: str) -> None:
         parsed = urllib.parse.urlparse(url)
     except Exception as exc:
         raise FranceTravailConfigurationError(
-            f"Invalid URL for FRANCE_TRAVAIL_TOKEN_URL: {exc}"
+            f"Invalid URL for {var_name}: {exc}"
         ) from exc
 
     if not parsed.scheme:
         raise FranceTravailConfigurationError(
-            "Invalid URL for FRANCE_TRAVAIL_TOKEN_URL: Scheme is missing."
+            f"Invalid URL for {var_name}: Scheme is missing."
         )
     if parsed.scheme.lower() != "https":
         raise FranceTravailConfigurationError(
-            f"Invalid URL for FRANCE_TRAVAIL_TOKEN_URL: Only HTTPS is supported, got {parsed.scheme!r}."
+            f"Invalid URL for {var_name}: Only HTTPS is supported, got {parsed.scheme!r}."
         )
     if not parsed.netloc:
         raise FranceTravailConfigurationError(
-            "Invalid URL for FRANCE_TRAVAIL_TOKEN_URL: Hostname is missing."
+            f"Invalid URL for {var_name}: Hostname is missing."
         )
 
 

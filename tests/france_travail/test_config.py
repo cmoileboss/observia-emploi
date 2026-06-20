@@ -24,6 +24,7 @@ def _valid_mapping(**overrides: str) -> dict:
         "FRANCE_TRAVAIL_CLIENT_SECRET": "test_client_secret",
         "FRANCE_TRAVAIL_TOKEN_URL": "https://example.com/oauth/token",
         "FRANCE_TRAVAIL_SCOPE": "api_offresdemploiv2 o2dsoffre",
+        "FRANCE_TRAVAIL_OFFERS_SEARCH_URL": "https://example.com/offers/search",
         "FRANCE_TRAVAIL_REQUEST_TIMEOUT_SECONDS": "10",
     }
     base.update(overrides)
@@ -45,6 +46,7 @@ class TestFranceTravailConfigValid(unittest.TestCase):
         self.assertEqual(cfg.client_id, "test_client_id")
         self.assertEqual(cfg.token_url, "https://example.com/oauth/token")
         self.assertEqual(cfg.scope, "api_offresdemploiv2 o2dsoffre")
+        self.assertEqual(cfg.offers_search_url, "https://example.com/offers/search")
         self.assertEqual(cfg.request_timeout_seconds, 10)
 
     def test_config_uses_default_timeout_when_absent(self):
@@ -67,6 +69,7 @@ class TestFranceTravailConfigValid(unittest.TestCase):
             cfg = FranceTravailConfig.from_environ()
             self.assertEqual(cfg.client_id, "test_client_id")
             self.assertEqual(cfg.token_url, "https://example.com/oauth/token")
+            self.assertEqual(cfg.offers_search_url, "https://example.com/offers/search")
 
 
 class TestFranceTravailConfigMissingRequired(unittest.TestCase):
@@ -139,9 +142,27 @@ class TestFranceTravailConfigMissingRequired(unittest.TestCase):
         with self.assertRaises(FranceTravailConfigurationError):
             FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_SCOPE="    "))
 
+    def test_missing_offers_search_url_raises(self):
+        """Absent FRANCE_TRAVAIL_OFFERS_SEARCH_URL raises FranceTravailConfigurationError."""
+        mapping = _valid_mapping()
+        del mapping["FRANCE_TRAVAIL_OFFERS_SEARCH_URL"]
+        with self.assertRaises(FranceTravailConfigurationError) as ctx:
+            FranceTravailConfig.from_mapping(mapping)
+        self.assertIn("FRANCE_TRAVAIL_OFFERS_SEARCH_URL", str(ctx.exception))
+
+    def test_empty_offers_search_url_raises(self):
+        """Empty FRANCE_TRAVAIL_OFFERS_SEARCH_URL raises FranceTravailConfigurationError."""
+        with self.assertRaises(FranceTravailConfigurationError):
+            FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_OFFERS_SEARCH_URL=""))
+
+    def test_spaces_offers_search_url_raises(self):
+        """Spaces-only FRANCE_TRAVAIL_OFFERS_SEARCH_URL raises FranceTravailConfigurationError."""
+        with self.assertRaises(FranceTravailConfigurationError):
+            FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_OFFERS_SEARCH_URL="    "))
+
 
 class TestFranceTravailConfigUrlValidation(unittest.TestCase):
-    """Tests covering URL syntax validation for token_url."""
+    """Tests covering URL syntax validation for token_url and offers_search_url."""
 
     def test_token_url_without_scheme_raises(self):
         """A URL without a scheme (e.g. 'example.com') raises FranceTravailConfigurationError."""
@@ -159,6 +180,24 @@ class TestFranceTravailConfigUrlValidation(unittest.TestCase):
         """A URL without a hostname (e.g. 'https:///oauth/token') raises FranceTravailConfigurationError."""
         with self.assertRaises(FranceTravailConfigurationError) as ctx:
             FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_TOKEN_URL="https:///oauth/token"))
+        self.assertIn("Hostname is missing", str(ctx.exception))
+
+    def test_offers_search_url_without_scheme_raises(self):
+        """A search URL without a scheme raises FranceTravailConfigurationError."""
+        with self.assertRaises(FranceTravailConfigurationError) as ctx:
+            FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_OFFERS_SEARCH_URL="example.com/search"))
+        self.assertIn("Scheme is missing", str(ctx.exception))
+
+    def test_offers_search_url_http_instead_of_https_raises(self):
+        """A search URL with HTTP scheme raises FranceTravailConfigurationError."""
+        with self.assertRaises(FranceTravailConfigurationError) as ctx:
+            FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_OFFERS_SEARCH_URL="http://example.com/search"))
+        self.assertIn("Only HTTPS is supported", str(ctx.exception))
+
+    def test_offers_search_url_without_hostname_raises(self):
+        """A search URL without a hostname raises FranceTravailConfigurationError."""
+        with self.assertRaises(FranceTravailConfigurationError) as ctx:
+            FranceTravailConfig.from_mapping(_valid_mapping(FRANCE_TRAVAIL_OFFERS_SEARCH_URL="https:///search"))
         self.assertIn("Hostname is missing", str(ctx.exception))
 
 

@@ -45,3 +45,7 @@ class FranceTravailInvalidResponseError(FranceTravailError):
     This is distinct from HTTP errors: the HTTP status may be 200 but the
     response JSON does not match the expected schema.
     """
+
+
+class FranceTravailApiError(FranceTravailError):
+    """Raised when the France Travail API endpoint returns an HTTP error or functional error."""
