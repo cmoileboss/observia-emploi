@@ -76,6 +76,42 @@ Doc API : https://francetravail.io/produits-partages/catalogue/offres-emploi/doc
 
 Une documentation complète de l'implémentation, du fonctionnement, de l'usage, des commandes et des résultats réels de cette brique est disponible dans [docs/france_travail.md](docs/france_travail.md).
 
+#### Utilisation rapide de la Source France Travail
+
+Cette section décrit comment utiliser le script de collecte des offres France Travail par codes ROME (mode ROME). La collecte via API s'effectue à l'aide de commandes PowerShell dans l'environnement virtuel.
+
+##### 1. Collecte de validation limitée
+Pour valider le fonctionnement de la chaîne de collecte sur un échantillon minimal, utilisez la commande suivante pour traiter uniquement le premier code ROME du fichier sur une seule page :
+```powershell
+.venv\Scripts\python.exe scripts\collect_france_travail.py --codes-file <chemin_du_fichier_csv> --column code_rome --max-codes 1 --max-pages 1 --output-directory <dossier_de_sortie>
+```
+
+##### 2. Collecter un seul code ROME précis
+Le script attend un fichier CSV contenant une colonne `code_rome` (le nom de la colonne peut être personnalisé avec `--column`). Pour cibler un unique code ROME (par exemple `M1805`), créez un fichier CSV minimal comme suit :
+```csv
+code_rome
+M1805
+```
+Lancez ensuite la collecte avec ce fichier :
+```powershell
+.venv\Scripts\python.exe scripts\collect_france_travail.py --codes-file <chemin_du_fichier_csv> --column code_rome --output-directory <dossier_de_sortie>
+```
+
+##### 3. Collecte complète de tous les codes du fichier
+Pour lancer la collecte sur l'intégralité des codes définis dans votre fichier CSV, exécutez la commande suivante sans restreindre le nombre de codes ni de pages :
+```powershell
+.venv\Scripts\python.exe scripts\collect_france_travail.py --codes-file <chemin_du_fichier_csv> --column code_rome --output-directory <dossier_de_sortie>
+```
+*Note :* Sans les limites `--max-codes` et `--max-pages`, le script traite l'ensemble des codes ROME validés présents dans le fichier, et poursuit la pagination de chaque code jusqu'à la fin naturelle des résultats de recherche. Il s'agit d'une collecte complète basée sur les codes fournis dans le fichier, et non d'une représentation exhaustive de l'ensemble du marché national de l'emploi.
+
+> [!IMPORTANT]
+> **Précautions d'usage :**
+> - Une collecte complète peut prendre du temps et générer un nombre important de fichiers JSON.
+> - Les réponses brutes de l'API sont archivées localement avant tout traitement.
+> - Avant d'importer les données dans PostgreSQL, il est fortement conseillé de vérifier le fichier `manifest.json` produit, puis de lancer le traitement de normalisation hors ligne et la simulation d'importation (`--dry-run`).
+> - Pour retrouver le détail des commandes de normalisation hors ligne et d'importation en base de données, consultez la documentation détaillée dans [docs/france_travail.md](docs/france_travail.md).
+
+
 ### Mon Compte Formation
 
 Fichiers CSV exportés depuis Mon Compte Formation (data.gouv.fr).
