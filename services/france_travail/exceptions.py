@@ -93,3 +93,7 @@ class FranceTravailProcessingError(FranceTravailError):
 
 class FranceTravailMappingError(FranceTravailError):
     """Raised when mapping normalized France Travail offers to SQLAlchemy models fails."""
+
+
+class FranceTravailImportError(FranceTravailError):
+    """Raised when importing normalized France Travail offers to the database fails."""
