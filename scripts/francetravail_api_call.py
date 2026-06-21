@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -225,7 +226,18 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
     rome_codes = get_unique_rome_codes_from_csv_file()
     logger.info("Nombre de codes ROME uniques : %s", len(rome_codes))
-    total_offres = 0
-    for rome_code in rome_codes:
-        search_offres_by_rome(rome_code)
+    max_workers = min(8, len(rome_codes)) if rome_codes else 1
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(search_offres_by_rome, rome_code): rome_code
+            for rome_code in rome_codes
+        }
+
+        for future in as_completed(futures):
+            rome_code = futures[future]
+            try:
+                future.result()
+            except Exception:
+                logger.exception("Erreur lors du traitement du code ROME %s", rome_code)
     logger.info("Récupération des offres France Travail terminée.")

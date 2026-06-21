@@ -58,7 +58,7 @@ Avant l'exécution de la commande de préparation des données, il faut mettre d
 
 Il faut également créer la base de données `PostgreSQL`. Le nom de la base de données doit correspondre à la valeur de la variable d'environnement `DATABASE_NAME`.
 
-## Lancement du projet (à améliorer)
+## Lancement du projet
 
 La commande suivante permet de lancer le pipeline de préparation des données.  
 ```powershell
