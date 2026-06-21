@@ -114,3 +114,22 @@ class FranceTravailRomeError(FranceTravailError):
 
     Messages must never contain tokens, credentials, or full response bodies.
     """
+
+
+class FranceTravailCollectionError(FranceTravailError):
+    """Raised when the multi-ROME collection run encounters an unrecoverable error.
+
+    This covers the following situations:
+
+    * At least one requested ROME code is not found in the referentiel.
+    * The referentiel endpoint is unreachable or returns an invalid response.
+    * The raw archive storage fails for a specific ROME code after the run
+      has already started (partial run — the manifest is marked incomplete).
+
+    When raised after the first code has been collected, the partial archive
+    already written to disk is preserved and the manifest is finalised with
+    ``complete: false``.  The caller is responsible for deciding whether to
+    use or discard the partial data.
+
+    Messages must never contain tokens, credentials, or full offer payloads.
+    """
