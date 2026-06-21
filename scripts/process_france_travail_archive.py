@@ -38,10 +38,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Process raw France Travail job offer archives."
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--archive-directory",
         type=str,
-        required=True,
+        help="Path to the raw archive directory (containing manifest.json).",
+    )
+    group.add_argument(
+        "--run-directory",
+        type=str,
         help="Path to the raw archive directory (containing manifest.json).",
     )
     parser.add_argument(
@@ -67,7 +72,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         output_dir = Path(local_app_data) / "Observia" / "FranceTravail" / "processed"
 
-    archive_path = Path(args.archive_directory)
+    archive_dir_str = args.archive_directory or args.run_directory
+    archive_path = Path(archive_dir_str)
 
     try:
         result = process_archive(
