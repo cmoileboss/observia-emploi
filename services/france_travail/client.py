@@ -8,6 +8,7 @@ validation, range slice management, response parsing, and error mapping.
 from __future__ import annotations
 
 import logging
+import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Protocol, Tuple
 
@@ -21,6 +22,44 @@ from services.france_travail.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Absolute path of the ROME referentiel endpoint.
+# This path is fixed by the France Travail API contract and must not vary.
+_REFERENTIEL_METIERS_PATH: str = "/partenaire/offresdemploi/v2/referentiel/metiers"
+
+
+def _build_referentiel_url(offers_search_url: str) -> str:
+    """Derive the ROME referentiel URL from the configured offers search URL.
+
+    The derivation extracts only the ``scheme://netloc`` portion of
+    *offers_search_url* and appends the absolute path of the referentiel
+    endpoint.  This construction is immune to any variation in the search
+    URL path (trailing slashes, extra segments, query parameters, etc.).
+
+    Parameters
+    ----------
+    offers_search_url:
+        The full URL of the job search endpoint as read from configuration.
+
+    Returns
+    -------
+    str
+        The full URL of the ROME referentiel endpoint.
+
+    Examples
+    --------
+    >>> _build_referentiel_url(
+    ...     "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
+    ... )
+    'https://api.francetravail.io/partenaire/offresdemploi/v2/referentiel/metiers'
+    """
+    parsed = urllib.parse.urlparse(offers_search_url)
+    # Reconstruct scheme://netloc (no path, no query, no fragment).
+    root = urllib.parse.urlunparse(
+        (parsed.scheme, parsed.netloc, "", "", "", "")
+    )
+    # urljoin with an absolute path replaces the path entirely.
+    return urllib.parse.urljoin(root, _REFERENTIEL_METIERS_PATH)
 
 
 class FranceTravailAuthClientProtocol(Protocol):
@@ -217,6 +256,88 @@ class FranceTravailOffersClient:
             range_start=range_start,
             range_end=range_end,
         )
+
+    def get_rome_referentiel(self) -> list[dict[str, Any]]:
+        """Fetch the ROME occupations referentiel from the France Travail API.
+
+        Calls ``GET /partenaire/offresdemploi/v2/referentiel/metiers`` and
+        returns the decoded JSON payload as a plain list.
+
+        The caller is responsible for parsing the result into typed structures
+        (see ``services.france_travail.rome.parse_rome_referentiel``).
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            The decoded JSON array from the referentiel endpoint.
+
+        Raises
+        ------
+        FranceTravailApiError
+            When the API endpoint returns an HTTP error.
+        FranceTravailNetworkError
+            When a network failure or timeout occurs.
+        FranceTravailInvalidResponseError
+            When the response cannot be decoded as JSON or is not a list.
+        """
+        token = self._auth_client.get_access_token()
+        if not isinstance(token, str) or not token.strip():
+            raise FranceTravailInvalidResponseError(
+                "Invalid access token returned from auth client: must be a non-empty string."
+            )
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        }
+
+        # Build the referentiel URL robustly from the configured offers search URL.
+        # We extract only scheme://netloc and append the fixed absolute path of the
+        # referentiel endpoint.  This is immune to variations in the search URL path.
+        referentiel_url = _build_referentiel_url(self._config.offers_search_url)
+
+        try:
+            response = self._session.get(
+                referentiel_url,
+                headers=headers,
+                timeout=self._config.request_timeout_seconds,
+            )
+        except requests.exceptions.Timeout as exc:
+            raise FranceTravailNetworkError(
+                "Timeout while fetching France Travail ROME referentiel."
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise FranceTravailNetworkError(
+                "Connection error while fetching France Travail ROME referentiel."
+            ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise FranceTravailNetworkError(
+                f"Unexpected network error while fetching France Travail ROME referentiel: "
+                f"{type(exc).__name__}."
+            ) from exc
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            status_code = response.status_code
+            raise FranceTravailApiError(
+                f"France Travail referentiel endpoint returned HTTP {status_code}."
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise FranceTravailInvalidResponseError(
+                "France Travail referentiel endpoint returned a non-JSON response."
+            ) from exc
+
+        if not isinstance(payload, list):
+            raise FranceTravailInvalidResponseError(
+                f"France Travail referentiel response must be a JSON array; "
+                f"got {type(payload).__name__}."
+            )
+
+        return payload
 
     def _validate_range(self, val: Any, name: str) -> None:
         """Validate range boundaries to reject invalid types or values."""

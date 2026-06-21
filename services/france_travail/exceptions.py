@@ -97,3 +97,20 @@ class FranceTravailMappingError(FranceTravailError):
 
 class FranceTravailImportError(FranceTravailError):
     """Raised when importing normalized France Travail offers to the database fails."""
+
+
+class FranceTravailRomeError(FranceTravailError):
+    """Raised when reading, parsing or validating ROME reference codes fails.
+
+    This covers the following situations:
+
+    * The codes file does not exist or is not a regular file.
+    * The expected column is absent from the CSV header.
+    * The file is empty (no data rows after the header).
+    * A local code does not match the expected ROME format (letter + 4 digits).
+    * The remote referentiel response is structurally invalid (not a list,
+      missing fields, wrong types).
+    * An empty or whitespace-only code is found where a value is required.
+
+    Messages must never contain tokens, credentials, or full response bodies.
+    """
