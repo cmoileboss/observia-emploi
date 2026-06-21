@@ -13,9 +13,9 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
         """Initialise le repository des offres."""
         super().__init__(db, FranceTravailModel)
 
-    def create_offre(self, offre: FranceTravailModel) -> FranceTravailModel:
+    def create_offre(self, offre: FranceTravailModel, commit: bool = True) -> FranceTravailModel:
         """Persiste une offre France Travail deja instanciee."""
-        return self.add(offre)
+        return self.add(offre, commit=commit)
 
     def list_offres(self, rome_code: str | None = None, limit: int = 50) -> list[FranceTravailModel]:
         """Retourne les offres, filtrees optionnellement par code ROME."""
@@ -46,7 +46,7 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_or_create_formation(self, offre: FranceTravailModel, formation: FormationModel) -> FranceTravailModel:
+    def attach_or_create_formation(self, offre: FranceTravailModel, formation: FormationModel, commit: bool = True) -> FranceTravailModel:
         """Associe une formation a l'offre en la creant si necessaire."""
         formation_repository = FormationRepository(self.db)
         code_formation = formation.code_formation
@@ -56,11 +56,11 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
             existing_formation = formation_repository.find_by_code(code_formation)
 
         if existing_formation is None:
-            existing_formation = formation_repository.create_formation(formation)
+            existing_formation = formation_repository.create_formation(formation, commit=commit)
 
-        return self.attach_formation(offre, existing_formation)
+        return self.attach_formation(offre, existing_formation, commit=commit)
 
-    def attach_or_create_competence(self, offre: FranceTravailModel, competence: CompetenceModel) -> FranceTravailModel:
+    def attach_or_create_competence(self, offre: FranceTravailModel, competence: CompetenceModel, commit: bool = True) -> FranceTravailModel:
         """Associe une competence a l'offre en la creant si necessaire."""
         competence_repository = CompetenceRepository(self.db)
         code = competence.code
@@ -70,9 +70,9 @@ class FranceTravailRepository(BaseRepository[FranceTravailModel]):
             existing_competence = competence_repository.find_by_code(code)
 
         if existing_competence is None:
-            existing_competence = competence_repository.create_competence(competence)
+            existing_competence = competence_repository.create_competence(competence, commit=commit)
 
-        return self.attach_competence(offre, existing_competence)
+        return self.attach_competence(offre, existing_competence, commit=commit)
 
 
 class FormationRepository(BaseRepository[FormationModel]):
@@ -82,9 +82,9 @@ class FormationRepository(BaseRepository[FormationModel]):
         """Initialise le repository des formations."""
         super().__init__(db, FormationModel)
 
-    def create_formation(self, formation: FormationModel) -> FormationModel:
+    def create_formation(self, formation: FormationModel, commit: bool = True) -> FormationModel:
         """Persiste une formation deja instanciee."""
-        return self.add(formation)
+        return self.add(formation, commit=commit)
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
         """Recherche une formation par son code metier."""
@@ -98,9 +98,9 @@ class CompetenceRepository(BaseRepository[CompetenceModel]):
         """Initialise le repository des competences."""
         super().__init__(db, CompetenceModel)
 
-    def create_competence(self, competence: CompetenceModel) -> CompetenceModel:
+    def create_competence(self, competence: CompetenceModel, commit: bool = True) -> CompetenceModel:
         """Persiste une competence deja instanciee."""
-        return self.add(competence)
+        return self.add(competence, commit=commit)
 
     def find_by_code(self, code: str) -> CompetenceModel | None:
         """Recherche une competence par son code metier."""

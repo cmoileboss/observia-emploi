@@ -89,3 +89,7 @@ class FranceTravailNormalizationError(FranceTravailError):
 
 class FranceTravailProcessingError(FranceTravailError):
     """Raised when the raw archive processing encounters an error."""
+
+
+class FranceTravailMappingError(FranceTravailError):
+    """Raised when mapping normalized France Travail offers to SQLAlchemy models fails."""
