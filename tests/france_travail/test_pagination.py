@@ -526,6 +526,44 @@ class TestFranceTravailOffersPaginatorMaxPages(unittest.TestCase):
         pages = list(pag.iter_pages(page_size=10, max_pages=1))
         self.assertEqual(len(pages), 1)
 
+    def test_voluntary_limit_one_page_full_success(self):
+        """With voluntary_limit=True, reaching max_pages=1 on full page does not raise."""
+        full_page = _make_page(_make_offers(150), range_start=0, range_end=149)
+        client = _make_client(full_page)
+        pag = FranceTravailOffersPaginator(client)
+        pages = list(pag.iter_pages(page_size=150, max_pages=1, voluntary_limit=True))
+        self.assertEqual(len(pages), 1)
+        client.search_offers_page.assert_called_once()
+
+    def test_voluntary_limit_two_pages_full_success(self):
+        """With voluntary_limit=True, reaching max_pages=2 on full pages does not raise."""
+        p1 = _make_page(_make_offers(150), range_start=0, range_end=149)
+        p2 = _make_page(_make_offers(150), range_start=150, range_end=299)
+        client = _make_client(p1, p2)
+        pag = FranceTravailOffersPaginator(client)
+        pages = list(pag.iter_pages(page_size=150, max_pages=2, voluntary_limit=True))
+        self.assertEqual(len(pages), 2)
+        self.assertEqual(client.search_offers_page.call_count, 2)
+
+    def test_voluntary_limit_natural_stop_before_limit(self):
+        """With voluntary_limit=True, natural stop before limit works normally."""
+        p1 = _make_page(_make_offers(150), range_start=0, range_end=149)
+        p2 = _make_page(_make_offers(50), range_start=150, range_end=299)
+        client = _make_client(p1, p2)
+        pag = FranceTravailOffersPaginator(client)
+        pages = list(pag.iter_pages(page_size=150, max_pages=5, voluntary_limit=True))
+        self.assertEqual(len(pages), 2)
+        self.assertEqual(client.search_offers_page.call_count, 2)
+
+    def test_voluntary_limit_content_range_total_reached(self):
+        """With voluntary_limit=True, natural stop via Content-Range total works normally."""
+        p1 = _make_page(_make_offers(150), content_range="offres 0-149/150", range_start=0, range_end=149)
+        client = _make_client(p1)
+        pag = FranceTravailOffersPaginator(client)
+        pages = list(pag.iter_pages(page_size=150, max_pages=5, voluntary_limit=True))
+        self.assertEqual(len(pages), 1)
+        client.search_offers_page.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # 7. Error propagation

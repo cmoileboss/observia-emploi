@@ -118,7 +118,7 @@ def _make_paginator(pages_by_code: dict[str, list] | None = None) -> MagicMock:
     """Build a mock paginator that yields synthetic pages per code."""
     pages_by_code = pages_by_code or {}
 
-    def _iter_pages(search_params=None, max_pages=10):
+    def _iter_pages(search_params=None, max_pages=10, voluntary_limit=False):
         code = (search_params or {}).get("codeROME", "")
         page_list = pages_by_code.get(code, [_make_page([])])
         yield from page_list
@@ -446,7 +446,7 @@ class TestCollectOffersByRomeCodes(unittest.TestCase):
         """A collection error on one code marks the run as incomplete."""
         from services.france_travail.exceptions import FranceTravailNetworkError  # noqa: PLC0415
 
-        def _failing_iter(search_params=None, max_pages=10):
+        def _failing_iter(search_params=None, max_pages=10, voluntary_limit=False):
             raise FranceTravailNetworkError("connection lost")
             yield  # pragma: no cover
 
@@ -468,7 +468,7 @@ class TestCollectOffersByRomeCodes(unittest.TestCase):
         """The manifest is written with complete=false when a code fails."""
         from services.france_travail.exceptions import FranceTravailApiError  # noqa: PLC0415
 
-        def _failing_iter(search_params=None, max_pages=10):
+        def _failing_iter(search_params=None, max_pages=10, voluntary_limit=False):
             raise FranceTravailApiError("HTTP 500")
             yield  # pragma: no cover
 
@@ -500,7 +500,7 @@ class TestCollectOffersByRomeCodes(unittest.TestCase):
 
         call_count = 0
 
-        def _iter(search_params=None, max_pages=10):
+        def _iter(search_params=None, max_pages=10, voluntary_limit=False):
             nonlocal call_count
             call_count += 1
             code = (search_params or {}).get("codeROME", "")
@@ -592,15 +592,152 @@ class TestCollectOffersByRomeCodes(unittest.TestCase):
         """A non-string element in rome_codes raises FranceTravailRomeError."""
         client = _make_client()
         paginator = _make_paginator()
-        with self.assertRaises(self.FranceTravailRomeError):
+        with self.assertRaises(ValueError):
             self.collect(
-                rome_codes=[1805],
+                rome_codes=["M1805"],
+                offers_client=client,
+                paginator=paginator,
+                output_directory=self.tmp,
+                max_pages=-1,
+                now_provider=lambda: _FIXED_NOW,
+            )
+
+    def test_voluntary_limit_manifest_metadata_and_success(self):
+        """Reaching voluntary max_pages limit succeeds, sets success=True, global complete=True, and registers metadata."""
+        from services.france_travail.pagination import FranceTravailOffersPaginator  # noqa: PLC0415
+        p1 = _make_page([{"id": "1"}], range_start=0, range_end=149)
+        client = _make_client()
+        client.search_offers_page.return_value = p1
+        paginator = FranceTravailOffersPaginator(client)
+
+        result = self.collect(
+            rome_codes=["M1805"],
+            offers_client=client,
+            paginator=paginator,
+            output_directory=self.tmp,
+            max_pages=1,
+            is_voluntary_limit=True,
+            now_provider=lambda: _FIXED_NOW,
+        )
+
+        self.assertTrue(result.complete)
+        self.assertEqual(len(result.codes_results), 1)
+        res_code = result.codes_results[0]
+        self.assertEqual(res_code.rome_code, "M1805")
+        self.assertTrue(res_code.success)
+        self.assertEqual(res_code.termination_reason, "max_pages_reached")
+        self.assertTrue(res_code.limited_by_max_pages)
+        self.assertEqual(res_code.requested_max_pages, 1)
+
+        # Check manifest content
+        manifest_data = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        self.assertTrue(manifest_data["complete"])
+        self.assertEqual(manifest_data["codes"][0]["success"], True)
+        self.assertEqual(manifest_data["codes"][0]["termination_reason"], "max_pages_reached")
+        self.assertEqual(manifest_data["codes"][0]["limited_by_max_pages"], True)
+        self.assertEqual(manifest_data["codes"][0]["requested_max_pages"], 1)
+
+    def test_natural_end_manifest_metadata(self):
+        """A natural end before or at limit sets natural_end reason and limited_by_max_pages=False."""
+        from services.france_travail.pagination import FranceTravailOffersPaginator  # noqa: PLC0415
+        # 5 offers is less than page_size=150, so it's a natural stop.
+        p1 = _make_page([{"id": "1"}], range_start=0, range_end=149)
+        client = _make_client()
+        client.search_offers_page.return_value = p1
+        paginator = FranceTravailOffersPaginator(client)
+
+        result = self.collect(
+            rome_codes=["M1805"],
+            offers_client=client,
+            paginator=paginator,
+            output_directory=self.tmp,
+            max_pages=5,
+            is_voluntary_limit=True,
+            now_provider=lambda: _FIXED_NOW,
+        )
+
+        res_code = result.codes_results[0]
+        self.assertEqual(res_code.termination_reason, "natural_end")
+        self.assertFalse(res_code.limited_by_max_pages)
+        self.assertIsNone(res_code.requested_max_pages)
+
+    def test_strict_limit_default_reaches_limit_raises(self):
+        """Without is_voluntary_limit=True, reaching the limit raises FranceTravailPaginationError."""
+        from services.france_travail.pagination import FranceTravailOffersPaginator  # noqa: PLC0415
+        p1 = _make_page([{"id": "1"}] * 150, range_start=0, range_end=149)
+        p2 = _make_page([{"id": "2"}] * 150, range_start=150, range_end=299)
+        client = _make_client()
+        client.search_offers_page.side_effect = [p1, p2]
+        paginator = FranceTravailOffersPaginator(client)
+
+        with self.assertRaises(self.FranceTravailCollectionError):
+            self.collect(
+                rome_codes=["M1805"],
+                offers_client=client,
+                paginator=paginator,
+                output_directory=self.tmp,
+                max_pages=1,
+                is_voluntary_limit=False,
+                now_provider=lambda: _FIXED_NOW,
+            )
+
+    def test_multi_rome_network_error_mid_run(self):
+        """If a network error occurs mid-run, the run is complete=False and raises FranceTravailCollectionError."""
+        from services.france_travail.pagination import FranceTravailOffersPaginator  # noqa: PLC0415
+        client = _make_client()
+        # M1805 succeeds, K2204 raises NetworkError
+        client.search_offers_page.side_effect = [
+            _make_page([{"id": "1"}]),
+            self.FranceTravailNetworkError("Network Timeout")
+        ]
+        paginator = FranceTravailOffersPaginator(client)
+
+        with self.assertRaises(self.FranceTravailCollectionError):
+            self.collect(
+                rome_codes=["M1805", "K2204"],
                 offers_client=client,
                 paginator=paginator,
                 output_directory=self.tmp,
                 max_pages=1,
                 now_provider=lambda: _FIXED_NOW,
             )
+
+        # Check manifest
+        manifest_file = self.tmp / _FIXED_RUN_ID / "manifest.json"
+        self.assertTrue(manifest_file.is_file())
+        manifest_data = json.loads(manifest_file.read_text(encoding="utf-8"))
+        self.assertFalse(manifest_data["complete"])
+        self.assertEqual(manifest_data["codes"][0]["success"], True)
+        self.assertEqual(manifest_data["codes"][1]["success"], False)
+        self.assertIn("FranceTravailNetworkError", manifest_data["codes"][1]["error"])
+
+    def test_multi_rome_api_error_mid_run(self):
+        """If an API error occurs mid-run, the run is complete=False and raises FranceTravailCollectionError."""
+        from services.france_travail.pagination import FranceTravailOffersPaginator  # noqa: PLC0415
+        client = _make_client()
+        # M1805 succeeds, K2204 raises ApiError
+        client.search_offers_page.side_effect = [
+            _make_page([{"id": "1"}]),
+            self.FranceTravailApiError("API limit")
+        ]
+        paginator = FranceTravailOffersPaginator(client)
+
+        with self.assertRaises(self.FranceTravailCollectionError):
+            self.collect(
+                rome_codes=["M1805", "K2204"],
+                offers_client=client,
+                paginator=paginator,
+                output_directory=self.tmp,
+                max_pages=1,
+                now_provider=lambda: _FIXED_NOW,
+            )
+
+        manifest_file = self.tmp / _FIXED_RUN_ID / "manifest.json"
+        manifest_data = json.loads(manifest_file.read_text(encoding="utf-8"))
+        self.assertFalse(manifest_data["complete"])
+        self.assertEqual(manifest_data["codes"][0]["success"], True)
+        self.assertEqual(manifest_data["codes"][1]["success"], False)
+        self.assertIn("FranceTravailApiError", manifest_data["codes"][1]["error"])
 
     # --- Compteurs du résultat ---
 

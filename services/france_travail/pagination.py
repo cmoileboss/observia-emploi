@@ -219,6 +219,7 @@ class FranceTravailOffersPaginator:
         start: int = 0,
         page_size: int = 150,
         max_pages: int = 100,
+        voluntary_limit: bool = False,
     ) -> Iterator[FranceTravailOffersPage]:
         """Iterate over pages of job offers, yielding each page as it is fetched.
 
@@ -234,7 +235,10 @@ class FranceTravailOffersPaginator:
         max_pages:
             Maximum number of pages to fetch.  When this limit is reached
             without any natural stop condition, ``FranceTravailPaginationError``
-            is raised after yielding the last page.
+            is raised after yielding the last page (unless voluntary_limit is True).
+        voluntary_limit:
+            If True, reaching max_pages without natural stop is treated as
+            a controlled success rather than raising a FranceTravailPaginationError.
 
         Yields
         ------
@@ -245,7 +249,8 @@ class FranceTravailOffersPaginator:
         ------
         FranceTravailPaginationError
             When ``start``, ``page_size``, or ``max_pages`` are invalid, or
-            when ``max_pages`` is reached with no natural end detected.
+            when ``max_pages`` is reached with no natural end detected and
+            ``voluntary_limit`` is False.
         FranceTravailApiError
             Propagated from the underlying client without modification.
         FranceTravailNetworkError
@@ -342,6 +347,10 @@ class FranceTravailOffersPaginator:
         # ------------------------------------------------------------------
         # Condition D: max_pages exhausted without natural stop
         # ------------------------------------------------------------------
+        if voluntary_limit:
+            logger.debug("Pagination voluntary limit reached: %d page(s) fetched.", max_pages)
+            return
+
         raise FranceTravailPaginationError(
             f"Pagination safety limit reached: {max_pages} page(s) fetched "
             f"without a natural end condition (empty page, partial page, or "

@@ -94,6 +94,7 @@ class _PaginatorProtocol(Protocol):
         self,
         search_params: Optional[Mapping[str, Any]],
         max_pages: int,
+        voluntary_limit: bool = False,
     ) -> Any:
         """Iterate over pages of job offers."""
         ...
@@ -126,6 +127,9 @@ class RomeCodeResult:
     page_count: int
     offer_count: int
     page_paths: tuple[Path, ...]
+    termination_reason: str = "natural_end"
+    limited_by_max_pages: bool = False
+    requested_max_pages: Optional[int] = None
     error: Optional[str] = None
 
     @property
@@ -233,6 +237,9 @@ def _write_global_manifest(
                 "page_count": r.page_count,
                 "offer_count": r.offer_count,
                 "success": r.success,
+                "termination_reason": r.termination_reason,
+                "limited_by_max_pages": r.limited_by_max_pages,
+                "requested_max_pages": r.requested_max_pages,
                 "error": r.error,
             }
         )
@@ -278,6 +285,7 @@ def collect_offers_by_rome_codes(
     paginator: _PaginatorProtocol,
     output_directory: str | Path,
     max_pages: int = 10,
+    is_voluntary_limit: bool = False,
     now_provider: Optional[Callable[[], datetime]] = None,
 ) -> RomeCollectionResult:
     """Collect France Travail offers for each of the requested ROME codes.
@@ -452,6 +460,7 @@ def collect_offers_by_rome_codes(
             for page in paginator.iter_pages(
                 search_params=search_params,
                 max_pages=max_pages,
+                voluntary_limit=is_voluntary_limit,
             ):
                 page_index += 1
                 filename = _page_filename(page_index, page)
@@ -494,12 +503,32 @@ def collect_offers_by_rome_codes(
                 "Partial data preserved."
             )
 
+        # Determine termination reason and parameters
+        if code_error is not None:
+            term_reason = "error"
+            limited = False
+            req_max_pages = None
+        else:
+            # If we reached exactly max_pages and is_voluntary_limit is True,
+            # it is a voluntary limit stop. Otherwise, it is a natural end.
+            if len(page_paths) == max_pages and is_voluntary_limit:
+                term_reason = "max_pages_reached"
+                limited = True
+                req_max_pages = max_pages
+            else:
+                term_reason = "natural_end"
+                limited = False
+                req_max_pages = None
+
         code_results.append(
             RomeCodeResult(
                 rome_code=rome_code,
                 page_count=len(page_paths),
                 offer_count=offer_count,
                 page_paths=tuple(page_paths),
+                termination_reason=term_reason,
+                limited_by_max_pages=limited,
+                requested_max_pages=req_max_pages,
                 error=code_error,
             )
         )

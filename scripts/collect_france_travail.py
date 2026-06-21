@@ -424,6 +424,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         offers_client = FranceTravailOffersClient(config=config, auth_client=auth_client)
         paginator = FranceTravailOffersPaginator(offers_client=offers_client)
 
+        # Check if --max-pages was explicitly supplied by the user
+        is_voluntary = any(arg.startswith("--max-pages") for arg in raw_args)
+
         # --- Collect ---
         try:
             result = collect_offers_by_rome_codes(
@@ -432,6 +435,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 paginator=paginator,
                 output_directory=output_dir,
                 max_pages=max_pages,
+                is_voluntary_limit=is_voluntary,
             )
         except Exception as exc:
             if isinstance(exc, FranceTravailCollectionError):

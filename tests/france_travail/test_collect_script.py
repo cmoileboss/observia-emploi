@@ -398,6 +398,49 @@ class TestFranceTravailCollectScriptMain(unittest.TestCase):
             collect_script.build_search_params(["motsCles=python", "MOTSCLES=java"])
         self.assertIn("Paramètre dupliqué", str(ctx.exception))
 
+    @patch("scripts.collect_france_travail.collect_offers_by_rome_codes")
+    @patch("scripts.collect_france_travail.FranceTravailOffersPaginator")
+    @patch("scripts.collect_france_travail.FranceTravailOffersClient")
+    @patch("scripts.collect_france_travail.FranceTravailAuthClient")
+    @patch("scripts.collect_france_travail.FranceTravailConfig.from_environ")
+    @patch("scripts.collect_france_travail.load_dotenv")
+    @patch("scripts.collect_france_travail.Path.is_file")
+    @patch("scripts.collect_france_travail.read_local_rome_codes")
+    def test_cli_max_pages_voluntary(
+        self, mock_read_codes, mock_is_file, mock_load_dotenv,
+        mock_from_environ, mock_auth_class, mock_client_class,
+        mock_paginator_class, mock_collect
+    ):
+        """is_voluntary_limit is True if --max-pages is in argv, and False otherwise."""
+        mock_is_file.return_value = True
+        mock_read_codes.return_value = ["M1805"]
+        mock_from_environ.return_value = MagicMock()
+        mock_collect.return_value = MagicMock(complete=True, codes_results=[])
+
+        # Test case 1: --max-pages passed explicitly
+        collect_script.main(["--codes-file", "codes.csv", "--max-pages", "1", "--output-directory", "dummy"])
+        mock_collect.assert_called_with(
+            rome_codes=["M1805"],
+            offers_client=mock_client_class.return_value,
+            paginator=mock_paginator_class.return_value,
+            output_directory=Path("dummy"),
+            max_pages=1,
+            is_voluntary_limit=True,
+        )
+
+        mock_collect.reset_mock()
+
+        # Test case 2: --max-pages not passed (default limit is strict safety limit)
+        collect_script.main(["--codes-file", "codes.csv", "--output-directory", "dummy"])
+        mock_collect.assert_called_with(
+            rome_codes=["M1805"],
+            offers_client=mock_client_class.return_value,
+            paginator=mock_paginator_class.return_value,
+            output_directory=Path("dummy"),
+            max_pages=10,
+            is_voluntary_limit=False,
+        )
+
 
 class TestFranceTravailCollectScriptSubprocess(unittest.TestCase):
     """Test executing the script as a subprocess (simulating real invocation)."""
