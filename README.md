@@ -73,6 +73,8 @@ Il faudrait dans l'ordre :
 Lien : https://www.francetravail.io
 Doc API : https://francetravail.io/produits-partages/catalogue/offres-emploi/documentation#/api-reference/
 
+Une documentation complète de l'implémentation, du fonctionnement, de l'usage, des commandes et des résultats réels de cette brique est disponible dans [docs/france_travail.md](docs/france_travail.md).
+
 ### Mon Compte Formation
 
 Fichiers CSV exportés depuis Mon Compte Formation (data.gouv.fr).
