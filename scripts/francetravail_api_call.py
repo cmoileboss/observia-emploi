@@ -242,4 +242,5 @@ if __name__ == "__main__":
     #             future.result()
     #         except Exception:
     #             logger.exception("Erreur lors du traitement du code ROME %s", rome_code)
+
     logger.info("Récupération des offres France Travail terminée.")
