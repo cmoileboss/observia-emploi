@@ -62,7 +62,6 @@ def search_offres_by_rome(code_rome: str):
     Args:
         code_rome (str): Le code ROME pour lequel rechercher les offres."""
     token = get_access_token()
-    total_offers = []
     min_range = 0
     max_range = 149
     while True:
