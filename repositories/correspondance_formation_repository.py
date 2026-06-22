@@ -75,6 +75,7 @@ class RomeCodeRepository(BaseRepository[RomeCodeModel]):
             return existing
         rome = RomeCodeModel(code_rome=code_rome, intitule_rome=intitule_rome)
         self.add(rome)
+        self.db.flush()  # move to identity map so subsequent calls in the same session find it
         return rome
     
     def list_formations_by_rome(self, code_rome: str) -> list[FormationModel]:
