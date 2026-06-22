@@ -87,10 +87,10 @@ Une fois les données prêtes dans la base de données, l'API FastAPI sera fonct
 python main.py
 ```
 
-## Routes exposées (pas encore faits)
+## Routes exposées
 
-- `/job/jobId/organismes` : obtenir la liste des organismes proposant des formations intéressantes pour le job `jobId`, classées par ordre décroissant du nombre d'entrées en formation
-- `/bestskills` : obtenir les compétences les plus listées dans les offres France Travail ; pour chaque compétence, on renvoie le nombre d'offres associées ainsi que la liste des formations intéressantes
+- `/job/jobId/organismes` : obtenir la liste des organismes proposant des formations intéressantes pour le job `jobId`, classées par ordre décroissant du nombre d'entrées en formation pour ceux venant du fichier csv
+- `/bestskills` : obtenir les compétences les plus listées dans les offres France Travail ; pour chaque compétence, on renvoie le nombre d'offres associées
 - `/nboffers` : renvoyer le nombre d'offres et la somme des entrées en formation par région et par trimestre
 
 ## Sources de données

@@ -33,6 +33,20 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             query = query.filter(FTOffreModel.rome_code == rome_code)
         return query.all()
 
+    def count_offres(self):
+        """Retourne le nombre total d'offres."""
+        return self.db.query(FTOffreModel).count()
+
+    def count_offres_by_code_postal(self) -> list[tuple[str, int]]:
+        """Retourne le nombre d'offres groupé par code postal."""
+        from sqlalchemy import func
+        return (
+            self.db.query(FTOffreModel.lieu_code_postal, func.count(FTOffreModel.id))
+            .filter(FTOffreModel.lieu_code_postal.isnot(None))
+            .group_by(FTOffreModel.lieu_code_postal)
+            .all()
+        )
+
     def attach_formation(self, offre: FTOffreModel, formation: FTFormationModel, commit: bool = True) -> FTOffreModel:
         """Associe une formation existante à une offre."""
         if formation not in offre.formations:
