@@ -34,9 +34,8 @@ DATABASE_ENV_VARS = (
 PIPELINE_ENV_VARS = DATABASE_ENV_VARS + (
     "RAW_DATA_FOLDER",
     "PROCESSED_DATA_FOLDER",
-    "X-INSEE-Api-Key-Integration",
     "CLIENT_ID",
-    "SECRET_KEY",
+    "SECRET_ID",
 )
 
 

@@ -37,7 +37,7 @@ departements = [
 
 def get_access_token() -> str:
     """Obtient un token d'accès OAuth2 pour l'API France Travail.
-    Nécessite les variables d'environnement CLIENT_ID et SECRET_KEY.
+    Nécessite les variables d'environnement CLIENT_ID et SECRET_ID.
     Returns:
         str: Le token d'accès à utiliser dans les requêtes API."""
     response = requests.post(
@@ -76,8 +76,13 @@ def search_offres_by_rome(code_rome: str):
             },
             timeout=30,
         )
+            response.raise_for_status()
         except requests.RequestException as e:
             logger.error("Erreur lors de la requête pour le code ROME %s : %s", code_rome, e)
+            break
+
+        if response.status_code == 204:
+            logger.info("Aucune offre (204 No Content) pour le code ROME %s.", code_rome)
             break
 
         content_range = response.headers.get("Content-Range")
@@ -130,9 +135,15 @@ def get_offres_by_rome_and_departement(code_rome: str):
                     },
                     timeout=30,
                 )
+                response.raise_for_status()
             except requests.RequestException as e:
                 logger.error("Erreur lors de la requête pour le code ROME %s et le departement %s : %s", code_rome, departement, e)
                 break
+
+            if response.status_code == 204:
+                logger.info("Aucune offre (204 No Content) pour le code ROME %s et le département %s.", code_rome, departement)
+                break
+
             content_range = response.headers.get("Content-Range")
             if content_range and content_range.split("/")[1] == "0":
                 logger.info(
