@@ -105,8 +105,7 @@ class Service():
         offres = self.offre_repository.get_all()
         skill_count: dict[str, int] = {}
         for offre in offres:
-            for offre_competence in offre.offre_competences:
-                competence = offre_competence.competence
+            for competence in offre.competences:
                 if competence:
                     skill_count[competence.libelle] = skill_count.get(competence.libelle, 0) + 1
         return dict(sorted(skill_count.items()))

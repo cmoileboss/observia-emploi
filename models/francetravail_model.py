@@ -12,16 +12,12 @@ offre_formation_association = Table(
     Column("formation_id", Integer, ForeignKey("francetravail_formations.id"), primary_key=True),
 )
 
-
-class FTOffreCompetenceModel(Base):
-    __tablename__ = "francetravail_offre_competence"
-
-    offre_id = Column(String, ForeignKey("francetravail_offres.id"), primary_key=True)
-    competence_id = Column(Integer, ForeignKey("francetravail_competences.id"), primary_key=True)
-    exigence = Column(String)
-
-    offre = relationship("FTOffreModel", back_populates="offre_competences")
-    competence = relationship("FTCompetenceModel", back_populates="offre_competences")
+offre_competence_association = Table(
+    "francetravail_offre_competence",
+    Base.metadata,
+    Column("offre_id", String, ForeignKey("francetravail_offres.id"), primary_key=True),
+    Column("competence_id", Integer, ForeignKey("francetravail_competences.id"), primary_key=True),
+)
 
 
 class FTOffreModel(Base):
@@ -37,7 +33,7 @@ class FTOffreModel(Base):
     entreprise_nom = Column(String)
 
     formations = relationship("FTFormationModel", secondary=offre_formation_association, back_populates="offres")
-    offre_competences = relationship("FTOffreCompetenceModel", back_populates="offre")
+    competences = relationship("FTCompetenceModel", secondary=offre_competence_association, back_populates="offres")
     rome = relationship("RomeCodeModel", back_populates="offres")
 
 
@@ -49,7 +45,6 @@ class FTFormationModel(Base):
     domaine_libelle = Column(String)
     niveau_libelle = Column(String)
     commentaire = Column(String)
-    exigence = Column(String)
 
     offres = relationship("FTOffreModel", secondary=offre_formation_association, back_populates="formations")
 
@@ -61,4 +56,4 @@ class FTCompetenceModel(Base):
     code = Column(String)
     libelle = Column(String)
 
-    offre_competences = relationship("FTOffreCompetenceModel", back_populates="competence")
+    offres = relationship("FTOffreModel", secondary=offre_competence_association, back_populates="competences")

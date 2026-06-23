@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from models.francetravail_model import FTCompetenceModel, FTFormationModel, FTOffreCompetenceModel, FTOffreModel
+from models.francetravail_model import FTCompetenceModel, FTFormationModel, FTOffreModel
 from repositories.base_repository import BaseRepository
 
 
@@ -56,13 +56,10 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, exigence: str | None = None, commit: bool = True) -> FTOffreModel:
-        """Associe une compétence existante à une offre avec son niveau d'exigence."""
-        already_linked = any(oc.competence_id == competence.id for oc in offre.offre_competences)
-        if not already_linked:
-            offre.offre_competences.append(
-                FTOffreCompetenceModel(competence=competence, exigence=exigence)
-            )
+    def attach_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, commit: bool = True) -> FTOffreModel:
+        """Associe une compétence existante à une offre."""
+        if competence not in offre.competences:
+            offre.competences.append(competence)
         if commit:
             self.db.commit()
             self.db.refresh(offre)
@@ -82,7 +79,7 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
 
         return self.attach_formation(offre, existing_formation)
 
-    def attach_or_create_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, exigence: str | None = None) -> FTOffreModel:
+    def attach_or_create_competence(self, offre: FTOffreModel, competence: FTCompetenceModel) -> FTOffreModel:
         """Associe une compétence à l'offre en la créant si nécessaire."""
         competence_repository = FTCompetenceRepository(self.db)
         code = competence.code
@@ -94,7 +91,7 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
         if existing_competence is None:
             existing_competence = self.add(competence)
 
-        return self.attach_competence(offre, existing_competence, exigence=exigence)
+        return self.attach_competence(offre, existing_competence)
 
 
 class FTFormationRepository(BaseRepository[FTFormationModel]):

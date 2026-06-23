@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 import pandas as pd
 from logging_config import configure_logging
 
-from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel, FTOffreCompetenceModel
-from repositories.francetravail_repository import FTOffreRepository
+from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel
+from repositories.francetravail_repository import FTOffreRepository, FTFormationRepository, FTCompetenceRepository
 from repositories.correspondance_formation_repository import RomeCodeRepository
 from postgres_connection import SessionLocal, Base, engine
 
@@ -170,8 +170,10 @@ def populate_database_with_offres(offres):
         offres (list): Liste des offres à injecter.
     """
     db = SessionLocal()
-    repository = FTOffreRepository(db)
+    offre_repository = FTOffreRepository(db)
     rome_repository = RomeCodeRepository(db)
+    formation_repository = FTFormationRepository(db)
+    competence_repository = FTCompetenceRepository(db)
     for offre in offres:
         rome_code = offre.get("romeCode")
         rome = None
@@ -190,25 +192,35 @@ def populate_database_with_offres(offres):
         )
         if rome is not None:
             offre_model.rome = rome
-        for formation in offre.get("formations", []):
-            formation_model = FTFormationModel(
-                code_formation=formation.get("codeFormation"),
-                domaine_libelle=formation.get("domaineLibelle"),
-                niveau_libelle=formation.get("niveauLibelle"),
-                commentaire=formation.get("commentaire"),
-                exigence=formation.get("exigence"),
-            )
-            offre_model.formations.append(formation_model)
-        for competence in offre.get("competences", []):
-            competence_model = FTCompetenceModel(
-                code=competence.get("code"),
-                libelle=competence.get("libelle"),
-            )
-            offre_model.offre_competences.append(FTOffreCompetenceModel(
-                competence=competence_model,
-                exigence=competence.get("exigence"),
-            ))
-        repository.create_offre(offre_model)
+
+        saved_offre = offre_repository.create_offre(offre_model)
+
+        for formation_data in offre.get("formations", []):
+            code_formation = formation_data.get("codeFormation")
+            formation = formation_repository.find_by_code(code_formation) if code_formation else None
+            if formation is None:
+                formation = FTFormationModel(
+                    code_formation=code_formation,
+                    domaine_libelle=formation_data.get("domaineLibelle"),
+                    niveau_libelle=formation_data.get("niveauLibelle"),
+                    commentaire=formation_data.get("commentaire"),
+                )
+                db.add(formation)
+                db.flush()
+            offre_repository.attach_formation(saved_offre, formation, commit=False)
+
+        for competence_data in offre.get("competences", []):
+            code = competence_data.get("code")
+            competence = competence_repository.find_by_code(code) if code else None
+            if competence is None:
+                competence = FTCompetenceModel(
+                    code=code,
+                    libelle=competence_data.get("libelle"),
+                )
+                db.add(competence)
+                db.flush()
+            offre_repository.attach_competence(saved_offre, competence, commit=False)
+
     db.commit()
     db.close()
 
