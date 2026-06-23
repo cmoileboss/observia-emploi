@@ -237,3 +237,294 @@ def test_orchestrer_batch_canonicalisation(mock_collecter_offres, tmp_path):
 
     assert len(offers) == 1
     assert offers[0]["source_id"] == "639194"
+
+
+def test_valider_batch_parent_failures(tmp_path):
+    from scripts.collect_free_work_batch import valider_batch_parent
+
+    # Patch PROJECT_ROOT inside scripts.collect_free_work_batch
+    with patch("scripts.collect_free_work_batch.PROJECT_ROOT", tmp_path):
+        # Missing directory
+        missing_dir = tmp_path / "does_not_exist"
+        with pytest.raises(FileNotFoundError, match="Dossier parent introuvable"):
+            valider_batch_parent(missing_dir)
+
+        # Missing manifest
+        empty_dir = tmp_path / "empty_dir"
+        empty_dir.mkdir()
+        (empty_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(FileNotFoundError, match="batch_manifest.json introuvable"):
+            valider_batch_parent(empty_dir)
+
+        # Missing offers file
+        manifest_only_dir = tmp_path / "manifest_only"
+        manifest_only_dir.mkdir()
+        (manifest_only_dir / "batch_manifest.json").write_text("{}", encoding="utf-8")
+        with pytest.raises(FileNotFoundError, match="offers_deduplicated.json introuvable"):
+            valider_batch_parent(manifest_only_dir)
+
+        # Invalid manifest JSON
+        invalid_json_dir = tmp_path / "invalid_json"
+        invalid_json_dir.mkdir()
+        (invalid_json_dir / "batch_manifest.json").write_text("{invalid", encoding="utf-8")
+        (invalid_json_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(ValueError, match="Fichier batch_manifest.json parent invalide"):
+            valider_batch_parent(invalid_json_dir)
+
+        # Source not free_work
+        wrong_source_dir = tmp_path / "wrong_source"
+        wrong_source_dir.mkdir()
+        (wrong_source_dir / "batch_manifest.json").write_text(json.dumps({"source": "other"}), encoding="utf-8")
+        (wrong_source_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(ValueError, match="Source invalide dans le manifeste parent"):
+            valider_batch_parent(wrong_source_dir)
+
+        # Missing queries
+        no_queries_dir = tmp_path / "no_queries"
+        no_queries_dir.mkdir()
+        (no_queries_dir / "batch_manifest.json").write_text(json.dumps({"source": "free_work"}), encoding="utf-8")
+        (no_queries_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(ValueError, match="Clé 'queries' absente ou invalide"):
+            valider_batch_parent(no_queries_dir)
+
+        # Duplicate ROME codes in manifest
+        dup_romes_dir = tmp_path / "dup_romes"
+        dup_romes_dir.mkdir()
+        manifest_data = {
+            "source": "free_work",
+            "queries": [
+                {"rome_code": "M1805", "status": "success", "raw_run_directory": "dir1"},
+                {"rome_code": "M1805", "status": "failed"}
+            ],
+            "queries_attempted": 2,
+            "queries_succeeded": 1,
+            "queries_failed": 1
+        }
+        (dup_romes_dir / "batch_manifest.json").write_text(json.dumps(manifest_data), encoding="utf-8")
+        (dup_romes_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(ValueError, match="Code ROME dupliqué dans le manifeste parent"):
+            valider_batch_parent(dup_romes_dir)
+
+        # No failed queries (nothing to resume)
+        no_fail_dir = tmp_path / "no_fail"
+        no_fail_dir.mkdir()
+        success_dir = no_fail_dir / "success_dir"
+        success_dir.mkdir()
+        (success_dir / "offers_merged_raw.json").write_text("[]", encoding="utf-8")
+        manifest_data = {
+            "source": "free_work",
+            "queries": [
+                {"rome_code": "M1805", "status": "success", "raw_run_directory": "no_fail/success_dir"}
+            ],
+            "queries_attempted": 1,
+            "queries_succeeded": 1,
+            "queries_failed": 0
+        }
+        (no_fail_dir / "batch_manifest.json").write_text(json.dumps(manifest_data), encoding="utf-8")
+        (no_fail_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(ValueError, match="Le batch parent ne contient aucune requête en échec"):
+            valider_batch_parent(no_fail_dir)
+
+
+def test_should_retry_exception():
+    from scripts.collect_free_work_batch import should_retry_exception
+    import requests
+
+    # Not a RequestException
+    assert should_retry_exception(ValueError("test")) is False
+
+    # RequestException with 502 response
+    response_502 = requests.Response()
+    response_502.status_code = 502
+    exc_502 = requests.RequestException(response=response_502)
+    assert should_retry_exception(exc_502) is True
+
+    # RequestException with 400 response
+    response_400 = requests.Response()
+    response_400.status_code = 400
+    exc_400 = requests.RequestException(response=response_400)
+    assert should_retry_exception(exc_400) is False
+
+    # RequestException wrapping 502 string message (fallback)
+    exc_fallback = requests.RequestException("502 Server Error: Bad Gateway")
+    assert should_retry_exception(exc_fallback) is True
+
+
+@patch("scripts.collect_free_work_batch.time.sleep")
+@patch("scripts.collect_free_work_batch.collecter_offres")
+def test_collecter_avec_retry_success(mock_collecter, mock_sleep):
+    from scripts.collect_free_work_batch import collecter_avec_retry
+    import requests
+
+    mock_collecter.side_effect = [
+        requests.RequestException("502 Bad Gateway"),
+        Path("success_path")
+    ]
+
+    res_path, attempts = collecter_avec_retry("Dev", max_attempts=3)
+    assert res_path == Path("success_path")
+    assert attempts == 2
+    mock_sleep.assert_called_once_with(5.0)
+
+
+@patch("scripts.collect_free_work_batch.time.sleep")
+@patch("scripts.collect_free_work_batch.collecter_offres")
+def test_collecter_avec_retry_persistent_failure(mock_collecter, mock_sleep):
+    from scripts.collect_free_work_batch import collecter_avec_retry
+    import requests
+
+    mock_collecter.side_effect = [
+        requests.RequestException("502 Bad Gateway"),
+        requests.RequestException("502 Bad Gateway"),
+    ]
+
+    with pytest.raises(requests.RequestException):
+        collecter_avec_retry("Dev", max_attempts=2)
+    assert mock_sleep.call_count == 1
+
+
+@patch("scripts.collect_free_work_batch.time.sleep")
+@patch("scripts.collect_free_work_batch.collecter_offres")
+def test_orchestrer_batch_resume_success(mock_collecter_offres, mock_sleep, tmp_path):
+    csv_content = "code_rome;intitule_rome\nM1805;Dev\nM1802;Support\n"
+    csv_file = tmp_path / "selection.csv"
+    csv_file.write_text(csv_content, encoding="utf-8")
+
+    # Parent batch setups
+    parent_dir = tmp_path / "parent_batch"
+    parent_dir.mkdir()
+
+    run_reused_dir = parent_dir / "run_reused"
+    run_reused_dir.mkdir()
+    (run_reused_dir / "offers_merged_raw.json").write_text(json.dumps([
+        {"id": "1", "title": "Dev 1", "elasticHighlights": "Highlight 1"}
+    ]), encoding="utf-8")
+
+    manifest_data = {
+        "source": "free_work",
+        "batch_id": "parent_id",
+        "queries": [
+            {
+                "rome_code": "M1805",
+                "rome_label": "Dev",
+                "query": "Dev",
+                "status": "success",
+                "raw_run_directory": str(run_reused_dir.relative_to(tmp_path)).replace("\\", "/")
+            },
+            {
+                "rome_code": "M1802",
+                "rome_label": "Support",
+                "query": "Support",
+                "status": "failed",
+                "raw_run_directory": None
+            }
+        ],
+        "queries_attempted": 2,
+        "queries_succeeded": 1,
+        "queries_failed": 1
+    }
+    (parent_dir / "batch_manifest.json").write_text(json.dumps(manifest_data), encoding="utf-8")
+    (parent_dir / "offers_deduplicated.json").write_text("[]", encoding="utf-8")
+
+    # Mock new run directory for failed ROME (M1802)
+    new_run_dir = tmp_path / "new_run"
+    new_run_dir.mkdir()
+    (new_run_dir / "offers_merged_raw.json").write_text(json.dumps([
+        {"id": "2", "title": "Support 1"}
+    ]), encoding="utf-8")
+
+    mock_collecter_offres.side_effect = [new_run_dir]
+
+    # Run resume orchestrator with patched PROJECT_ROOT
+    with patch("scripts.collect_free_work_batch.PROJECT_ROOT", tmp_path):
+        new_batch_dir = orchestrer_batch(
+            rome_codes_filter=None,
+            delay_seconds=0.0,
+            rome_csv_path=csv_file,
+            resume_parent_path=parent_dir,
+            max_attempts=2
+        )
+
+    assert new_batch_dir.exists()
+    # Check parent batch is unmodified
+    assert (parent_dir / "batch_manifest.json").exists()
+
+    with (new_batch_dir / "batch_manifest.json").open("r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest["batch_complete"] is True
+    assert manifest["parent_batch_id"] == "parent_id"
+    assert manifest["resume_mode"] is True
+    assert manifest["queries_reused"] == 1
+    assert manifest["queries_retried"] == 1
+    assert manifest["retried_rome_codes"] == ["M1802"]
+    assert manifest["remaining_failed_queries"] == 0
+
+    with (new_batch_dir / "offers_deduplicated.json").open("r", encoding="utf-8") as f:
+        offers = json.load(f)
+
+    assert len(offers) == 2
+    assert {o["source_id"] for o in offers} == {"1", "2"}
+
+
+@patch("scripts.collect_free_work_batch.time.sleep")
+@patch("scripts.collect_free_work_batch.collecter_offres")
+def test_orchestrer_batch_payload_conflict_diagnostics(mock_collecter_offres, mock_sleep, tmp_path):
+    csv_content = "code_rome;intitule_rome\nM1805;Dev\nM1802;Support\n"
+    csv_file = tmp_path / "selection.csv"
+    csv_file.write_text(csv_content, encoding="utf-8")
+
+    run1_dir = tmp_path / "run1"
+    run1_dir.mkdir()
+    offer1 = {
+        "id": "1",
+        "title": "Title 1",
+        "elasticHighlights": "Highlight A",
+        "location": {"@id": "/.well-known/genid/abc", "locality": "Paris"}
+    }
+    (run1_dir / "offers_merged_raw.json").write_text(json.dumps([offer1]), encoding="utf-8")
+
+    run2_dir = tmp_path / "run2"
+    run2_dir.mkdir()
+    # Context-only differences
+    offer1_dup1 = {
+        "id": "1",
+        "title": "Title 1",
+        "elasticHighlights": "Highlight B",
+        "location": {"@id": "/.well-known/genid/xyz", "locality": "Paris"}
+    }
+    (run2_dir / "offers_merged_raw.json").write_text(json.dumps([offer1_dup1]), encoding="utf-8")
+
+    mock_collecter_offres.side_effect = [run1_dir, run2_dir]
+
+    processed_dir = orchestrer_batch(None, 0.0, csv_file)
+
+    # Verify diagnostic file exists
+    diag_file = processed_dir / "payload_conflict_diagnostics.json"
+    assert diag_file.exists()
+
+    with diag_file.open("r", encoding="utf-8") as f:
+        diagnostics = json.load(f)
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["source_id"] == "1"
+    assert diagnostics[0]["only_search_context_fields_differ"] is True
+    assert sorted(diagnostics[0]["differing_top_level_keys"]) == ["elasticHighlights", "location"]
+
+    with (processed_dir / "batch_manifest.json").open("r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest["duplicate_payloads_identical"] == 0
+    assert manifest["duplicate_payloads_search_context_only"] == 1
+    assert manifest["duplicate_payloads_business_fields_different"] == 0
+
+
+def test_valider_max_attempts():
+    from scripts.collect_free_work_batch import valider_max_attempts
+    import argparse
+    assert valider_max_attempts("1") == 1
+    assert valider_max_attempts("5") == 5
+    with pytest.raises(argparse.ArgumentTypeError, match="n'est pas un entier valide"):
+        valider_max_attempts("invalid")
+    with pytest.raises(argparse.ArgumentTypeError, match="erreur : --max-attempts doit être supérieur ou égal à 1"):
+        valider_max_attempts("0")
