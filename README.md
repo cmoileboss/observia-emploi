@@ -202,6 +202,7 @@ erDiagram
 	ROME_CODE ||--o{ FRANCETRAVAIL_OFFRES : reference
 	ROME_CODE ||--o{ FORMATION_ROME : associe
 	FORMATION ||--o{ FORMATION_ROME : associe
+	FORMATION ||--o{ FORMATION_FLUX_MENSUEL : a
 
 	FRANCETRAVAIL_OFFRES {
 		string id PK
@@ -225,14 +226,12 @@ erDiagram
 		string domaine_libelle
 		string niveau_libelle
 		string commentaire
-		string exigence
 	}
 
 	FRANCETRAVAIL_COMPETENCES {
 		int id PK
 		string code
 		string libelle
-		string exigence
 	}
 
 	FRANCETRAVAIL_OFFRE_FORMATION {
@@ -243,7 +242,6 @@ erDiagram
 	FRANCETRAVAIL_OFFRE_COMPETENCE {
 		string offre_id PK, FK
 		int competence_id PK, FK
-		string exigence
 	}
 
 	FORMATION_ROME {
@@ -262,6 +260,16 @@ erDiagram
 		string nom_entreprise
 		string code_postal
 		string region
+	}
+
+	FORMATION_FLUX_MENSUEL {
+		int id PK
+		int formation_id FK
+		int annee
+		int mois
+		int entrees_formation
+		int sorties_realisation_partielle
+		int sorties_realisation_totale
 	}
 ```  
   

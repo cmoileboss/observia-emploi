@@ -108,4 +108,4 @@ class Service():
             for competence in offre.competences:
                 if competence:
                     skill_count[competence.libelle] = skill_count.get(competence.libelle, 0) + 1
-        return dict(sorted(skill_count.items()))
+        return dict(sorted(((k, v) for k, v in skill_count.items() if v > 1), key=lambda x: x[1], reverse=True))
