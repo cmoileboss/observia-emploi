@@ -153,7 +153,7 @@ class Service():
 
     def get_formations_by_offre_id(self, offre_id: str) -> list[FormationModel]:
         """Retourne les formations liées au code ROME d'une offre France Travail."""
-        offre = self.offre_repository.get_by_id(offre_id)
+        offre = self.offre_repository.get_by_francetravail_id(offre_id)
         if offre is None:
             return { "error": f"Aucune offre trouvée avec l'identifiant {offre_id}" }
         rome_formations = self.rome_repository.list_formations_by_rome(offre.rome_code)

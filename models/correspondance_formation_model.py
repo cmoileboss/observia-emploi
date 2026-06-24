@@ -26,7 +26,6 @@ class FormationModel(Base):
     nom_entreprise = Column(String)
     code_postal = Column(String)
     region = Column(String)
-    ft_code_formation = Column(String)
     commentaire = Column(String)
 
     __table_args__ = (

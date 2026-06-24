@@ -221,7 +221,7 @@ def populate_database_with_offres(offres):
             formation = formation_repository.find_by_code(code_formation)
             if formation is None:
                 formation = FormationModel(
-                    ft_code_formation=code_formation,
+                    code_rncp=code_formation,
                     intitule_certification=formation_data.get("domaineLibelle").strip() if formation_data.get("domaineLibelle") else None,
                     niveau_rncp=normalize_niveau_rncp(formation_data.get("niveauLibelle")),
                     commentaire=formation_data.get("commentaire").strip() if formation_data.get("commentaire") else None,
