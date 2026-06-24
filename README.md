@@ -47,8 +47,6 @@ Variables à renseigner dans `.env` :
 - `DATABASE_NAME` : nom de la base de données PostgreSQL, par défaut `observia_emploi_db`
 - `DATABASE_USER` : utilisateur PostgreSQL utilisé pour accéder à la base de données
 - `DATABASE_PASSWORD` : mot de passe de l'utilisateur PostgreSQL utilisé pour accéder à la base de données
-- `LOG_LEVEL` : niveau des logs (`DEBUG`, `INFO`, `WARNING`, `ERROR`), par défaut `INFO`
-- `LOG_FILE` : chemin du fichier de logs, par défaut `logs/app.log`
 
 ### Préparation des données
 
@@ -172,12 +170,13 @@ Lien : https://www.welcometothejungle.com/fr/pages/terms
 | Règle | Détail |
 |---|---|
 | Normalisation de `code_rncp` | Suppression du préfixe `RNCP` pour uniformisation avec `entree_sortie_formation` |
+| Filtre sur les codes ROME | Suppression des codes ROME ne commençant pas par `M` afin de ne conserver que les formations liées à l'informatique |
 
 #### Merge
 
 Jointure `inner` sur `code_rncp` : seules les certifications du secteur tech (présentes dans les deux fichiers) sont conservées.
 
-**Réduction du volume de données :** > 749 000 lignes → 5 167 lignes après nettoyage et merge.
+**Réduction du volume de données :** > 749 000 lignes → 4 429 lignes après nettoyage et merge, soit 18 codes ROME différents.
 
 ### France Travail
  
@@ -195,17 +194,19 @@ Points d'attention :
 
 ```mermaid
 erDiagram
-	FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
-	FRANCETRAVAIL_FORMATIONS ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
-	FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
-	FRANCETRAVAIL_COMPETENCES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
-	ROME_CODE ||--o{ FRANCETRAVAIL_OFFRES : reference
+	OFFRES ||--o{ OFFRE_FORMATION : associe
+	FORMATIONS ||--o{ OFFRE_FORMATION : associe
+	OFFRES ||--o{ OFFRE_COMPETENCE : requiert
+	COMPETENCES ||--o{ OFFRE_COMPETENCE : requiert
+	ROME_CODE ||--o{ OFFRES : reference
 	ROME_CODE ||--o{ FORMATION_ROME : associe
-	FORMATION ||--o{ FORMATION_ROME : associe
-	FORMATION ||--o{ FORMATION_FLUX_MENSUEL : a
+	FORMATIONS ||--o{ FORMATION_ROME : associe
+	FORMATIONS ||--o{ FORMATION_FLUX_MENSUEL : a
 
-	FRANCETRAVAIL_OFFRES {
+	OFFRES {
 		string id PK
+		string francetravail_id
+		string freework_id
 		string rome_code FK
 		string intitule
 		string description
@@ -220,36 +221,7 @@ erDiagram
 		string intitule_rome
 	}
 
-	FRANCETRAVAIL_FORMATIONS {
-		int id PK
-		string code_formation
-		string domaine_libelle
-		string niveau_libelle
-		string commentaire
-	}
-
-	FRANCETRAVAIL_COMPETENCES {
-		int id PK
-		string code
-		string libelle
-	}
-
-	FRANCETRAVAIL_OFFRE_FORMATION {
-		string offre_id PK, FK
-		int formation_id PK, FK
-	}
-
-	FRANCETRAVAIL_OFFRE_COMPETENCE {
-		string offre_id PK, FK
-		int competence_id PK, FK
-	}
-
-	FORMATION_ROME {
-		int formation_id PK, FK
-		string code_rome PK, FK
-	}
-
-	FORMATION {
+	FORMATIONS {
 		int id PK
 		string intitule_certification
 		string siret_of_contractant
@@ -260,6 +232,29 @@ erDiagram
 		string nom_entreprise
 		string code_postal
 		string region
+		string ft_code_formation
+		string commentaire
+	}
+
+	COMPETENCES {
+		int id PK
+		string code
+		string libelle
+	}
+
+	OFFRE_FORMATION {
+		string offre_id PK, FK
+		int formation_id PK, FK
+	}
+
+	OFFRE_COMPETENCE {
+		string offre_id PK, FK
+		int competence_id PK, FK
+	}
+
+	FORMATION_ROME {
+		int formation_id PK, FK
+		string code_rome PK, FK
 	}
 
 	FORMATION_FLUX_MENSUEL {

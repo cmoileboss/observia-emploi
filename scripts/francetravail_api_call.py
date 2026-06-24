@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -15,6 +14,19 @@ from models.francetravail_model import CompetenceModel, OffreModel
 from repositories.francetravail_repository import CompetenceRepository, OffreFormationRepository, OffreRepository
 from repositories.correspondance_formation_repository import RomeCodeRepository
 from postgres_connection import SessionLocal, Base, engine
+from enums.NiveauRNCPEnum import NiveauRNCP
+
+def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
+    if not niveau_libelle:
+        return None
+
+    cleaned = niveau_libelle.strip()
+
+    for niveau in NiveauRNCP:
+        if niveau.value == cleaned:
+            return niveau.name
+
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +200,7 @@ def populate_database_with_offres(offres):
             rome = rome_repository.get_or_create(rome_code, offre.get("romeLibelle"))
 
         offre_model = OffreModel(
-            id=offre["id"],
+            francetravail_id=offre["id"],
             intitule=offre["intitule"],
             description=offre.get("description").strip() if offre.get("description") else None,
             lieu_code_postal=offre.get("lieuTravail", {}).get("codePostal"),
@@ -209,9 +221,9 @@ def populate_database_with_offres(offres):
             formation = formation_repository.find_by_code(code_formation)
             if formation is None:
                 formation = FormationModel(
-                    code_formation=code_formation,
-                    domaine_libelle=formation_data.get("domaineLibelle").strip() if formation_data.get("domaineLibelle") else None,
-                    niveau_libelle=formation_data.get("niveauLibelle").strip() if formation_data.get("niveauLibelle") else None,
+                    ft_code_formation=code_formation,
+                    intitule_certification=formation_data.get("domaineLibelle").strip() if formation_data.get("domaineLibelle") else None,
+                    niveau_rncp=normalize_niveau_rncp(formation_data.get("niveauLibelle")),
                     commentaire=formation_data.get("commentaire").strip() if formation_data.get("commentaire") else None,
                 )
                 db.add(formation)

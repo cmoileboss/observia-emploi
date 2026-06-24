@@ -23,10 +23,10 @@ offre_competence_association = Table(
 class OffreModel(Base):
     __tablename__ = "offres"
 
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True, autoincrement=True)
     francetravail_id = Column(String, unique=True)
     freework_id = Column(String, unique=True)
-    rome_code = Column(String, ForeignKey("rome_code.code_rome"), nullable=False)
+    rome_code = Column(String, ForeignKey("rome_code.code_rome"))
     intitule = Column(String)
     description = Column(String)
     lieu_code_postal = Column(String)

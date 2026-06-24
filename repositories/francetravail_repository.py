@@ -69,7 +69,7 @@ class OffreRepository(BaseRepository[OffreModel]):
     def attach_or_create_formation(self, offre: OffreModel, formation: FormationModel) -> OffreModel:
         """Associe une formation à l'offre en la créant si nécessaire."""
         formation_repository = OffreFormationRepository(self.db)
-        code_formation = formation.code_formation
+        code_formation = formation.ft_code_formation
 
         existing_formation = None
         if code_formation:
@@ -103,7 +103,7 @@ class OffreFormationRepository(BaseRepository[FormationModel]):
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
         """Recherche une formation par son code métier."""
-        return self.db.query(FormationModel).filter(FormationModel.code_formation == code_formation).first()
+        return self.db.query(FormationModel).filter(FormationModel.ft_code_formation == code_formation).first()
 
 
 class CompetenceRepository(BaseRepository[CompetenceModel]):
@@ -115,8 +115,3 @@ class CompetenceRepository(BaseRepository[CompetenceModel]):
     def find_by_code(self, code: str) -> CompetenceModel | None:
         """Recherche une compétence par son code métier."""
         return self.db.query(CompetenceModel).filter(CompetenceModel.code == code).first()
-
-
-FTOffreRepository = OffreRepository
-FTFormationRepository = OffreFormationRepository
-FTCompetenceRepository = CompetenceRepository
