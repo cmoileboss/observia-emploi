@@ -120,17 +120,50 @@ def write_progress(stage: str, stage_number: int, current: int, total: int, mess
     }
 
     dest_path = PROJECT_ROOT / "data" / "processed" / "matching" / "progress.json"
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    content_bytes = json.dumps(progress_data, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        content_bytes = json.dumps(progress_data, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+    except Exception as e:
+        print(f"Warning: Failed to format progress data: {e}", file=sys.stderr)
+        return
 
-    # Write atomically
-    temp_path = dest_path.with_name(dest_path.name + ".tmp")
+    # Unique temporary file in the same directory using PID and nanosecond timestamp
+    temp_name = f"progress_{os.getpid()}_{time.time_ns()}.json.tmp"
+    temp_path = dest_path.with_name(temp_name)
+
     try:
         temp_path.write_bytes(content_bytes)
-        temp_path.replace(dest_path)
-    finally:
+    except Exception as e:
+        print(f"Warning: Failed to write to temporary progress file {temp_path}: {e}", file=sys.stderr)
         if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+        return
+
+    max_retries = 5
+    backoff = 0.05
+    for attempt in range(max_retries):
+        try:
+            temp_path.replace(dest_path)
+            return  # Success
+        except (PermissionError, OSError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(backoff)
+                backoff *= 2
+            else:
+                print(f"Warning: Failed to replace progress file after {max_retries} attempts: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: Unexpected error replacing progress file: {e}", file=sys.stderr)
+            break
+
+    # Clean up temp file if rename failed
+    if temp_path.exists():
+        try:
             temp_path.unlink()
+        except Exception:
+            pass
 
 
 class ProgressTracker:

@@ -16,7 +16,9 @@ from scripts.generate_free_work_match_candidates import (
     generer_matching,
     charger_free_work,
     charger_france_travail,
-    supprimer_diacritiques
+    supprimer_diacritiques,
+    write_progress,
+    main
 )
 
 
@@ -281,3 +283,58 @@ def test_stabilisation_engine_limits_and_priorities(tmp_path):
     # Offer 2 (NO_CANDIDATE) must be present in the review sample
     no_cand_in_review = any(r["free_work_source_id"] == "2" for r in review_sample)
     assert no_cand_in_review
+
+
+def test_progress_write_robustness_success_after_retry(tmp_path):
+    call_count = 0
+    original_replace = Path.replace
+
+    def mock_replace(self, target):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise PermissionError("Verrouillé par Windows")
+        return original_replace(self, target)
+
+    with patch("scripts.generate_free_work_match_candidates.PROJECT_ROOT", tmp_path), \
+         patch("scripts.generate_free_work_match_candidates.time.sleep") as mock_sleep, \
+         patch.object(Path, "replace", mock_replace):
+
+        write_progress("TEST_STAGE", 1, 5, 10, "Test message", "RUNNING")
+
+        progress_file = tmp_path / "data" / "processed" / "matching" / "progress.json"
+        assert progress_file.exists()
+        assert call_count == 3
+        assert mock_sleep.call_count == 2
+
+
+def test_progress_write_robustness_fail_ignored(tmp_path):
+    def mock_replace(self, target):
+        raise PermissionError("Verrouillé par Windows")
+
+    with patch("scripts.generate_free_work_match_candidates.PROJECT_ROOT", tmp_path), \
+         patch("scripts.generate_free_work_match_candidates.time.sleep"), \
+         patch.object(Path, "replace", mock_replace):
+
+        # Should not raise any exception, just ignore it and return
+        write_progress("TEST_STAGE", 1, 5, 10, "Test message", "RUNNING")
+
+        temp_files = list(tmp_path.glob("**/progress_*.tmp"))
+        assert len(temp_files) == 0
+
+
+def test_progress_write_failed_does_not_mask_original_exception(tmp_path):
+    test_args = ["prog", "--free-work-input", str(tmp_path / "fw.json"), "--france-travail-input", str(tmp_path / "ft.json")]
+
+    def mock_replace(self, target):
+        raise PermissionError("Verrouillé par Windows")
+
+    with patch("sys.argv", test_args), \
+         patch("scripts.generate_free_work_match_candidates.PROJECT_ROOT", tmp_path), \
+         patch("scripts.generate_free_work_match_candidates.generer_matching", side_effect=ValueError("Erreur métier")), \
+         patch.object(Path, "replace", mock_replace), \
+         pytest.raises(SystemExit) as sys_exit:
+
+        main()
+
+    assert sys_exit.value.code == 1
