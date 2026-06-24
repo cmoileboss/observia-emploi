@@ -87,7 +87,10 @@ def normaliser_offres(input_file: Path) -> Path:
         raise ValueError("La racine du fichier JSON d'entrée doit être une liste.")
 
     batch_id = input_file.parent.name
-    output_dir = PROJECT_ROOT / "data" / "processed" / "free_work" / "normalized" / batch_id
+    if "full_catalog" in str(input_file.resolve()):
+        output_dir = PROJECT_ROOT / "data" / "processed" / "free_work" / "full_catalog" / batch_id
+    else:
+        output_dir = PROJECT_ROOT / "data" / "processed" / "free_work" / "normalized" / batch_id
 
     seen_ids = set()
     normalized_offers = []
