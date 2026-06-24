@@ -30,3 +30,12 @@ env/
 
 *.zip
 logs/
+
+# Local Free-Work matching experiments
+scratch/run_benchmarks.py
+scratch/evaluate_non_regression.py
+
+# Generated matching benchmark outputs
+data/processed/matching/benchmarks/
+data/processed/matching/progress.json
+data/processed/matching/**/*.log
