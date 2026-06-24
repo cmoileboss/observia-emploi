@@ -8,17 +8,17 @@ from postgres_connection import Base
 formation_rome_association = Table(
     "formation_rome",
     Base.metadata,
-    Column("formation_id", Integer, ForeignKey("formation.id"), primary_key=True),
+    Column("formation_id", Integer, ForeignKey("formations.id"), primary_key=True),
     Column("code_rome", String, ForeignKey("rome_code.code_rome"), primary_key=True),
 )
 
 
 class FormationModel(Base):
-    __tablename__ = "formation"
+    __tablename__ = "formations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    intitule_certification = Column(String, nullable=False)
-    siret_of_contractant = Column(String, nullable=False)
+    intitule_certification = Column(String)
+    siret_of_contractant = Column(String)
     code_rncp = Column(String)
     raison_sociale_of_contractant = Column(String)
     niveau_rncp = Column(String)
@@ -26,6 +26,10 @@ class FormationModel(Base):
     nom_entreprise = Column(String)
     code_postal = Column(String)
     region = Column(String)
+    code_formation = Column(String)
+    domaine_libelle = Column(String)
+    niveau_libelle = Column(String)
+    commentaire = Column(String)
 
     __table_args__ = (
         UniqueConstraint("intitule_certification", "siret_of_contractant", name="uq_formation_intitule_siret"),
@@ -33,13 +37,14 @@ class FormationModel(Base):
 
     flux_mensuels = relationship("FormationFluxMensuelModel", back_populates="formation", cascade="all, delete-orphan")
     codes_rome = relationship("RomeCodeModel", secondary=formation_rome_association, back_populates="formations")
+    offres = relationship("OffreModel", secondary="offre_formation", back_populates="formations")
 
 
 class FormationFluxMensuelModel(Base):
     __tablename__ = "formation_flux_mensuel"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    formation_id = Column(Integer, ForeignKey("formation.id"), nullable=False)
+    formation_id = Column(Integer, ForeignKey("formations.id"))
     annee = Column(Integer)
     mois = Column(Integer)
     entrees_formation = Column(Integer)
@@ -56,4 +61,4 @@ class RomeCodeModel(Base):
     intitule_rome = Column(String)
 
     formations = relationship("FormationModel", secondary=formation_rome_association, back_populates="codes_rome")
-    offres = relationship("FTOffreModel", back_populates="rome")
+    offres = relationship("OffreModel", back_populates="rome")

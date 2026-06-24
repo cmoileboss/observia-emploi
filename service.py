@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from models.correspondance_formation_model import FormationModel
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
-from repositories.francetravail_repository import FTOffreRepository
+from repositories.francetravail_repository import OffreRepository
 
 _DEPARTEMENT_TO_REGION: dict[str, str] = {
     "01": "Auvergne-Rhône-Alpes", "03": "Auvergne-Rhône-Alpes", "07": "Auvergne-Rhône-Alpes",
@@ -43,7 +43,7 @@ _DEPARTEMENT_TO_REGION: dict[str, str] = {
 
 class Service():
     def __init__(self, db: Session):
-        self.offre_repository = FTOffreRepository(db)
+        self.offre_repository = OffreRepository(db)
         self.formation_repository = FormationRepository(db)
         self.rome_repository = RomeCodeRepository(db)
 

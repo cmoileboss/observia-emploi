@@ -40,7 +40,7 @@ Il faut s'inscrire à l'API France Travail : https://www.francetravail.io et cr�
 Variables à renseigner dans `.env` :
 
 - `CLIENT_ID` : identifiant de l'application créée dans l'API France Travail
-- `SECRET_KEY` : clé secrète de l'application créée dans l'API France Travail
+- `SECRET_ID` : clé secrète de l'application créée dans l'API France Travail
 - `X-INSEE-Api-Key-Integration` : clé API utilisée pour récupérer les localisations des entreprises à partir de leur SIRET
 - `RAW_DATA_FOLDER` : dossier contenant les données brutes, par défaut `data\raw` ; ce dossier doit être créé manuellement
 - `PROCESSED_DATA_FOLDER` : dossier contenant les données traitées, par défaut `data\processed` ; ce dossier doit être créé manuellement
