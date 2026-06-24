@@ -8,7 +8,52 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.normalize_free_work_offers import normaliser_offres
+import scripts.normalize_free_work_offers as normalize_module
+from scripts.normalize_free_work_offers import normaliser_competences, normaliser_offres
+
+
+def test_normaliser_competences_complete_and_deterministic():
+    raw = [
+        {"@id": "/skills/152", "id": 152, "displayed": True, "name": "Python", "slug": "python", "skillJobs": [{"x": 1}]},
+        {"@id": "/skills/152", "id": 152, "displayed": True, "name": " PYTHON ", "slug": "python"},
+        {"name": "Écoute active", "displayed": False},
+        {},
+        {"skillJobs": []},
+    ]
+
+    normalized = normaliser_competences(raw)
+
+    assert normalized == [
+        {
+            "source_skill_id": None,
+            "source_ref": None,
+            "name": "Écoute active",
+            "name_normalized": "ecoute active",
+            "slug": None,
+            "displayed": False,
+        },
+        {
+            "source_skill_id": "152",
+            "source_ref": "/skills/152",
+            "name": "Python",
+            "name_normalized": "python",
+            "slug": "python",
+            "displayed": True,
+        },
+    ]
+    assert "skillJobs" not in normalized[1]
+
+
+def test_normaliser_competences_missing_optional_fields_and_empty_array():
+    assert normaliser_competences([]) == []
+    assert normaliser_competences(None) == []
+
+    normalized = normaliser_competences([{"id": 7, "name": "SAS"}])
+
+    assert normalized[0]["source_skill_id"] == "7"
+    assert normalized[0]["source_ref"] is None
+    assert normalized[0]["slug"] is None
+    assert normalized[0]["displayed"] is None
 
 
 def test_normalize_root_not_list(tmp_path):
@@ -114,7 +159,8 @@ def test_normalize_missing_title(tmp_path):
         normaliser_offres(input_file)
 
 
-def test_normalize_nominal_and_idempotence(tmp_path, capsys):
+def test_normalize_nominal_and_idempotence(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(normalize_module, "PROJECT_ROOT", tmp_path)
     input_file = tmp_path / "batches" / "batch_test" / "offers_deduplicated.json"
     input_file.parent.mkdir(parents=True)
 
@@ -142,7 +188,13 @@ def test_normalize_nominal_and_idempotence(tmp_path, capsys):
         "publishedAt": "2026-05-29T09:43:26+02:00",
         "updatedAt": "2026-05-29T09:43:26+02:00",
         "expiredAt": "2026-07-28T09:43:26+02:00",
-        "@id": "/job_postings/developpeur-python-django-123"
+        "@id": "/job_postings/developpeur-python-django-123",
+        "skills": [
+            {"@id": "/skills/152", "id": 152, "displayed": True, "name": "Python", "slug": "python", "skillJobs": [{"ignored": True}]}
+        ],
+        "softSkills": [
+            {"@id": "/skills/900", "id": 900, "displayed": True, "name": "Communication", "slug": "communication"}
+        ]
     }
 
     offer_raw2 = {
@@ -222,6 +274,13 @@ def test_normalize_nominal_and_idempotence(tmp_path, capsys):
     # Dates
     assert o123["published_at"] == "2026-05-29T09:43:26+02:00"
     assert o123["raw_payload_sha256"] is not None
+    assert o123["source_url"] is None
+    assert o123["source_url_raw"] == "/job_postings/developpeur-python-django-123"
+    assert o123["source_url_resolution_method"] == "LEGACY_URL_REBUILT"
+    assert o123["skills"][0]["name"] == "Python"
+    assert o123["skills"][0]["name_normalized"] == "python"
+    assert "skillJobs" not in o123["skills"][0]
+    assert o123["soft_skills"][0]["name_normalized"] == "communication"
 
     # matched_rome_queries deduplication
     assert len(o123["matched_rome_queries"]) == 1

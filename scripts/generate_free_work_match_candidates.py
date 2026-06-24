@@ -943,7 +943,7 @@ def generer_matching(fw_path: Path, ft_path: Path, strategy: str = "independent_
                 "postal_code": fw_pc,
                 "department_code": fw_dept
             },
-            "free_work_source_url": fw_item.get("source_url") or f"https://www.free-work.com/job_postings/{fw_item.get('slug')}" if fw_item.get("slug") else "",
+            "free_work_source_url": fw_item.get("source_url") or "",
             "free_work_description_excerpt": desc_excerpt,
             "free_work_description_length": len(fw_desc) if fw_desc else 0,
             "free_work_description_hash": hashlib.sha256(fw_desc.encode("utf-8")).hexdigest() if fw_desc else "",

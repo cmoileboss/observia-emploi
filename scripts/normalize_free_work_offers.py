@@ -14,6 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.free_work_triage_v2 import resolve_free_work_url
+
 
 def normaliser_texte(texte: str | None) -> str | None:
     """
@@ -44,6 +46,59 @@ def normaliser_html(html_content: str | None) -> str | None:
          tag.insert_after(" ")
     text = soup.get_text()
     return normaliser_texte(text)
+
+
+def normaliser_nom_competence(nom: str | None) -> str | None:
+    nom_clean = normaliser_texte(nom)
+    if not nom_clean:
+        return None
+    decomposed = unicodedata.normalize("NFKD", nom_clean)
+    without_accents = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", without_accents.lower()).strip() or None
+
+
+def normaliser_competences(raw_skills) -> list[dict]:
+    if not isinstance(raw_skills, list):
+        return []
+
+    deduplicated = {}
+    for item in raw_skills:
+        if not isinstance(item, dict):
+            continue
+        source_skill_id = item.get("id")
+        source_skill_id = str(source_skill_id).strip() if source_skill_id is not None and str(source_skill_id).strip() else None
+        source_ref = normaliser_texte(item.get("@id"))
+        name = normaliser_texte(item.get("name"))
+        name_normalized = normaliser_nom_competence(name)
+        slug = normaliser_texte(item.get("slug"))
+        displayed = item.get("displayed") if isinstance(item.get("displayed"), bool) else None
+
+        if not any([source_skill_id, source_ref, name, name_normalized, slug, displayed is not None]):
+            continue
+
+        dedup_key = ("id", source_skill_id) if source_skill_id else ("name", name_normalized or slug or source_ref)
+        if dedup_key[1] is None:
+            continue
+
+        if dedup_key not in deduplicated:
+            deduplicated[dedup_key] = {
+                "source_skill_id": source_skill_id,
+                "source_ref": source_ref,
+                "name": name,
+                "name_normalized": name_normalized,
+                "slug": slug,
+                "displayed": displayed,
+            }
+
+    return sorted(
+        deduplicated.values(),
+        key=lambda skill: (
+            skill.get("name_normalized") or "",
+            skill.get("source_skill_id") or "",
+            skill.get("slug") or "",
+            skill.get("source_ref") or "",
+        ),
+    )
 
 
 def calculer_sha256_fichier(filepath: Path) -> str:
@@ -145,12 +200,9 @@ def normaliser_offres(input_file: Path) -> Path:
         if not title or not str(title).strip():
             raise ValueError(f"Titre manquant ou vide pour l'offre {source_id}.")
 
-        # URL source
-        at_id = offer.get("@id", "")
-        if at_id.startswith("/"):
-            source_url = "https://www.free-work.com" + at_id
-        else:
-            source_url = at_id
+        # URL source : conserver uniquement un href public fiable.
+        # Les @id /job_postings/... sont des identifiants API historiques, pas des routes publiques garanties.
+        source_url_resolution = resolve_free_work_url(offer)
 
         # Tri et déduplication des provenances ROME
         seen_queries = set()
@@ -210,6 +262,9 @@ def normaliser_offres(input_file: Path) -> Path:
         else:
             contracts = sorted(list({str(c).strip() for c in raw_contracts if c}))
 
+        skills = normaliser_competences(offer.get("skills"))
+        soft_skills = normaliser_competences(offer.get("softSkills"))
+
         # Salaires
         salary = {
             "annual_min": offer.get("minAnnualSalary"),
@@ -231,7 +286,9 @@ def normaliser_offres(input_file: Path) -> Path:
         normalized_offers.append({
             "source": "free_work",
             "source_id": source_id,
-            "source_url": source_url,
+            "source_url": source_url_resolution.absolute_url,
+            "source_url_raw": source_url_resolution.raw_url,
+            "source_url_resolution_method": source_url_resolution.method,
             "matched_rome_queries": unique_queries,
             "title": normaliser_texte(title),
             "description": desc,
@@ -240,6 +297,8 @@ def normaliser_offres(input_file: Path) -> Path:
             "company_name": company_name,
             "location": location_normalized,
             "contracts": contracts,
+            "skills": skills,
+            "soft_skills": soft_skills,
             "remote_mode": normaliser_texte(offer.get("remoteMode")),
             "experience_level": normaliser_texte(offer.get("experienceLevel")),
             "salary": salary,
