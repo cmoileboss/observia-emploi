@@ -232,7 +232,6 @@ erDiagram
 		string nom_entreprise
 		string code_postal
 		string region
-		string ft_code_formation
 		string commentaire
 	}
 
