@@ -1,30 +1,32 @@
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Table
+from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 from postgres_connection import Base
 
 
 offre_formation_association = Table(
-    "francetravail_offre_formation",
+    "offre_formation",
     Base.metadata,
-    Column("offre_id", String, ForeignKey("francetravail_offres.id"), primary_key=True),
-    Column("formation_id", Integer, ForeignKey("francetravail_formations.id"), primary_key=True),
+    Column("offre_id", Integer, ForeignKey("offres.id"), primary_key=True),
+    Column("formation_id", Integer, ForeignKey("formations.id"), primary_key=True),
 )
 
 offre_competence_association = Table(
-    "francetravail_offre_competence",
+    "offre_competence",
     Base.metadata,
-    Column("offre_id", String, ForeignKey("francetravail_offres.id"), primary_key=True),
-    Column("competence_id", Integer, ForeignKey("francetravail_competences.id"), primary_key=True),
+    Column("offre_id", Integer, ForeignKey("offres.id"), primary_key=True),
+    Column("competence_id", Integer, ForeignKey("competences.id"), primary_key=True),
 )
 
 
-class FTOffreModel(Base):
-    __tablename__ = "francetravail_offres"
+class OffreModel(Base):
+    __tablename__ = "offres"
 
-    id = Column(String, primary_key=True)
-    rome_code = Column(String, ForeignKey("rome_code.code_rome"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    francetravail_id = Column(String, unique=True)
+    freework_id = Column(String, unique=True)
+    rome_code = Column(String, ForeignKey("rome_code.code_rome"))
     intitule = Column(String)
     description = Column(String)
     lieu_code_postal = Column(String)
@@ -32,28 +34,16 @@ class FTOffreModel(Base):
     appellation_libelle = Column(String)
     entreprise_nom = Column(String)
 
-    formations = relationship("FTFormationModel", secondary=offre_formation_association, back_populates="offres")
-    competences = relationship("FTCompetenceModel", secondary=offre_competence_association, back_populates="offres")
+    formations = relationship("FormationModel", secondary=offre_formation_association, back_populates="offres")
+    competences = relationship("CompetenceModel", secondary=offre_competence_association, back_populates="offres")
     rome = relationship("RomeCodeModel", back_populates="offres")
 
 
-class FTFormationModel(Base):
-    __tablename__ = "francetravail_formations"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    code_formation = Column(String)
-    domaine_libelle = Column(String)
-    niveau_libelle = Column(String)
-    commentaire = Column(String)
-
-    offres = relationship("FTOffreModel", secondary=offre_formation_association, back_populates="formations")
-
-
-class FTCompetenceModel(Base):
-    __tablename__ = "francetravail_competences"
+class CompetenceModel(Base):
+    __tablename__ = "competences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String)
     libelle = Column(String)
 
-    offres = relationship("FTOffreModel", secondary=offre_competence_association, back_populates="competences")
+    offres = relationship("OffreModel", secondary=offre_competence_association, back_populates="competences")

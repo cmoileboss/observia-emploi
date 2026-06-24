@@ -91,7 +91,7 @@ flowchart TD
 
 ## Installation
 
-### Prérequis
+## Prérequis
 * Python `3.13.13`
 * PostgreSQL
 * Git
@@ -138,6 +138,13 @@ Avant de lancer le pipeline principal, vous devez copier les fichiers de départ
 1. `correspondance-rome-rncp-tech-*.csv` (fourni dans le sujet du projet).
 2. `entree_sortie_formation.csv` (téléchargeable sur data.gouv.fr).
 3. `cdc_filtered_tech.csv` (liste d'enrichissement filtrée).
+
+### Nettoyage et filtrage
+
+| Règle | Détail |
+| :--- | :--- |
+| Normalisation de `code_rncp` | Suppression du préfixe `RNCP` pour uniformisation avec `entree_sortie_formation` |
+| Filtre sur les codes ROME | Suppression des codes ROME ne commençant pas par `M` afin de ne conserver que les formations liées à l'informatique |
 
 ---
 
@@ -214,7 +221,6 @@ Le traitement se fait en local, sans accès base PostgreSQL.
 | `PROCESSING_ERROR` | 0 | 0 % | Offre échouée ou illisible |
 
 ### Priorités de la revue humaine
-
 | Priorité | Volume | Explication technique |
 | :--- | ---: | :--- |
 | **HIGH** | 916 | Scores élevés, marge infime entre top 1 & top 2, ou conflits d'entreprises/géographie |
@@ -252,7 +258,7 @@ Les sorties générées sont stockées dans `data/processed/matching/free_work_v
 
 L'API FastAPI expose les endpoints suivants pour la consultation :
 
-### `GET /job/{job_id}/organismes`
+### `GET /job/{job_id}/formations`
 * **Description** : Renvoie la liste ordonnée des organismes de formation pertinents pour l'offre France Travail `job_id`.
 * **Paramètres** : `job_id` (string, path)
 * **Réponse type** :
@@ -280,27 +286,38 @@ L'API FastAPI expose les endpoints suivants pour la consultation :
   ]
   ```
 
-### `GET /nboffers`
+### `GET /formations/historique`
 * **Description** : Renvoie la somme des offres d'emploi et des entrées en formation agrégées par région et par trimestre.
 
 ---
 
 ## Modèle de données
 
+**Réduction du volume de données :** > 749 000 lignes → 4 429 lignes après nettoyage et merge, soit 18 codes ROME différents.
+
+### France Travail
+
+Nous avons volontairement limité le nombre de champs gardés en base de données à ce qui est utile pour un croisement avec les données du fichier csv. Seules les informations relatives aux formations, aux compétences et au lieu de travail ont ainsi été gardées.
+
+**Points d'attention :**
+* Les fichiers CSV stockent les niveaux sous forme d'entiers, tandis que l'API France Travail les expose sous forme de chaînes de caractères. Une conversion sera donc nécessaire pour aligner les données. Voir l'enum `NiveauRNCP` (à corriger également).
+
 Le schéma relationnel SQL de la base de données PostgreSQL est le suivant :
 
 ```mermaid
 erDiagram
-    FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
-    FRANCETRAVAIL_FORMATIONS ||--o{ FRANCETRAVAIL_OFFRE_FORMATION : associe
-    FRANCETRAVAIL_OFFRES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
-    FRANCETRAVAIL_COMPETENCES ||--o{ FRANCETRAVAIL_OFFRE_COMPETENCE : requiert
-    ROME_CODE ||--o{ FRANCETRAVAIL_OFFRES : reference
-    ROME_CODE ||--o{ FORMATION_ROME : associe
-    FORMATION ||--o{ FORMATION_ROME : associe
+    offres ||--o{ offre_formation : associe
+    formations ||--o{ offre_formation : associe
+    offres ||--o{ offre_competence : requiert
+    competences ||--o{ offre_competence : requiert
+    rome_code ||--o{ offres : reference
+    rome_code ||--o{ formation_rome : associe
+    formations ||--o{ formation_rome : associe
+    formations ||--o{ formation_flux_mensuel : a
 
-    FRANCETRAVAIL_OFFRES {
-        string id PK
+    offres {
+        int id PK
+        string francetravail_id
         string rome_code FK
         string intitule
         string description
@@ -310,44 +327,12 @@ erDiagram
         string entreprise_nom
     }
 
-    ROME_CODE {
+    rome_code {
         string code_rome PK
         string intitule_rome
     }
 
-    FRANCETRAVAIL_FORMATIONS {
-        int id PK
-        string code_formation
-        string domaine_libelle
-        string niveau_libelle
-        string commentaire
-        string exigence
-    }
-
-    FRANCETRAVAIL_COMPETENCES {
-        int id PK
-        string code
-        string libelle
-        string exigence
-    }
-
-    FRANCETRAVAIL_OFFRE_FORMATION {
-        string offre_id PK, FK
-        int formation_id PK, FK
-    }
-
-    FRANCETRAVAIL_OFFRE_COMPETENCE {
-        string offre_id PK, FK
-        int competence_id PK, FK
-        string exigence
-    }
-
-    FORMATION_ROME {
-        int formation_id PK, FK
-        string code_rome PK, FK
-    }
-
-    FORMATION {
+    formations {
         int id PK
         string intitule_certification
         string siret_of_contractant
@@ -358,6 +343,38 @@ erDiagram
         string nom_entreprise
         string code_postal
         string region
+        string commentaire
+    }
+
+    competences {
+        int id PK
+        string code
+        string libelle
+    }
+
+    offre_formation {
+        int offre_id PK, FK
+        int formation_id PK, FK
+    }
+
+    offre_competence {
+        int offre_id PK, FK
+        int competence_id PK, FK
+    }
+
+    formation_rome {
+        int formation_id PK, FK
+        string code_rome PK, FK
+    }
+
+    formation_flux_mensuel {
+        int id PK
+        int formation_id FK
+        int annee
+        int mois
+        int entrees_formation
+        int sorties_realisation_partielle
+        int sorties_realisation_totale
     }
 ```
 
@@ -399,3 +416,9 @@ Les tests unitaires et de non-régression s'exécutent avec la commande :
 2. Génération de la liste finale `approved_for_import.json`.
 3. Réalisation d'un run à blanc (dry-run) d'importation en base de données.
 4. Développement de l'import transactionnel, idempotent et auditable dans PostgreSQL.
+
+---
+
+## Améliorations
+
+* **Résilience** : Gestion des erreurs et tolérance aux pannes renforcée dans les appels API France Travail et INSEE.

@@ -1,8 +1,14 @@
+from http.client import BAD_REQUEST
+import re
+
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from models.correspondance_formation_model import FormationModel
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
-from repositories.francetravail_repository import FTOffreRepository
+from repositories.francetravail_repository import OffreRepository
+
+
 
 _DEPARTEMENT_TO_REGION: dict[str, str] = {
     "01": "Auvergne-Rhône-Alpes", "03": "Auvergne-Rhône-Alpes", "07": "Auvergne-Rhône-Alpes",
@@ -41,43 +47,98 @@ _DEPARTEMENT_TO_REGION: dict[str, str] = {
 }
 
 
+def _normalize_region(region: str | None) -> str:
+    """Normalise un libellé de région pour les filtres et clés d'agrégation."""
+    if not isinstance(region, str):
+        return "regioninconnue"
+
+    cleaned_region = region.strip().lower()
+    cleaned_region = cleaned_region.replace("-", "").replace("'", "").replace(" ", "")
+    return cleaned_region or "regioninconnue"
+
+
+REGIONS: list[str] = sorted({_normalize_region(region) for region in _DEPARTEMENT_TO_REGION.values()})
+
+
 class Service():
     def __init__(self, db: Session):
-        self.offre_repository = FTOffreRepository(db)
+        self.offre_repository = OffreRepository(db)
         self.formation_repository = FormationRepository(db)
         self.rome_repository = RomeCodeRepository(db)
 
-    def count_formation_entries_by_region_and_quarter(self):
+    @staticmethod
+    def _normalize_region(region: str | None) -> str:
+        """Retourne un libellé exploitable pour les régions manquantes."""
+        return _normalize_region(region)
+
+    def count_formation_entries_by_region_and_quarter(self, region: str | None = None, quarter: str | None = None) -> dict[str, dict[str, dict[str, int] | int] | int]:
         """Retourne le nombre d'entrées de formation par région et par trimestre."""
+        if region and region not in REGIONS:
+            raise HTTPException(status_code=BAD_REQUEST, detail=f"Région invalide : {region}. Les régions valides sont : {', '.join(REGIONS)}")
+        if quarter and not re.fullmatch(r"\d{4}-T[1-4]", quarter):
+            raise HTTPException(status_code=BAD_REQUEST, detail=f"Trimestre invalide : {quarter}. Format attendu : YYYY-T1 a YYYY-T4")
+
+        selected_region = region
+        selected_quarter = quarter
         nb_offers = self.offre_repository.count_offres()
         formations = self.formation_repository.get_all()
-        result = {formation.region: {} for formation in formations}       
+        result: dict[str, dict[str, dict[str, int]]] = {}
         for formation in formations:
+            formation_region = self._normalize_region(formation.region)
+            if selected_region and formation_region != selected_region:
+                continue
+
             flux_mensuels = formation.flux_mensuels
             for flux in flux_mensuels:
-                quarter = (flux.mois - 1) // 3 + 1
-                quarter_str = f"{flux.annee}-T{quarter}"
-                if quarter_str not in result[formation.region]:
-                    result[formation.region][quarter_str] = 0
-                result[formation.region][quarter_str] += flux.entrees_formation
+                if flux.mois is None or flux.annee is None or flux.entrees_formation is None:
+                    continue
+
+                flux_quarter = (flux.mois - 1) // 3 + 1
+                quarter_str = f"{flux.annee}-T{flux_quarter}"
+                if selected_quarter and quarter_str != selected_quarter:
+                    continue
+
+                if formation_region not in result:
+                    result[formation_region] = {}
+                if quarter_str not in result[formation_region]:
+                    result[formation_region][quarter_str] = {
+                        "entrees_formation": 0,
+                        "sorties_realisation_partielle": 0,
+                        "sorties_realisation_totale": 0,
+                    }
+                result[formation_region][quarter_str]["entrees_formation"] += flux.entrees_formation
+                result[formation_region][quarter_str]["sorties_realisation_partielle"] += flux.sorties_realisation_partielle or 0
+                result[formation_region][quarter_str]["sorties_realisation_totale"] += flux.sorties_realisation_totale or 0
 
         offres_by_region: dict[str, int] = {}
         for code_postal, count in self.offre_repository.count_offres_by_code_postal():
-            region = self.get_region_by_code_postal(code_postal)
-            if region:
-                offres_by_region[region] = offres_by_region.get(region, 0) + count
+            offer_region = self.get_region_by_code_postal(code_postal)
+            if offer_region and (selected_region is None or offer_region == selected_region):
+                offres_by_region[offer_region] = offres_by_region.get(offer_region, 0) + count
 
-        grand_total = sum(sum(quarters.values()) for quarters in result.values())
+        grand_total = sum(
+            sum(quarter_values["entrees_formation"] for quarter_values in quarters.values())
+            for quarters in result.values()
+        )
         sorted_result = {
             region: {
                 **dict(sorted(quarters.items())),
-                "total": sum(quarters.values()),
-                "nb_offres_france_travail": offres_by_region.get(region, 0),
+                "Total des entrées en formation pour les trimestres choisis": sum(
+                    quarter_values["entrees_formation"] for quarter_values in quarters.values()
+                ),
+                "Total des sorties en réalisation partielle pour les trimestres choisis": sum(
+                    quarter_values["sorties_realisation_partielle"] for quarter_values in quarters.values()
+                ),
+                "Total des sorties en réalisation totale pour les trimestres choisis": sum(
+                    quarter_values["sorties_realisation_totale"] for quarter_values in quarters.values()
+                ),
+                "Nombre d'offres dans la région": offres_by_region.get(region, 0),
             }
             for region, quarters in sorted(result.items())
         }
-        sorted_result["Total des entrées en formation"] = grand_total
-        sorted_result["Nombre d'offres France Travail trouvées"] = nb_offers
+        if selected_region is None and selected_quarter is None:
+            sorted_result["Total des entrées en formation dans toute la France"] = grand_total
+            sorted_result["Nombre d'offres trouvées dans toute la France"] = nb_offers
         return sorted_result
 
     def get_region_by_code_postal(self, code_postal: str) -> str | None:
@@ -86,13 +147,13 @@ class Service():
         # DOM-TOM : codes à 5 chiffres commençant par 971-976
         for prefix in ("971", "972", "973", "974", "976"):
             if code_postal.startswith(prefix):
-                return _DEPARTEMENT_TO_REGION.get(prefix)
+                return self._normalize_region(_DEPARTEMENT_TO_REGION.get(prefix))
         dept = code_postal[:2]
-        return _DEPARTEMENT_TO_REGION.get(dept)
+        return self._normalize_region(_DEPARTEMENT_TO_REGION.get(dept))
 
     def get_formations_by_offre_id(self, offre_id: str) -> list[FormationModel]:
         """Retourne les formations liées au code ROME d'une offre France Travail."""
-        offre = self.offre_repository.get_by_id(offre_id)
+        offre = self.offre_repository.get_by_francetravail_id(offre_id)
         if offre is None:
             return { "error": f"Aucune offre trouvée avec l'identifiant {offre_id}" }
         rome_formations = self.rome_repository.list_formations_by_rome(offre.rome_code)
@@ -108,4 +169,4 @@ class Service():
             for competence in offre.competences:
                 if competence:
                     skill_count[competence.libelle] = skill_count.get(competence.libelle, 0) + 1
-        return dict(sorted(skill_count.items()))
+        return dict(sorted(((k, v) for k, v in skill_count.items() if v > 1), key=lambda x: x[1], reverse=True))

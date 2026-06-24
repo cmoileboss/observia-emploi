@@ -22,6 +22,8 @@ class CsvExtractor:
         logger.info("Données nettoyées : lignes avec code RNCP égal à -1 supprimées")
         self.correspondance["code_rncp"] = self.correspondance["code_rncp"].str.replace("RNCP", "", regex=False)
         logger.info("Données nettoyées : codes RNCP uniformisés")
+        self.correspondance = self.correspondance[self.correspondance["code_rome"].str.startswith("M")]
+        logger.info("Données nettoyées : lignes avec code ROME ne commençant pas par M supprimées")
 
     def merge_data(self):
         """Fusion des données formation et correspondance"""

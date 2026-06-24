@@ -2,12 +2,16 @@
 
 from repositories.base_repository import BaseRepository
 from repositories.correspondance_formation_repository import FormationRepository as FormationDataRepository
-from repositories.francetravail_repository import FTCompetenceRepository, FTFormationRepository, FTOffreRepository
+from repositories.francetravail_repository import (
+    CompetenceRepository,
+    OffreFormationRepository,
+    OffreRepository,
+)
 
 __all__ = [
     "BaseRepository",
-    "FTOffreRepository",
-    "FTFormationRepository",
-    "FTCompetenceRepository",
+    "OffreRepository",
+    "OffreFormationRepository",
+    "CompetenceRepository",
     "FormationDataRepository",
 ]

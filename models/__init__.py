@@ -1,10 +1,9 @@
-from models.francetravail_model import FTOffreModel, FTFormationModel, FTCompetenceModel
+from models.francetravail_model import OffreModel, CompetenceModel
 from models.correspondance_formation_model import FormationModel, FormationFluxMensuelModel, RomeCodeModel
 
 __all__ = [
-    "FTOffreModel",
-    "FTFormationModel",
-    "FTCompetenceModel",
+    "OffreModel",
+    "CompetenceModel",
     "FormationModel",
     "FormationFluxMensuelModel",
     "RomeCodeModel",

@@ -2,52 +2,75 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from models.francetravail_model import FTCompetenceModel, FTFormationModel, FTOffreModel
+from models.correspondance_formation_model import FormationModel
+from models.francetravail_model import CompetenceModel, OffreModel
 from repositories.base_repository import BaseRepository
 
 
-class FTOffreRepository(BaseRepository[FTOffreModel]):
+class OffreRepository(BaseRepository[OffreModel]):
     """Encapsule les accès en base pour les offres France Travail."""
 
     def __init__(self, db: Session) -> None:
         """Initialise le repository des offres."""
-        super().__init__(db, FTOffreModel)
+        super().__init__(db, OffreModel)
 
-    def create_offre(self, offre: FTOffreModel) -> FTOffreModel:
+    def create_offre(self, offre: OffreModel) -> OffreModel:
         """Persiste une offre France Travail déjà instanciée."""
-        if self.exists(offre.id):
-            return self.get_by_id(offre.id)
+        existing_offre = self.find_existing(offre)
+        if existing_offre is not None:
+            return existing_offre
         return self.add(offre)
 
-    def exists(self, offre_id: str, rome_code: str | None = None) -> bool:
-        """Retourne vrai si une offre avec l'identifiant donné existe."""
-        query = self.db.query(FTOffreModel).filter(FTOffreModel.id == offre_id)
-        if rome_code is not None:
-            query = query.filter(FTOffreModel.rome_code == rome_code)
-        return query.first() is not None
+    def find_existing(self, offre: OffreModel) -> OffreModel | None:
+        """Retourne une offre existante selon son identifiant métier."""
+        if offre.francetravail_id:
+            existing_offre = self.get_by_francetravail_id(offre.francetravail_id)
+            if existing_offre is not None:
+                return existing_offre
 
-    def list_offres(self, rome_code: str) -> list[FTOffreModel]:
+        if offre.freework_id:
+            return self.get_by_freework_id(offre.freework_id)
+
+        return None
+
+    def exists(self, francetravail_id: str | None = None, freework_id: str | None = None) -> bool:
+        """Retourne vrai si une offre avec un identifiant métier donné existe."""
+        if francetravail_id:
+            return self.get_by_francetravail_id(francetravail_id) is not None
+        if freework_id:
+            return self.get_by_freework_id(freework_id) is not None
+        return False
+
+    def get_by_francetravail_id(self, francetravail_id: str) -> OffreModel | None:
+        """Retourne une offre par son identifiant France Travail."""
+        return self.db.query(OffreModel).filter(OffreModel.francetravail_id == francetravail_id).first()
+
+    def get_by_freework_id(self, freework_id: str) -> OffreModel | None:
+        """Retourne une offre par son identifiant FreeWork."""
+        return self.db.query(OffreModel).filter(OffreModel.freework_id == freework_id).first()
+
+    def list_offres(self, rome_code: str) -> list[OffreModel]:
         """Retourne les offres, filtrées optionnellement par code ROME."""
-        query = self.db.query(FTOffreModel)
+        query = self.db.query(OffreModel)
         if rome_code:
-            query = query.filter(FTOffreModel.rome_code == rome_code)
+            query = query.filter(OffreModel.rome_code == rome_code)
         return query.all()
 
     def count_offres(self):
         """Retourne le nombre total d'offres."""
-        return self.db.query(FTOffreModel).count()
+        return self.db.query(OffreModel).count()
 
     def count_offres_by_code_postal(self) -> list[tuple[str, int]]:
         """Retourne le nombre d'offres groupé par code postal."""
         from sqlalchemy import func
         return (
-            self.db.query(FTOffreModel.lieu_code_postal, func.count(FTOffreModel.id))
-            .filter(FTOffreModel.lieu_code_postal.isnot(None))
-            .group_by(FTOffreModel.lieu_code_postal)
+            self.db.query(OffreModel.lieu_code_postal, func.count(OffreModel.id))
+            .filter(OffreModel.lieu_code_postal.isnot(None))
+            .group_by(OffreModel.lieu_code_postal)
             .all()
         )
 
-    def attach_formation(self, offre: FTOffreModel, formation: FTFormationModel, commit: bool = True) -> FTOffreModel:
+    def attach_formation(self, offre: OffreModel, formation: FormationModel, commit: bool = True) -> OffreModel:
         """Associe une formation existante à une offre."""
         if formation not in offre.formations:
             offre.formations.append(formation)
@@ -56,7 +79,7 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_competence(self, offre: FTOffreModel, competence: FTCompetenceModel, commit: bool = True) -> FTOffreModel:
+    def attach_competence(self, offre: OffreModel, competence: CompetenceModel, commit: bool = True) -> OffreModel:
         """Associe une compétence existante à une offre."""
         if competence not in offre.competences:
             offre.competences.append(competence)
@@ -65,10 +88,10 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_or_create_formation(self, offre: FTOffreModel, formation: FTFormationModel) -> FTOffreModel:
+    def attach_or_create_formation(self, offre: OffreModel, formation: FormationModel) -> OffreModel:
         """Associe une formation à l'offre en la créant si nécessaire."""
-        formation_repository = FTFormationRepository(self.db)
-        code_formation = formation.code_formation
+        formation_repository = OffreFormationRepository(self.db)
+        code_formation = formation.code_rncp
 
         existing_formation = None
         if code_formation:
@@ -79,9 +102,9 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
 
         return self.attach_formation(offre, existing_formation)
 
-    def attach_or_create_competence(self, offre: FTOffreModel, competence: FTCompetenceModel) -> FTOffreModel:
+    def attach_or_create_competence(self, offre: OffreModel, competence: CompetenceModel) -> OffreModel:
         """Associe une compétence à l'offre en la créant si nécessaire."""
-        competence_repository = FTCompetenceRepository(self.db)
+        competence_repository = CompetenceRepository(self.db)
         code = competence.code
 
         existing_competence = None
@@ -94,23 +117,23 @@ class FTOffreRepository(BaseRepository[FTOffreModel]):
         return self.attach_competence(offre, existing_competence)
 
 
-class FTFormationRepository(BaseRepository[FTFormationModel]):
+class OffreFormationRepository(BaseRepository[FormationModel]):
     """Fournit les opérations d'accès aux formations."""
 
     def __init__(self, db: Session) -> None:
-        super().__init__(db, FTFormationModel)
+        super().__init__(db, FormationModel)
 
-    def find_by_code(self, code_formation: str) -> FTFormationModel | None:
+    def find_by_code(self, code_formation: str) -> FormationModel | None:
         """Recherche une formation par son code métier."""
-        return self.db.query(FTFormationModel).filter(FTFormationModel.code_formation == code_formation).first()
+        return self.db.query(FormationModel).filter(FormationModel.code_rncp == code_formation).first()
 
 
-class FTCompetenceRepository(BaseRepository[FTCompetenceModel]):
+class CompetenceRepository(BaseRepository[CompetenceModel]):
     """Fournit les opérations d'accès aux compétences."""
 
     def __init__(self, db: Session) -> None:
-        super().__init__(db, FTCompetenceModel)
+        super().__init__(db, CompetenceModel)
 
-    def find_by_code(self, code: str) -> FTCompetenceModel | None:
+    def find_by_code(self, code: str) -> CompetenceModel | None:
         """Recherche une compétence par son code métier."""
-        return self.db.query(FTCompetenceModel).filter(FTCompetenceModel.code == code).first()
+        return self.db.query(CompetenceModel).filter(CompetenceModel.code == code).first()
