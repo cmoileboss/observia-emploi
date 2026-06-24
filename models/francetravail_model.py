@@ -8,14 +8,14 @@ from postgres_connection import Base
 offre_formation_association = Table(
     "offre_formation",
     Base.metadata,
-    Column("offre_id", String, ForeignKey("offres.id"), primary_key=True),
+    Column("offre_id", Integer, ForeignKey("offres.id"), primary_key=True),
     Column("formation_id", Integer, ForeignKey("formations.id"), primary_key=True),
 )
 
 offre_competence_association = Table(
     "offre_competence",
     Base.metadata,
-    Column("offre_id", String, ForeignKey("offres.id"), primary_key=True),
+    Column("offre_id", Integer, ForeignKey("offres.id"), primary_key=True),
     Column("competence_id", Integer, ForeignKey("competences.id"), primary_key=True),
 )
 
@@ -23,7 +23,7 @@ offre_competence_association = Table(
 class OffreModel(Base):
     __tablename__ = "offres"
 
-    id = Column(String, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     francetravail_id = Column(String, unique=True)
     freework_id = Column(String, unique=True)
     rome_code = Column(String, ForeignKey("rome_code.code_rome"))

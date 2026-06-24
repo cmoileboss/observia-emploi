@@ -18,5 +18,5 @@ async def get_best_skills(service: Service = Depends(get_service)):
     return service.get_best_skills()
 
 @router.get("/nboffers", tags=["formations"])
-async def get_nb_offers(service: Service = Depends(get_service)):
-    return service.count_formation_entries_by_region_and_quarter()
+async def get_nb_offers(region: str | None = None, quarter: str | None = None, service: Service = Depends(get_service)):
+    return service.count_formation_entries_by_region_and_quarter(region, quarter)
