@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import time
-import unicodedata
 from collections import defaultdict
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -14,6 +13,23 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.matching_normalization import (
+    normaliser_entreprise,
+    normaliser_localite,
+    extraire_departement,
+    normaliser_titre,
+    normaliser_description,
+    supprimer_diacritiques
+)
+
+def normaliser_cle(texte: str, est_titre: bool = False, est_entreprise: bool = False) -> str:
+    if est_entreprise:
+        return normaliser_entreprise(texte)
+    if est_titre:
+        return normaliser_titre(texte)
+    return texte
+
 
 MAX_PRE_CANDIDATES_PER_OFFER = 50
 MAX_DETAILED_CANDIDATES_PER_OFFER = 20
@@ -27,35 +43,12 @@ FRENCH_STOP_WORDS = {
     "leurs", "mais", "notre", "votre", "sans", "sous", "vers", "par"
 }
 
+COMPANY_ALIASES = {
+    "econocom infogerance et systeme": "econocom",
+    "experis france": "experis"
+}
+
 START_TIME = time.time()
-
-
-def supprimer_diacritiques(texte: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFD", texte) if unicodedata.category(c) != "Mn")
-
-
-def normaliser_cle(texte: str | None, est_entreprise: bool = False, est_titre: bool = False) -> str:
-    if texte is None:
-        return ""
-    s = str(texte)
-    s = unicodedata.normalize("NFKC", s)
-
-    # Retire les marqueurs H/F isolés si c'est un titre
-    if est_titre:
-        s = re.sub(r"\b(h/f/x|f/h/x|h/f|f/h|h-f|f-h|hf|fh)\b", " ", s, flags=re.IGNORECASE)
-
-    # Retire les formes juridiques si c'est une entreprise
-    if est_entreprise:
-        s = re.sub(r"\b(sa|sas|sasu|sarl|eurl|ltd|inc)\b", " ", s, flags=re.IGNORECASE)
-
-    s = s.casefold()
-    s = supprimer_diacritiques(s)
-
-    # Remplacement de la ponctuation et underscores par des espaces
-    s = re.sub(r"[^\w\s]", " ", s)
-    s = re.sub(r"_", " ", s)
-    s = re.sub(r"\s+", " ", s)
-    return s.strip()
 
 
 def normaliser_cle_compacte(texte_normalise: str) -> str:
@@ -68,7 +61,6 @@ def extraire_tokens(texte_normalise: str) -> list[str]:
     for t in tokens:
         if len(t) >= 3 and t not in FRENCH_STOP_WORDS and not t.isdigit():
             filtered.append(t)
-    # Tri déterministe
     return sorted(list(set(filtered)))
 
 
@@ -96,7 +88,7 @@ def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
     return "mis à jour"
 
 
-def write_progress(stage: str, stage_number: int, current: int, total: int, message: str, status: str = "RUNNING"):
+def write_progress(stage: str, stage_number: int, current: int, total: int, message: str, status: str = "RUNNING", extra_stats: dict = None):
     elapsed = time.time() - START_TIME
     percent = round((current / total) * 100, 2) if total else 0.0
     if current > 0 and elapsed > 0:
@@ -104,7 +96,6 @@ def write_progress(stage: str, stage_number: int, current: int, total: int, mess
         remaining_sec = round((total - current) / speed)
     else:
         remaining_sec = None
-        speed = None
 
     progress_data = {
         "status": status,
@@ -118,6 +109,8 @@ def write_progress(stage: str, stage_number: int, current: int, total: int, mess
         "estimated_remaining_seconds": remaining_sec,
         "message": message
     }
+    if extra_stats:
+        progress_data.update(extra_stats)
 
     dest_path = PROJECT_ROOT / "data" / "processed" / "matching" / "progress.json"
     try:
@@ -127,8 +120,7 @@ def write_progress(stage: str, stage_number: int, current: int, total: int, mess
         print(f"Warning: Failed to format progress data: {e}", file=sys.stderr)
         return
 
-    # Unique temporary file in the same directory using PID and nanosecond timestamp
-    temp_name = f"progress_{os.getpid()}_{time.time_ns()}.json.tmp"
+    temp_name = f"progress_matching_{os.getpid()}_{time.time_ns()}.json.tmp"
     temp_path = dest_path.with_name(temp_name)
 
     try:
@@ -158,7 +150,6 @@ def write_progress(stage: str, stage_number: int, current: int, total: int, mess
             print(f"Warning: Unexpected error replacing progress file: {e}", file=sys.stderr)
             break
 
-    # Clean up temp file if rename failed
     if temp_path.exists():
         try:
             temp_path.unlink()
@@ -176,13 +167,12 @@ class ProgressTracker:
         self.last_print_count = 0
         self.update(0, force=True)
 
-    def update(self, current: int, force: bool = False):
+    def update(self, current: int, force: bool = False, extra_stats: dict = None):
         now = time.time()
         elapsed = now - START_TIME
         percent = round((current / self.total) * 100, 2) if self.total else 0.0
 
-        # Write progress.json
-        write_progress(self.stage_name, self.stage_number, current, self.total, self.message, "RUNNING")
+        write_progress(self.stage_name, self.stage_number, current, self.total, self.message, "RUNNING", extra_stats)
 
         if force or current == 0 or current == self.total or (current - self.last_print_count >= 50) or (now - self.last_print_time >= 5.0):
             self.last_print_time = now
@@ -200,6 +190,12 @@ class ProgressTracker:
 
             print(f"[{self.stage_number}/6] {current} / {self.total} offres — {percent:.2f} %")
             print(f"Temps écoulé : {el_str} | Vitesse : {speed_str} | Temps restant estimé : {rem_str}")
+            if extra_stats:
+                stat_parts = []
+                for k, v in extra_stats.items():
+                    if k != "heartbeat":
+                        stat_parts.append(f"{k}: {v}")
+                print(f"Stats intermédiaires: {', '.join(stat_parts)}")
             print(f"Traitement toujours actif — étape {self.stage_number}/6")
 
 
@@ -211,7 +207,7 @@ def charger_free_work(path: Path) -> list[dict]:
     for idx, item in enumerate(data):
         if not isinstance(item, dict):
             raise ValueError(f"L'offre Free-Work à l'index {idx} n'est pas un dictionnaire.")
-        for k in ["source", "source_id", "title", "location", "matched_rome_queries"]:
+        for k in ["source", "source_id", "title"]:
             if k not in item:
                 raise ValueError(f"Clé '{k}' manquante dans l'offre Free-Work à l'index {idx}.")
         if item["source"] != "free_work":
@@ -227,17 +223,11 @@ def charger_free_work(path: Path) -> list[dict]:
         if not item["title"] or not str(item["title"]).strip():
             raise ValueError(f"Titre manquant ou vide pour l'offre Free-Work {sid}.")
 
-        # Description absente acceptée, aucun fallback métier
         desc = item.get("description")
         if not desc or not str(desc).strip():
             item["description"] = None
         else:
             item["description"] = str(desc).strip()
-
-        if not isinstance(item["location"], dict):
-            raise ValueError(f"location doit être un dictionnaire pour l'offre Free-Work {sid}.")
-        if not isinstance(item["matched_rome_queries"], list):
-            raise ValueError(f"matched_rome_queries doit être une liste pour l'offre Free-Work {sid}.")
 
     return data
 
@@ -271,7 +261,41 @@ def charger_france_travail(path: Path) -> list[dict]:
     return data
 
 
-def generer_matching(fw_path: Path, ft_path: Path) -> None:
+def match_entreprises(comp_fw: str, comp_ft: str) -> tuple[str, float]:
+    if not comp_fw or not comp_ft:
+        return "MISSING", 0.0
+    if comp_fw == comp_ft:
+        return "EXACT_NORMALIZED", 1.0
+
+    # Guard on generic and very short names
+    generics = {"group", "france", "services", "consulting", "technologies", "solutions", "it"}
+    if comp_fw in generics or comp_ft in generics or len(comp_fw) < 3 or len(comp_ft) < 3:
+        return "NO_MATCH", 0.0
+
+    if comp_fw.startswith(comp_ft) or comp_ft.startswith(comp_fw):
+        return "CONTAINMENT_MATCH", 0.95
+
+    sim = SequenceMatcher(None, comp_fw, comp_ft).ratio()
+    if sim >= 0.8:
+        return "HIGH_SIMILARITY", sim
+    return "NO_MATCH", sim
+
+
+def match_geographie(fw_pc: str, fw_loc_norm: str, fw_dept: str, ft_pc: str, ft_loc_norm: str, ft_dept: str) -> tuple[str, float]:
+    if not fw_pc or not ft_pc:
+        return "UNKNOWN", 0.0
+    if fw_pc == ft_pc:
+        return "EXACT_POSTAL_CODE", 1.0
+    if fw_loc_norm and ft_loc_norm and fw_loc_norm == ft_loc_norm:
+        return "SAME_LOCALITY", 0.9
+    if fw_dept and ft_dept and fw_dept == ft_dept:
+        return "SAME_DEPARTMENT", 0.5
+    return "DIFFERENT", 0.0
+
+
+def generer_matching(fw_path: Path, ft_path: Path, strategy: str = "independent_normalized", use_aliases: bool = False, benchmark_id: str = None) -> None:
+    global START_TIME
+    START_TIME = time.time()
     # [1/6] Chargement et validation des entrées
     write_progress("INPUT_LOADING", 1, 0, 1, "Chargement et validation des entrées")
     t_start_load = time.time()
@@ -280,10 +304,9 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
     t_load = time.time() - t_start_load
     write_progress("INPUT_LOADING", 1, 1, 1, "Chargement et validation des entrées")
 
-    # Tri déterministe initial des offres Free-Work
     fw_data.sort(key=lambda x: str(x["source_id"]))
 
-    # [2/6] Construction des index France Travail
+    # [2/6] Construction des index France Travail et normalisation commune
     write_progress("INDEX_CONSTRUCTION", 2, 0, len(ft_data), "Construction des index France Travail")
     t_start_index = time.time()
     offers_by_postal_code = defaultdict(set)
@@ -294,10 +317,10 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
     offers_by_title_token = defaultdict(set)
     offers_by_compact_title = defaultdict(set)
 
-    offers_by_fp1 = defaultdict(set)  # title_norm + company_norm + postal_code
-    offers_by_fp2 = defaultdict(set)  # title_norm + postal_code
-    offers_by_fp3 = defaultdict(set)  # company_norm + title_norm
-    offers_by_fp4 = defaultdict(set)  # title_norm + description_norm
+    offers_by_fp1 = defaultdict(set)
+    offers_by_fp2 = defaultdict(set)
+    offers_by_fp3 = defaultdict(set)
+    offers_by_fp4 = defaultdict(set)
 
     ft_normalized = {}
     doc_freq_title = defaultdict(int)
@@ -307,10 +330,14 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
     for idx, item in enumerate(ft_data):
         fid = item["france_travail_id"]
 
-        title_norm = normaliser_cle(item["title"], est_titre=True)
+        title_norm = normaliser_titre(item["title"])
         title_compact = normaliser_cle_compacte(title_norm)
-        desc_norm = normaliser_cle(item["description"])
-        company_norm = normaliser_cle(item.get("company_name"), est_entreprise=True)
+        desc_norm = normaliser_description(item["description"])
+
+        company_raw = item.get("company_name")
+        company_norm = normaliser_entreprise(company_raw)
+        if use_aliases and company_norm in COMPANY_ALIASES:
+            company_norm = COMPANY_ALIASES[company_norm]
 
         t_tokens = extraire_tokens(title_norm)
         d_tokens = extraire_tokens(desc_norm)
@@ -322,11 +349,9 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
 
         pc = item.get("postal_code")
         pc_str = str(pc).strip() if pc else ""
-        dept = ""
-        if pc_str:
-            dept = pc_str[:2]
-            if dept in ["2A", "2B"] or (dept.isdigit() and int(dept) > 95):
-                corse_outremer_cases += 1
+        dept = extraire_departement(pc_str)
+        if dept in ["2A", "2B"] or (dept.isdigit() and int(dept) > 95):
+            corse_outremer_cases += 1
 
         rome = item["rome_code"].strip()
 
@@ -341,8 +366,9 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
             "department": dept if dept else None,
             "rome_code": rome,
             "title_raw": item["title"],
-            "company_raw": item.get("company_name"),
-            "description_raw": item["description"]
+            "company_raw": company_raw,
+            "description_raw": item["description"],
+            "locality_norm": normaliser_localite(item.get("work_place_name")) if item.get("work_place_name") else ""
         }
 
         if pc_str:
@@ -362,7 +388,6 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
         if title_compact:
             offers_by_compact_title[title_compact].add(fid)
 
-        # Empreintes exactes
         fp1 = f"{title_norm}|{company_norm}|{pc_str}"
         offers_by_fp1[fp1].add(fid)
         fp2 = f"{title_norm}|{pc_str}"
@@ -404,119 +429,306 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
 
     all_scored_pairs = []
 
+    # Cascade intermediate metrics
+    candidates_before_company = 0
+    candidates_after_company = 0
+    candidates_after_geography = 0
+    candidates_after_title = 0
+    candidates_sent_to_detailed_score = 0
+
+    offers_lost_at_company = 0
+    offers_lost_at_geography = 0
+    offers_lost_at_title = 0
+    offers_rejected_by_score = 0
+    offers_ambiguous = 0
+
+    offers_accepted_by_primary_chain = 0
+    offers_requiring_fallback = 0
+    offers_recovered_by_fallback = 0
+    offers_still_without_candidate = 0
+
+    fallback_reasons_dist = defaultdict(int)
+
     tracker_stage3 = ProgressTracker(3, "CANDIDATE_GENERATION", len(fw_data), "Génération et pré-score des candidats")
 
     for fw_idx, fw_item in enumerate(fw_data):
         fw_sid = str(fw_item["source_id"])
-        fw_title_norm = normaliser_cle(fw_item["title"], est_titre=True)
+        fw_title_norm = normaliser_titre(fw_item["title"])
         fw_title_compact = normaliser_cle_compacte(fw_title_norm)
 
         fw_desc = fw_item.get("description")
-        fw_desc_norm = normaliser_cle(fw_desc) if fw_desc else ""
+        fw_desc_norm = normaliser_description(fw_desc) if fw_desc else ""
 
-        fw_company_norm = normaliser_cle(fw_item.get("company_name"), est_entreprise=True)
+        fw_company_raw = fw_item.get("company_name")
+        fw_company_norm = normaliser_entreprise(fw_company_raw)
+        if use_aliases and fw_company_norm in COMPANY_ALIASES:
+            fw_company_norm = COMPANY_ALIASES[fw_company_norm]
 
         fw_tokens = extraire_tokens(fw_title_norm)
         fw_desc_tokens = extraire_tokens(fw_desc_norm) if fw_desc_norm else []
 
         fw_loc = fw_item.get("location") or {}
         fw_pc = str(fw_loc.get("postal_code") or "").strip()
-        fw_dept = fw_pc[:2] if fw_pc else ""
+        fw_dept = extraire_departement(fw_pc)
+        fw_locality_norm = normaliser_localite(fw_loc.get("locality")) if fw_loc.get("locality") else ""
 
         fw_romes = [r.get("rome_code") for r in fw_item.get("matched_rome_queries", []) if r.get("rome_code")]
 
-        # Génération des candidats par bloc
+        # Block mapping
         candidates_blocks_map = defaultdict(set)
+        candidate_generation_paths = defaultdict(list)
 
-        # Bloc 1 : Empreintes strictes
-        fp1 = f"{fw_title_norm}|{fw_company_norm}|{fw_pc}"
-        for fid in offers_by_fp1.get(fp1, []):
-            candidates_blocks_map[fid].add("EXACT_FINGERPRINT")
-        fp2 = f"{fw_title_norm}|{fw_pc}"
-        for fid in offers_by_fp2.get(fp2, []):
-            candidates_blocks_map[fid].add("EXACT_FINGERPRINT")
-        fp3 = f"{fw_company_norm}|{fw_title_norm}"
-        for fid in offers_by_fp3.get(fp3, []):
-            candidates_blocks_map[fid].add("EXACT_FINGERPRINT")
-        fp4 = f"{fw_title_norm}|{fw_desc_norm}"
-        for fid in offers_by_fp4.get(fp4, []):
-            candidates_blocks_map[fid].add("EXACT_FINGERPRINT")
+        strategy_info = {
+            "strategy": strategy,
+            "use_aliases": use_aliases,
+            "primary_chain_executed": False,
+            "primary_chain_result": "NONE",
+            "primary_chain_stopped_at": "NONE",
+            "fallback_executed": False,
+            "fallback_reason": "NONE"
+        }
 
-        # Bloc 2 : Clé compacte identique
-        if fw_title_compact:
-            for fid in offers_by_compact_title.get(fw_title_compact, []):
-                candidates_blocks_map[fid].add("COMPACT_TITLE_EXACT")
+        # Sub-functions to run blocks
+        def run_legacy_blocks(is_fallback=False):
+            block_prefix = "FALLBACK_" if is_fallback else ""
+            # Bloc 1 : Empreintes strictes
+            fp1 = f"{fw_title_norm}|{fw_company_norm}|{fw_pc}"
+            for fid in offers_by_fp1.get(fp1, []):
+                candidates_blocks_map[fid].add(f"{block_prefix}EXACT_FINGERPRINT")
+                candidate_generation_paths[fid].append(f"{block_prefix}EXACT_FINGERPRINT")
+            fp2 = f"{fw_title_norm}|{fw_pc}"
+            for fid in offers_by_fp2.get(fp2, []):
+                candidates_blocks_map[fid].add(f"{block_prefix}EXACT_FINGERPRINT")
+                candidate_generation_paths[fid].append(f"{block_prefix}EXACT_FINGERPRINT")
+            fp3 = f"{fw_company_norm}|{fw_title_norm}"
+            for fid in offers_by_fp3.get(fp3, []):
+                candidates_blocks_map[fid].add(f"{block_prefix}EXACT_FINGERPRINT")
+                candidate_generation_paths[fid].append(f"{block_prefix}EXACT_FINGERPRINT")
+            fp4 = f"{fw_title_norm}|{fw_desc_norm}"
+            for fid in offers_by_fp4.get(fp4, []):
+                candidates_blocks_map[fid].add(f"{block_prefix}EXACT_FINGERPRINT")
+                candidate_generation_paths[fid].append(f"{block_prefix}EXACT_FINGERPRINT")
 
-        # Bloc 3 : Code postal exact
-        if fw_pc:
-            for fid in offers_by_postal_code.get(fw_pc, []):
-                candidates_blocks_map[fid].add("EXACT_POSTAL_CODE")
+            # Bloc 2 : Clé compacte identique
+            if fw_title_compact:
+                for fid in offers_by_compact_title.get(fw_title_compact, []):
+                    candidates_blocks_map[fid].add(f"{block_prefix}COMPACT_TITLE_EXACT")
+                    candidate_generation_paths[fid].append(f"{block_prefix}COMPACT_TITLE_EXACT")
 
-        # Bloc 4 : Département + Titre commun significatif
-        if fw_dept:
-            dept_offers = offers_by_department.get(fw_dept, set())
+            # Bloc 3 : Code postal exact
+            if fw_pc:
+                for fid in offers_by_postal_code.get(fw_pc, []):
+                    candidates_blocks_map[fid].add(f"{block_prefix}EXACT_POSTAL_CODE")
+                    candidate_generation_paths[fid].append(f"{block_prefix}EXACT_POSTAL_CODE")
+
+            # Bloc 4 : Département + Titre commun significatif
+            if fw_dept:
+                dept_offers = offers_by_department.get(fw_dept, set())
+                for tok in fw_tokens:
+                    token_offers = offers_by_title_token.get(tok, set())
+                    for fid in dept_offers.intersection(token_offers):
+                        candidates_blocks_map[fid].add(f"{block_prefix}SAME_DEPARTMENT_TITLE")
+                        candidate_generation_paths[fid].append(f"{block_prefix}SAME_DEPARTMENT_TITLE")
+
+            # Bloc 5 : ROME + Titre commun significatif (Only for legacy / independent, NOT fallback)
+            if not is_fallback:
+                for rome in fw_romes:
+                    rome_offers = offers_by_rome.get(rome, set())
+                    for tok in fw_tokens:
+                        token_offers = offers_by_title_token.get(tok, set())
+                        for fid in rome_offers.intersection(token_offers):
+                            candidates_blocks_map[fid].add("ROME_QUERY_TITLE")
+                            candidate_generation_paths[fid].append("ROME_QUERY_TITLE")
+
+            # Bloc 6 : Entreprise
+            if fw_company_norm:
+                for fid in offers_by_company.get(fw_company_norm, []):
+                    candidates_blocks_map[fid].add(f"{block_prefix}COMPANY_MATCH")
+                    candidate_generation_paths[fid].append(f"{block_prefix}COMPANY_MATCH")
+                for tok in extraire_tokens(fw_company_norm):
+                    for fid in offers_by_company_token.get(tok, []):
+                        comp_ft = ft_normalized[fid]["company_norm"]
+                        if comp_ft:
+                            sim = SequenceMatcher(None, fw_company_norm, comp_ft).ratio()
+                            if sim >= 0.8:
+                                candidates_blocks_map[fid].add(f"{block_prefix}COMPANY_MATCH")
+                                candidate_generation_paths[fid].append(f"{block_prefix}COMPANY_MATCH")
+
+            # Bloc 7 : Tokens rares du titre
+            title_tokens_with_freq = []
             for tok in fw_tokens:
-                token_offers = offers_by_title_token.get(tok, set())
-                for fid in dept_offers.intersection(token_offers):
-                    candidates_blocks_map[fid].add("SAME_DEPARTMENT_TITLE")
+                freq = doc_freq_title.get(tok, 0)
+                if freq > 0 and freq < MAX_RARE_TOKEN_DOCUMENT_FREQUENCY:
+                    title_tokens_with_freq.append((tok, freq))
+            title_tokens_with_freq.sort(key=lambda x: (x[1], x[0]))
+            rare_tokens = [x[0] for x in title_tokens_with_freq[:MAX_RARE_TITLE_TOKENS]]
+            for tok in rare_tokens:
+                for fid in offers_by_title_token.get(tok, []):
+                    candidates_blocks_map[fid].add(f"{block_prefix}RARE_TITLE_TOKENS")
+                    candidate_generation_paths[fid].append(f"{block_prefix}RARE_TITLE_TOKENS")
 
-        # Bloc 5 : ROME + Titre commun significatif
-        for rome in fw_romes:
-            rome_offers = offers_by_rome.get(rome, set())
-            for tok in fw_tokens:
-                token_offers = offers_by_title_token.get(tok, set())
-                for fid in rome_offers.intersection(token_offers):
-                    candidates_blocks_map[fid].add("ROME_QUERY_TITLE")
+        if strategy == "independent_normalized":
+            run_legacy_blocks(is_fallback=False)
 
-        # Bloc 6 : Entreprise
-        if fw_company_norm:
-            for fid in offers_by_company.get(fw_company_norm, []):
-                candidates_blocks_map[fid].add("COMPANY_MATCH")
-            for tok in extraire_tokens(fw_company_norm):
-                for fid in offers_by_company_token.get(tok, []):
-                    comp_ft = ft_normalized[fid]["company_norm"]
-                    if comp_ft:
-                        sim = SequenceMatcher(None, fw_company_norm, comp_ft).ratio()
-                        if sim >= 0.8:
-                            candidates_blocks_map[fid].add("COMPANY_MATCH")
+        else:
+            # CASCADE STRATEGIES: strict_chain OR hybrid_cascade
+            strategy_info["primary_chain_executed"] = True
+            candidates_before_company += len(ft_data)
 
-        # Bloc 7 : Tokens rares du titre
-        title_tokens_with_freq = []
-        for tok in fw_tokens:
-            freq = doc_freq_title.get(tok, 0)
-            if freq > 0 and freq < MAX_RARE_TOKEN_DOCUMENT_FREQUENCY:
-                title_tokens_with_freq.append((tok, freq))
-        # tri par freq croissante puis ordre alphabétique
-        title_tokens_with_freq.sort(key=lambda x: (x[1], x[0]))
-        rare_tokens = [x[0] for x in title_tokens_with_freq[:MAX_RARE_TITLE_TOKENS]]
-        for tok in rare_tokens:
-            for fid in offers_by_title_token.get(tok, []):
-                candidates_blocks_map[fid].add("RARE_TITLE_TOKENS")
+            # 1. Company Filter
+            company_matched_fids = set()
+            if not fw_company_norm:
+                strategy_info["primary_chain_stopped_at"] = "COMPANY"
+                strategy_info["primary_chain_result"] = "COMPANY_MISSING"
+                offers_lost_at_company += 1
+            else:
+                candidate_fids_comp = set(offers_by_company.get(fw_company_norm, []))
+                for tok in extraire_tokens(fw_company_norm):
+                    candidate_fids_comp.update(offers_by_company_token.get(tok, []))
+
+                for fid in candidate_fids_comp:
+                    ft_comp = ft_normalized[fid]["company_norm"]
+                    res_comp, _ = match_entreprises(fw_company_norm, ft_comp)
+                    if res_comp in ["EXACT_NORMALIZED", "ALIAS_MATCH", "CONTAINMENT_MATCH", "HIGH_SIMILARITY"]:
+                        company_matched_fids.add(fid)
+
+                candidates_after_company += len(company_matched_fids)
+                if not company_matched_fids:
+                    strategy_info["primary_chain_stopped_at"] = "COMPANY"
+                    strategy_info["primary_chain_result"] = "NO_COMPANY_CANDIDATE"
+                    offers_lost_at_company += 1
+
+            # 2. Geographical Filter
+            geo_matched_fids = set()
+            if company_matched_fids:
+                for fid in company_matched_fids:
+                    ft_item = ft_normalized[fid]
+                    res_geo, _ = match_geographie(
+                        fw_pc, fw_locality_norm, fw_dept,
+                        ft_item["postal_code"], ft_item["locality_norm"], ft_item["department"]
+                    )
+                    if res_geo != "DIFFERENT":
+                        geo_matched_fids.add(fid)
+
+                candidates_after_geography += len(geo_matched_fids)
+                if not geo_matched_fids:
+                    strategy_info["primary_chain_stopped_at"] = "GEOGRAPHY"
+                    strategy_info["primary_chain_result"] = "NO_GEOGRAPHY_CANDIDATE"
+                    offers_lost_at_geography += 1
+
+            # 3. Title Filter
+            primary_fids = set()
+            if geo_matched_fids:
+                for fid in geo_matched_fids:
+                    ft_item = ft_normalized[fid]
+                    t1 = set(fw_tokens)
+                    t2 = set(ft_item["title_tokens"])
+                    title_seq = SequenceMatcher(None, fw_title_norm, ft_item["title_norm"]).ratio()
+                    # Require at least 1 token or similarity >= 0.30
+                    if (t1 & t2) or title_seq >= 0.30:
+                        primary_fids.add(fid)
+                        candidates_blocks_map[fid].add("PRIMARY_CHAIN")
+                        candidate_generation_paths[fid].append("PRIMARY_CHAIN")
+
+                candidates_after_title += len(primary_fids)
+                if not primary_fids:
+                    strategy_info["primary_chain_stopped_at"] = "TITLE"
+                    strategy_info["primary_chain_result"] = "NO_TITLE_CANDIDATE"
+                    offers_lost_at_title += 1
+                else:
+                    strategy_info["primary_chain_stopped_at"] = "COMPLETED"
+                    strategy_info["primary_chain_result"] = "SUCCESS"
+
+            # 4. Fallback execution check (only for hybrid_cascade)
+            run_fallback = False
+            fallback_reason = "NONE"
+
+            if strategy in ["strict_chain", "hybrid_cascade"] and strategy_info["primary_chain_result"] == "SUCCESS":
+                # Score primary candidates
+                best_score = -1.0
+                second_score = -1.0
+                for fid in primary_fids:
+                    ft_item = ft_normalized[fid]
+                    t1 = set(fw_tokens)
+                    t2 = set(ft_item["title_tokens"])
+                    j_t = len(t1 & t2) / len(t1 | t2) if t1 | t2 else 0
+                    w_t = sum(idf_title.get(t, 1.0) for t in (t1 & t2)) / sum(idf_title.get(t, 1.0) for t in t1) if t1 else 0
+                    ft_compact = ft_item["title_compact"]
+                    c_t = SequenceMatcher(None, fw_title_compact, ft_compact).ratio() if fw_title_compact or ft_compact else 0
+
+                    comp_score = 8 if fw_company_norm == ft_item["company_norm"] else 0
+                    geo_score = 7 if fw_pc == ft_item["postal_code"] else 0
+                    rome_score = 5 if ft_item["rome_code"] in fw_romes else 0
+
+                    pre_score = j_t * 35 + w_t * 35 + c_t * 10 + comp_score + geo_score + rome_score
+                    if pre_score > best_score:
+                        second_score = best_score
+                        best_score = pre_score
+                    elif pre_score > second_score:
+                        second_score = pre_score
+
+                if best_score < 40.0:
+                    offers_rejected_by_score += 1
+                    if strategy == "hybrid_cascade":
+                        run_fallback = True
+                        fallback_reason = "LOW_PRIMARY_SCORE"
+                elif (best_score - second_score) < 5.0 and len(primary_fids) > 1:
+                    offers_ambiguous += 1
+                    if strategy == "hybrid_cascade":
+                        run_fallback = True
+                        fallback_reason = "AMBIGUOUS_PRIMARY_MARGIN"
+
+            if strategy == "hybrid_cascade" and not run_fallback:
+                if strategy_info["primary_chain_result"] == "COMPANY_MISSING":
+                    run_fallback = True
+                    fallback_reason = "MISSING_PRIMARY_DATA"
+                elif strategy_info["primary_chain_result"] == "NO_COMPANY_CANDIDATE":
+                    run_fallback = True
+                    fallback_reason = "NO_COMPANY_CANDIDATE"
+                elif strategy_info["primary_chain_result"] in ["NO_GEOGRAPHY_CANDIDATE", "GEOGRAPHY_MISSING"]:
+                    run_fallback = True
+                    fallback_reason = "NO_GEOGRAPHY_CANDIDATE"
+                elif strategy_info["primary_chain_result"] == "NO_TITLE_CANDIDATE":
+                    run_fallback = True
+                    fallback_reason = "NO_TITLE_CANDIDATE"
+
+            if run_fallback:
+                offers_requiring_fallback += 1
+                fallback_reasons_dist[fallback_reason] += 1
+                strategy_info["fallback_executed"] = True
+                strategy_info["fallback_reason"] = fallback_reason
+
+                # Temporarily store blocks
+                temp_map = len(candidates_blocks_map)
+                run_legacy_blocks(is_fallback=True)
+
+                # Check if we recovered any candidates
+                if len(candidates_blocks_map) > temp_map:
+                    offers_recovered_by_fallback += 1
+            else:
+                if strategy_info["primary_chain_result"] == "SUCCESS":
+                    offers_accepted_by_primary_chain += 1
 
         raw_candidates_ids = list(candidates_blocks_map.keys())
         candidates_before_pre_limit = len(raw_candidates_ids)
         total_candidates_before_pre_limit += candidates_before_pre_limit
 
-        # 3. Pré-score rapide sans trigrammes
+        # 3. Pré-score rapide
         pre_scored_candidates = []
         for fid in raw_candidates_ids:
             ft_item = ft_normalized[fid]
 
-            # Jaccard title (35 pts)
             t1 = set(fw_tokens)
             t2 = set(ft_item["title_tokens"])
             jaccard_title = len(t1 & t2) / len(t1 | t2) if t1 | t2 else 0
 
-            # Similarité pondérée IDF du titre (35 pts)
             sum_idf_common = sum(idf_title.get(tok, 1.0) for tok in (t1 & t2))
             sum_idf_total = sum(idf_title.get(tok, 1.0) for tok in t1)
             weighted_title = sum_idf_common / sum_idf_total if sum_idf_total else 0
 
-            # Similarité de clé compacte (10 pts)
             ft_title_compact = ft_item["title_compact"]
             compact_sim = SequenceMatcher(None, fw_title_compact, ft_title_compact).ratio() if fw_title_compact or ft_title_compact else 0
 
-            # Entreprise (8 pts)
             comp_score = 0
             if fw_company_norm and ft_item["company_norm"]:
                 if fw_company_norm == ft_item["company_norm"]:
@@ -526,7 +738,6 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                     if sim >= 0.8:
                         comp_score = sim * 8
 
-            # Géographie (7 pts)
             geo_score = 0
             if fw_pc and ft_item["postal_code"]:
                 if fw_pc == ft_item["postal_code"]:
@@ -534,7 +745,6 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                 elif fw_dept == ft_item["department"]:
                     geo_score = 3.5
 
-            # ROME (5 pts)
             rome_score = 5 if ft_item["rome_code"] in fw_romes else 0
 
             pre_score = (
@@ -547,18 +757,17 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
             )
             pre_scored_candidates.append((fid, pre_score))
 
-        # Tri stable par pré-score décroissant puis france_travail_id croissant
         pre_scored_candidates.sort(key=lambda x: (-x[1], x[0]))
         retained_pre_candidates = pre_scored_candidates[:MAX_PRE_CANDIDATES_PER_OFFER]
         pre_candidates_retained = len(retained_pre_candidates)
         total_pre_candidates_retained += pre_candidates_retained
+        candidates_sent_to_detailed_score += pre_candidates_retained
 
         # 4. Score détaillé
         detailed_candidates = []
         for fid, _ in retained_pre_candidates:
             ft_item = ft_normalized[fid]
 
-            # Titres
             title_seq = SequenceMatcher(None, fw_title_norm, ft_item["title_norm"]).ratio()
             t1 = set(fw_tokens)
             t2 = set(ft_item["title_tokens"])
@@ -573,7 +782,6 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
 
             title_score_contrib = 45 * (title_seq * 0.25 + title_jac * 0.25 + title_weighted * 0.25 + title_compact_seq * 0.25)
 
-            # Description (25 points max, avec gestion des descriptions absentes)
             desc_jac = None
             desc_weighted = None
             desc_score_contrib = 0
@@ -592,14 +800,12 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
             else:
                 description_source = "missing"
 
-            # Entreprise (10 points max)
             company_seq = None
             company_score_contrib = 0
             if fw_company_norm and ft_item["company_norm"]:
                 company_seq = SequenceMatcher(None, fw_company_norm, ft_item["company_norm"]).ratio()
                 company_score_contrib = company_seq * 10
 
-            # Géographie (15 points max)
             geography_label = "UNKNOWN"
             geo_score_contrib = 0
             if fw_pc and ft_item["postal_code"]:
@@ -613,14 +819,12 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                     geography_label = "DIFFERENT"
                     geo_score_contrib = 0
 
-            # ROME (5 points max)
             rome_match = ft_item["rome_code"] in fw_romes
             rome_score_contrib = 5 if rome_match else 0
 
             final_score = title_score_contrib + desc_score_contrib + company_score_contrib + geo_score_contrib + rome_score_contrib
 
-            # Couverture des preuves (champs réellement disponibles)
-            coverage = 45  # titre toujours présent
+            coverage = 45
             if fw_desc_norm and ft_item["desc_norm"]:
                 coverage += 25
             if fw_pc and ft_item["postal_code"]:
@@ -629,6 +833,16 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                 coverage += 10
             if ft_item["rome_code"] and fw_romes:
                 coverage += 5
+
+            # Detailed comparisons
+            comp_res, comp_sim_val = match_entreprises(fw_company_norm, ft_item["company_norm"])
+            geo_res, _ = match_geographie(
+                fw_pc, fw_locality_norm, fw_dept,
+                ft_item["postal_code"], ft_item["locality_norm"], ft_item["department"]
+            )
+
+            # Titles comparison tokens
+            shared_toks = list(t1 & t2)
 
             detailed_candidates.append({
                 "france_travail_id": fid,
@@ -651,10 +865,34 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                     "geography": geography_label,
                     "rome_query_match": rome_match
                 },
-                "candidate_blocks": sorted(list(candidates_blocks_map[fid]))
+                "company_comparison": {
+                    "free_work_raw": fw_company_raw,
+                    "france_travail_raw": ft_item["company_raw"],
+                    "free_work_normalized": fw_company_norm,
+                    "france_travail_normalized": ft_item["company_norm"],
+                    "match_type": comp_res,
+                    "similarity": round(comp_sim_val, 4)
+                },
+                "geography_comparison": {
+                    "free_work_locality_raw": fw_loc.get("locality"),
+                    "france_travail_locality_raw": item.get("work_place_name"),
+                    "free_work_locality_normalized": fw_locality_norm,
+                    "france_travail_locality_normalized": ft_item["locality_norm"],
+                    "free_work_postal_code": fw_pc,
+                    "france_travail_postal_code": ft_item["postal_code"],
+                    "result": geo_res
+                },
+                "title_comparison": {
+                    "free_work_normalized": fw_title_norm,
+                    "france_travail_normalized": ft_item["title_norm"],
+                    "shared_significant_tokens": shared_toks,
+                    "sequence_similarity": round(title_seq, 4),
+                    "weighted_token_similarity": round(title_weighted, 4)
+                },
+                "candidate_blocks": sorted(list(candidates_blocks_map[fid])),
+                "candidate_generation_paths": sorted(list(set(candidate_generation_paths[fid])))
             })
 
-        # Tri final par score décroissant puis ID France Travail croissant
         detailed_candidates.sort(key=lambda x: (-x["preliminary_match_score"], x["france_travail_id"]))
         retained_detailed_candidates = detailed_candidates[:MAX_DETAILED_CANDIDATES_PER_OFFER]
         detailed_candidates_retained = len(retained_detailed_candidates)
@@ -679,6 +917,8 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
         else:
             offers_without_candidates += 1
             all_scored_pairs.append((0.0, fw_item, None))
+            if strategy in ["strict_chain", "hybrid_cascade"]:
+                offers_still_without_candidate += 1
 
         for cand in retained_detailed_candidates:
             blocks = cand["candidate_blocks"]
@@ -686,16 +926,32 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
                 block_counts[b] += 1
             if len(blocks) >= 2:
                 multi_block_count += 1
-            if "EXACT_FINGERPRINT" in blocks:
+            if "EXACT_FINGERPRINT" in blocks or "FALLBACK_EXACT_FINGERPRINT" in blocks:
                 exact_fp_count += 1
+
+        desc_excerpt = fw_desc[:150] + "..." if fw_desc and len(fw_desc) > 150 else (fw_desc or "")
 
         results.append({
             "free_work_source_id": fw_sid,
             "free_work_title": fw_item["title"],
+            "free_work_title_normalized": fw_title_norm,
+            "free_work_company": fw_company_raw,
+            "free_work_company_normalized": fw_company_norm,
+            "free_work_location": {
+                "locality": fw_loc.get("locality"),
+                "locality_normalized": fw_locality_norm,
+                "postal_code": fw_pc,
+                "department_code": fw_dept
+            },
+            "free_work_source_url": fw_item.get("source_url") or f"https://www.free-work.com/job_postings/{fw_item.get('slug')}" if fw_item.get("slug") else "",
+            "free_work_description_excerpt": desc_excerpt,
+            "free_work_description_length": len(fw_desc) if fw_desc else 0,
+            "free_work_description_hash": hashlib.sha256(fw_desc.encode("utf-8")).hexdigest() if fw_desc else "",
             "state": state_label,
             "candidates_before_pre_limit": candidates_before_pre_limit,
             "pre_candidates_retained": pre_candidates_retained,
             "detailed_candidates_retained": detailed_candidates_retained,
+            "generation_strategy": strategy_info,
             "top_candidates": retained_detailed_candidates
         })
 
@@ -703,7 +959,7 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
 
     t_matching = time.time() - t_start_matching
 
-    # [4/6] Calcul des scores détaillés (Déjà intégrés ci-dessus pour la performance)
+    # [4/6] Calcul des scores détaillés (Déjà intégrés)
     write_progress("DETAILED_SCORING", 4, len(fw_data), len(fw_data), "Calcul des scores détaillés")
 
     # [5/6] Génération de l’échantillon humain
@@ -761,10 +1017,14 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
     fw_sha = calculer_sha256_fichier(fw_path)
     ft_sha = calculer_sha256_fichier(ft_path)
 
-    ft_hash_short = ft_sha[:12]
-    batch_fw = fw_path.parent.name
+    # Output directory handling
+    if benchmark_id:
+        output_dir = PROJECT_ROOT / "data" / "processed" / "matching" / "benchmarks" / benchmark_id / strategy
+    else:
+        ft_hash_short = ft_sha[:12]
+        batch_fw = fw_path.parent.name
+        output_dir = PROJECT_ROOT / "data" / "processed" / "matching" / "free_work_vs_france_travail" / f"{batch_fw}__{ft_hash_short}_{strategy}"
 
-    output_dir = PROJECT_ROOT / "data" / "processed" / "matching" / "free_work_vs_france_travail" / f"{batch_fw}__{ft_hash_short}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_bytes = json.dumps(
@@ -786,6 +1046,8 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
     manifest = {
         "matching_schema_version": 2,
         "score_version": "compact_v2_stable",
+        "strategy": strategy,
+        "use_aliases": use_aliases,
         "free_work_input_sha256": fw_sha,
         "france_travail_input_sha256": ft_sha,
         "free_work_offers": len(fw_data),
@@ -805,6 +1067,34 @@ def generer_matching(fw_path: Path, ft_path: Path) -> None:
         "score_distribution": score_distribution,
         "review_sample_size": len(review_sample)
     }
+
+    if benchmark_id:
+        manifest.update({
+            "load_time_seconds": round(t_load, 4),
+            "index_time_seconds": round(t_index, 4),
+            "candidate_generation_time_seconds": round(t_matching, 4),
+            "total_time_seconds": round(t_load + t_index + t_matching, 4)
+        })
+
+    # Add cascade-specific fields
+    if strategy in ["strict_chain", "hybrid_cascade"]:
+        manifest.update({
+            "candidates_before_company": candidates_before_company,
+            "candidates_after_company": candidates_after_company,
+            "candidates_after_geography": candidates_after_geography,
+            "candidates_after_title": candidates_after_title,
+            "candidates_sent_to_detailed_score": candidates_sent_to_detailed_score,
+            "offers_lost_at_company": offers_lost_at_company,
+            "offers_lost_at_geography": offers_lost_at_geography,
+            "offers_lost_at_title": offers_lost_at_title,
+            "offers_rejected_by_score": offers_rejected_by_score,
+            "offers_ambiguous": offers_ambiguous,
+            "offers_accepted_by_primary_chain": offers_accepted_by_primary_chain,
+            "offers_requiring_fallback": offers_requiring_fallback,
+            "offers_recovered_by_fallback": offers_recovered_by_fallback,
+            "offers_still_without_candidate": offers_still_without_candidate,
+            "fallback_reasons_distribution": dict(fallback_reasons_dist)
+        })
 
     manifest_bytes = json.dumps(
         manifest,
@@ -839,15 +1129,37 @@ def main() -> None:
         required=True,
         help="Chemin vers le snapshot France Travail."
     )
+    parser.add_argument(
+        "--strategy",
+        choices=["independent_normalized", "hybrid_cascade", "strict_chain"],
+        default="independent_normalized",
+        help="Stratégie de rapprochement."
+    )
+    parser.add_argument(
+        "--use-aliases",
+        action="store_true",
+        help="Utiliser la configuration d'alias d'entreprises."
+    )
+    parser.add_argument(
+        "--benchmark-id",
+        type=str,
+        default=None,
+        help="ID de benchmark si exécuté dans le cadre de tests de performance."
+    )
     args = parser.parse_args()
 
     fw_path = Path(args.free_work_input)
     ft_path = Path(args.france_travail_input)
 
     try:
-        generer_matching(fw_path, ft_path)
+        generer_matching(
+            fw_path=fw_path,
+            ft_path=ft_path,
+            strategy=args.strategy,
+            use_aliases=args.use_aliases,
+            benchmark_id=args.benchmark_id
+        )
     except Exception as e:
-        # En cas d'erreur interceptée
         try:
             write_progress("FAILED", 0, 0, 1, f"Erreur fatale de traitement : {str(e)}", "FAILED")
         except Exception:
