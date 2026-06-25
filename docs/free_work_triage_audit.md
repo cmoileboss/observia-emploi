@@ -2,6 +2,15 @@
 
 Ce document décrit la méthodologie, les résultats et la structure des fichiers d'audit produits lors du rapprochement du catalogue complet Free-Work (8 457 offres) avec le snapshot France Travail (33 805 offres).
 
+> **Note de lecture — historique V1 et état courant V2**
+>
+> Les sections 1 à 7 de ce document décrivent le triage historique V1, fondé sur les catégories `DUPLICATE_HIGH_CONFIDENCE`, `PROBABLY_NEW`, `HUMAN_REVIEW_REQUIRED` et `PROCESSING_ERROR`.
+>
+> La méthode courante est le triage V2 documenté à partir de la section 8. Elle utilise les décisions `PRESENT_IN_FT_SNAPSHOT`, `NOT_FOUND_IN_FT_SNAPSHOT`, `UNCERTAIN` et `PROCESSING_ERROR`, ainsi que les actions de revue `NO_MANUAL_REVIEW`, `REVIEW_NOW` et `DEFER_DATA_INCOMPLETE`.
+>
+> Les volumes et fichiers décrits dans les sections historiques ne doivent donc pas être interprétés comme l’état opérationnel actuel du pipeline.
+
+
 ---
 
 ## 1. Objectif du Triage
@@ -75,7 +84,53 @@ Conformément aux consignes de sécurité et d'architecture du projet, **aucune 
 
 ---
 
-## 8. Limites Connues
+## 8. Orchestration V2 paramétrable
+
+La commande recommandée pour produire un run V2 frais est :
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_free_work_triage_v2.py `
+  --free-work-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+  --candidate-matches-input "data\processed\matching\free_work_vs_france_travail\<MATCH_RUN>\candidate_matches.json" `
+  --output-dir "data\processed\matching\free_work_vs_france_travail\<V2_RUN>"
+```
+
+Elle remplace pour les nouveaux runs le replay historique fondé sur un `source-run-id` et un `triage_results.json` ancien. Les règles métier V2 restent celles de `TRIAGE_RULESET_V2_CANDIDATE`.
+
+Validations d'entrée :
+
+* présence et validité JSON des trois fichiers d'entrée ;
+* unicité des identifiants Free-Work ;
+* cohérence stricte entre `offers_normalized.json` et `candidate_matches.json` ;
+* présence des champs obligatoires ;
+* refus d'écrire dans un dossier de sortie non vide.
+
+Artefacts :
+
+* `run_manifest.json`
+* `triage_decisions.jsonl`
+* `import_candidates.json`
+* `review_queue.csv`
+* `triage_progress.json`
+
+Le fichier `triage_progress.json` suit `status`, `stage`, `current`, `total`, `percent`, `elapsed_seconds`, `speed_offers_per_second`, `eta_seconds` et `heartbeat`.
+
+Commande validée sur le jeu historique :
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_free_work_triage_v2.py `
+  --free-work-input "data\processed\free_work\full_catalog\20260624_081715\offers_normalized.json" `
+  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+  --candidate-matches-input "data\processed\matching\free_work_vs_france_travail\run_triage_full_20260624\candidate_matches.json" `
+  --output-dir "data\processed\matching\free_work_vs_france_travail\run_triage_v2_fresh_20260625_140527"
+```
+
+Résultat obtenu : 8 457 décisions, 8 457 identifiants uniques, 143 `PRESENT_IN_FT_SNAPSHOT`, 6 846 `NOT_FOUND_IN_FT_SNAPSHOT`, 1 468 `UNCERTAIN`, 0 `PROCESSING_ERROR`, 952 lignes de revue et 516 cas différés absents du CSV de revue.
+
+---
+
+## 9. Limites Connues
 
 * **Descriptions manquantes** : Pour les offres Free-Work dépourvues de description, le score est recalculé sur une base réduite (75 points max), ce qui peut faire basculer certaines offres en revue humaine par manque d'éléments textuels à comparer.
 * **Dépendance au snapshot** : Le triage est réalisé par rapport au snapshot France Travail figé au 24/06/2026. Toute mise à jour majeure de la base France Travail nécessite de régénérer l'indexation.
