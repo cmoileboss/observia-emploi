@@ -927,6 +927,27 @@ Usage cible :
 - aider éventuellement sur les codes ROME ambigus ;
 - fonctionner en traitement par lot reprenable avec progression.
 
+## Paquet pré-import consolidé Free-Work
+
+Le script `scripts/build_free_work_preimport_package.py` permet de consolider l'ensemble des runs d'analyse hors ligne (synchro différentielle, triage V2, classification ROME déterministe, compétences) en un paquet unique et auditable. Il gère de manière robuste les runs de synchronisation incrémentaux en partitionnant les identifiants d'offres (offres actives à traiter `process_ids`, offres actives inchangées `unchanged_ids` et offres à désactiver `deactivation_ids`).
+
+Commande finale validée :
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_free_work_preimport_package.py `
+  --catalog-sync-run-dir "data/processed/free_work/catalog_sync_validation_v2/runs/sync_bootstrap_20260625_validation" `
+  --triage-run-dir "data/processed/matching/free_work_vs_france_travail/run_triage_v2_fresh_20260625_140527" `
+  --rome-run-dir "data/processed/free_work/rome_classification/run_rome_deterministic_v1_final_20260625_133121" `
+  --normalized-input "data/processed/free_work/full_catalog/20260624_081715/offers_normalized.json" `
+  --output-dir "data/processed/free_work/preimport/run_preimport_v1_validation_20260625" `
+  --run-id "run_preimport_v1_validation_20260625"
+```
+
+Cette opération :
+- Applique la matrice de décision validée sans aucun accès PostgreSQL, ni import ni appel réseau.
+- Vérifie l'intégrité structurelle des identifiants (partitions disjointes, relations d'inclusions strictes avec le triage et le ROME).
+- Produit les fichiers structurés de sortie (`offers_to_create.json`, `offers_to_update.json`, `offers_to_reactivate.json`, `existing_ft_offers_to_enrich.json`, `offers_to_defer.json`, `offers_to_deactivate.json`, `rejected_records.json`, `unchanged_offer_ids.json` pour les offres inchangées `NO_ACTION`, rapports d'intégrité et manifestes).
+
 ---
 
 ## Tests et qualité
@@ -940,7 +961,7 @@ Commande réelle de test :
 Statut documenté au 25/06/2026 :
 
 ```text
-172 tests réussis
+178 tests réussis
 ```
 
 Garanties couvertes par les tests existants autour de Free-Work :
@@ -951,7 +972,8 @@ Garanties couvertes par les tests existants autour de Free-Work :
 - absence d'écriture PostgreSQL pendant le triage ;
 - propagation des compétences structurées ;
 - règles de revue V2 ;
-- traitement des URL historiques Free-Work.
+- traitement des URL historiques Free-Work ;
+- validation de l'intégrité et de la matrice de transition du paquet pré-import.
 
 ---
 
@@ -982,6 +1004,7 @@ Le collecteur Free-Work réalise une collecte via API publique et conserve les a
 - [Benchmark Free-Work Matching 20260624](docs/benchmarks/free_work_matching_benchmark_20260624.md)
 - [Classification ROME déterministe Free-Work](docs/free_work_rome_classification.md)
 - [Synchronisation différentielle Free-Work](docs/free_work_catalog_sync.md)
+- [Paquet pré-import consolidé Free-Work](docs/free_work_preimport_package.md)
 
 ---
 
@@ -991,7 +1014,6 @@ Limites actuelles :
 
 - classification ROME Free-Work implémentée uniquement hors ligne, sans import PostgreSQL ;
 - synchronisation différentielle Free-Work implémentée uniquement hors ligne, avec artefacts fichier ;
-- aucun paquet pré-import consolidé ne combine encore synchronisation, triage V2, ROME et compétences ;
 - pas d'import PostgreSQL Free-Work ;
 - pas d'exposition API des offres Free-Work ;
 - LLM non intégré au projet et non utilisé dans cette première version ;
@@ -1001,7 +1023,7 @@ Limites actuelles :
 
 Prochaines étapes logiques :
 
-1. Construire un paquet pré-import consolidé combinant synchronisation différentielle, triage V2, ROME et compétences.
+1. Construire un paquet pré-import consolidé combinant synchronisation différentielle, triage V2, ROME et compétences (étape réalisée hors ligne).
 2. Faire évoluer le modèle PostgreSQL pour la provenance, le matching, la revue et le ROME.
 3. Implémenter le dry-run puis l’import transactionnel des offres et compétences.
 4. Rendre la vérification `robots.txt` bloquante lorsqu’elle renvoie explicitement `DISALLOWED`.
