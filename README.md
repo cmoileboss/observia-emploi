@@ -24,7 +24,7 @@ Sous PowerShell :
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r backend\requirements.txt
 ```
 
 #### Définition des variables d'environnements
@@ -45,6 +45,8 @@ Variables à renseigner dans `.env` :
 - `RAW_DATA_FOLDER` : dossier contenant les données brutes, par défaut `data\raw` ; ce dossier doit être créé manuellement
 - `PROCESSED_DATA_FOLDER` : dossier contenant les données traitées, par défaut `data\processed` ; ce dossier doit être créé manuellement
 - `DATABASE_NAME` : nom de la base de données PostgreSQL, par défaut `observia_emploi_db`
+- `DATABASE_HOST` : hôte PostgreSQL, par défaut `localhost` en local et `db` avec Docker Compose
+- `DATABASE_PORT` : port PostgreSQL, par défaut `5432`
 - `DATABASE_USER` : utilisateur PostgreSQL utilisé pour accéder à la base de données
 - `DATABASE_PASSWORD` : mot de passe de l'utilisateur PostgreSQL utilisé pour accéder à la base de données
 
@@ -58,12 +60,14 @@ Il faut également créer la base de données `PostgreSQL`. Le nom de la base de
 
 ## Lancement du projet
 
+Le code backend Python se trouve dans le dossier `backend`.
+
 La commande suivante permet de lancer le pipeline de préparation des données.  
 ```powershell
-python main.py --build-data
+python .\backend\main.py --build-data
 ```
 
-Le pipeline est lancé dans main.py. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `./scripts`.
+Le pipeline est lancé dans `backend\main.py`. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `backend\scripts`.
 Ordre d'exécution des scripts :
 - `create_output.py` : nettoyage des deux fichiers csv de départ contenus dans `RAW_DATA_FOLDER` et fusion dans `PROCESSED_DATA_FOLDER\merged_data.csv`,
 - `sirene_enricher.py` : récupération des localisations des entreprises grâce à leur numéro SIRET avec l'API de l'INSEE,
@@ -76,13 +80,57 @@ Cette commande n'est pas nécessaire si on désarchive le fichier `data.zip`. Il
 
 Si `data.zip` a été désarchivé ou si `formations_enriched.csv` est déjà présent dans `PROCESSED_DATA_FOLDER`, la commande suivante permettra de simplement récupérer les offres de France Travail et de ranger ces offres et les données du fichier dans la base de données.
 ```powershell
-python main.py --stock-data
+python .\backend\main.py --stock-data
 ```   
   
 
 Une fois les données prêtes dans la base de données, l'API FastAPI sera fonctionnelle et la commande suivante permettra de démarrer un serveur HTTP local avec uvicorn. Il sera accessible depuis `http:\\localhost:8000`.
 ```powershell
-python main.py
+python .\backend\main.py
+```
+
+## Lancement avec Docker
+
+Le projet peut être démarré avec Docker Compose, avec un conteneur pour le backend et un conteneur PostgreSQL.
+
+### Démarrage des services
+
+Depuis la racine du projet :
+
+```powershell
+docker compose up --build
+```
+
+Cette commande :
+
+- construit l'image du backend à partir de `backend\Dockerfile`,
+- démarre PostgreSQL sur le port `5432`,
+- démarre l'API FastAPI sur le port `8000`.
+
+### Lancer le pipeline dans Docker
+
+Pour exécuter le pipeline complet de préparation des données dans le conteneur backend :
+
+```powershell
+docker compose run --rm backend python main.py --build-data
+```
+
+Pour charger les données enrichies et récupérer les offres France Travail sans relancer tout le pipeline :
+
+```powershell
+docker compose run --rm backend python main.py --stock-data
+```
+
+### Arrêter les services Docker
+
+```powershell
+docker compose down
+```
+
+Pour arrêter les services et supprimer aussi le volume PostgreSQL :
+
+```powershell
+docker compose down -v
 ```
 
 ## Routes exposées
