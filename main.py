@@ -12,8 +12,12 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 from postgres_connection import Base, engine
-from models import francetravail_model, correspondance_formation_model
-from router import router
+from routers.competences_router import router as competences_router
+from routers.formation_flux_mensuel_router import router as formation_flux_mensuel_router
+from routers.formations_router import router as formations_router
+from routers.offres_router import router as offres_router
+from routers.rome_codes_router import router as rome_codes_router
+from routers.main_router import main_router
 
 from scripts.formations_enricher import FormationsEnricher
 from scripts.create_output import create_output
@@ -93,7 +97,12 @@ def run_data_pipeline() -> None:
 
 
 app = FastAPI(title="Observia Emploi API")
-app.include_router(router)
+app.include_router(offres_router)
+app.include_router(competences_router)
+app.include_router(formations_router)
+app.include_router(formation_flux_mensuel_router)
+app.include_router(rome_codes_router)
+app.include_router(main_router)
 
 
 if __name__ == "__main__":
