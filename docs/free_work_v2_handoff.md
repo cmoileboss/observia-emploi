@@ -139,7 +139,7 @@ Les compétences structurées (`skills` et `soft_skills`) sont normalisées et p
 
 ## 9. Prochaine étape recommandée
 
-Mettre en place la synchronisation différentielle du catalogue Free-Work afin de distinguer les offres :
+La synchronisation différentielle du catalogue Free-Work est désormais disponible hors ligne via `scripts/sync_free_work_catalog.py`. Elle distingue les offres :
 
 * nouvelles ;
 * modifiées ;
@@ -147,7 +147,7 @@ Mettre en place la synchronisation différentielle du catalogue Free-Work afin d
 * inchangées ;
 * disparues et donc à désactiver sans suppression physique.
 
-Construire ensuite un paquet pré-import consolidé, sans écrire dans PostgreSQL.
+La prochaine étape prioritaire est donc de construire un paquet pré-import consolidé, sans écrire dans PostgreSQL.
 
 Ce paquet devra combiner :
 

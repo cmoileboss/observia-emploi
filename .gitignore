@@ -39,3 +39,6 @@ scratch/evaluate_non_regression.py
 data/processed/matching/benchmarks/
 data/processed/matching/progress.json
 data/processed/matching/**/*.log
+# Fichiers temporaires pytest
+.pytest_cache/
+.tmp_pytest*/

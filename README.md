@@ -22,7 +22,8 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 | Mon Compte Formation | Opérationnel | Préparation CSV, enrichissement géographique et import PostgreSQL. |
 | PostgreSQL | Opérationnel | Modèle relationnel principal pour l'API actuelle. |
 | API FastAPI | Opérationnelle | Routes de consultation présentes dans `router.py`. |
-| Free-Work | Source 3 retenue pour intégration | Collecte exhaustive, normalisation et génération des candidats de matching opérationnelles ; triage V2 validé sur le run de référence. |
+| Free-Work | Source 3 retenue pour intégration | Collecte exhaustive, normalisation, synchronisation différentielle fichier et génération des candidats de matching opérationnelles ; triage V2 validé sur le run de référence. |
+| Synchronisation différentielle Free-Work | Implémentée hors ligne | Compare un snapshot normalisé complet au catalogue courant et classe `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED` et `INACTIVATED`, sans suppression ni import PostgreSQL. |
 | Orchestration d'un run V2 frais | Implémentée hors ligne | `scripts/run_free_work_triage_v2.py` produit un run V2 complet depuis des chemins explicites, sans `source-run-id` historique. |
 | Classification ROME Free-Work | V1 déterministe exploitable hors ligne | 143 codes confirmés depuis France Travail, 664 auto-affectations haute confiance, 7 650 offres laissées sans ROME. |
 | Import PostgreSQL Free-Work | Non implémenté | La politique cible est décidée, mais aucun importeur transactionnel Free-Work n'est encore codé. |
@@ -40,6 +41,7 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 - API REST FastAPI pour consulter les formations liées à une offre, les compétences les plus fréquentes et l'historique régional.
 - Collecte exhaustive Free-Work via API publique, avec pagination, reprise, déduplication et manifestes.
 - Normalisation Free-Work hors ligne.
+- Synchronisation différentielle Free-Work hors ligne, avec catalogue courant fichier, runs auditables et inactivation uniquement si la collecte complète est prouvée.
 - Génération des candidats de comparaison Free-Work / France Travail.
 - Triage V2 déterministe validé sur le run de référence et relançable par une commande paramétrable sur des artefacts frais.
 - Classification ROME Free-Work déterministe hors ligne, sans LLM, avec héritage contrôlé du ROME France Travail pour les 143 correspondances certaines et auto-affectation seulement lorsque les seuils de confiance sont atteints.
@@ -70,6 +72,11 @@ flowchart TD
     FWAPI -->|collecte exhaustive paginée| Raw[offers_raw.json]
     Raw -->|déduplication par source_id| Dedup[offers_deduplicated.json]
     Dedup -->|scripts/normalize_free_work_offers.py| Norm[offers_normalized.json]
+    RawBatch[collection_manifest.json + failed_pages.json + resume_state.json] -->|preuve de complétude| Sync[Synchro différentielle]
+    Norm -->|scripts/sync_free_work_catalog.py| Sync
+    Sync --> CatalogState[catalog/current/catalog_state.json]
+    Sync --> ActiveOffers[catalog/current/offers_active.json]
+    Sync --> SyncManifest[catalog/current/catalog_manifest.json]
 
     DB[(PostgreSQL France Travail)] -->|scripts/export_france_travail_snapshot.py| FTSnap[france_travail_offers_snapshot.json]
     Norm -->|scripts/generate_free_work_match_candidates.py| Match[candidate_matches.json]
@@ -324,6 +331,80 @@ data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json
 ```
 
 Le fichier `normalization_manifest.json` est également écrit dans le même dossier.
+
+---
+
+## Synchronisation différentielle Free-Work
+
+La synchronisation différentielle est portée par :
+
+```text
+scripts/sync_free_work_catalog.py
+```
+
+Elle compare un nouveau `offers_normalized.json` au catalogue courant local, sans réseau, sans PostgreSQL, sans import, sans matching, sans triage V2 et sans classification ROME.
+
+Commande :
+
+```powershell
+.\.venv\Scripts\python.exe scripts\sync_free_work_catalog.py `
+  --normalized-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --collection-batch-dir "data\raw\free_work\full_catalog\batches\<BATCH_ID>" `
+  --catalog-root "data\processed\free_work\catalog" `
+  --run-id "<SYNC_RUN_ID>"
+```
+
+États produits :
+
+| État | Règle |
+| :--- | :--- |
+| `NEW` | Identifiant Free-Work jamais observé. |
+| `UPDATED` | Identifiant connu, actif, avec contenu métier modifié. |
+| `UNCHANGED` | Identifiant connu, actif, avec hash métier identique. |
+| `REACTIVATED` | Identifiant connu inactif, présent à nouveau. |
+| `INACTIVATED` | Identifiant précédemment actif, absent d'un nouveau snapshot complet. |
+
+Les offres disparues ne sont pas supprimées : elles restent dans `catalog_state.json` avec `is_active = false`.
+
+Avant toute inactivation et toute promotion de `catalog/current`, le script exige :
+
+```text
+collection_manifest.status = COMPLETED
+collection_manifest.pages_failed = 0
+collection_manifest.pages_requested = collection_manifest.pages_succeeded
+failed_pages.json = []
+resume_state.next_page_url = null
+```
+
+Artefacts courants :
+
+- `catalog/current/catalog_state.json`
+- `catalog/current/offers_active.json`
+- `catalog/current/catalog_manifest.json`
+
+Artefacts de run :
+
+- `catalog/runs/<SYNC_RUN_ID>/new_offers.json`
+- `catalog/runs/<SYNC_RUN_ID>/updated_offers.json`
+- `catalog/runs/<SYNC_RUN_ID>/reactivated_offers.json`
+- `catalog/runs/<SYNC_RUN_ID>/unchanged_offer_ids.json`
+- `catalog/runs/<SYNC_RUN_ID>/inactivated_offers.json`
+- `catalog/runs/<SYNC_RUN_ID>/offers_to_process.json`
+- `catalog/runs/<SYNC_RUN_ID>/offers_to_deactivate.json`
+- `catalog/runs/<SYNC_RUN_ID>/change_log.jsonl`
+- `catalog/runs/<SYNC_RUN_ID>/sync_manifest.json`
+- `catalog/runs/<SYNC_RUN_ID>/sync_progress.json`
+
+La version du hash métier est `free_work_catalog_business_v1`. Elle inclut les champs métier normalisés principaux (`title`, descriptions, entreprise, localisation, contrats, compétences, télétravail, expérience, salaire et dates de publication/mise à jour/expiration) et exclut les métadonnées techniques (`source`, `source_id`, URLs, requêtes ROME candidates et hash du payload brut).
+
+Validation réelle sur le batch `20260624_081715` :
+
+```text
+sync_bootstrap_20260625_validation : 8 457 NEW
+sync_repeat_20260625_validation : 8 457 UNCHANGED
+```
+
+Documentation détaillée : [Synchronisation différentielle Free-Work](docs/free_work_catalog_sync.md).
 
 ---
 
@@ -859,7 +940,7 @@ Commande réelle de test :
 Statut documenté au 25/06/2026 :
 
 ```text
-154 tests réussis
+172 tests réussis
 ```
 
 Garanties couvertes par les tests existants autour de Free-Work :
@@ -900,6 +981,7 @@ Le collecteur Free-Work réalise une collecte via API publique et conserve les a
 - [Documentation de triage Free-Work](docs/free_work_triage_audit.md)
 - [Benchmark Free-Work Matching 20260624](docs/benchmarks/free_work_matching_benchmark_20260624.md)
 - [Classification ROME déterministe Free-Work](docs/free_work_rome_classification.md)
+- [Synchronisation différentielle Free-Work](docs/free_work_catalog_sync.md)
 
 ---
 
@@ -908,6 +990,8 @@ Le collecteur Free-Work réalise une collecte via API publique et conserve les a
 Limites actuelles :
 
 - classification ROME Free-Work implémentée uniquement hors ligne, sans import PostgreSQL ;
+- synchronisation différentielle Free-Work implémentée uniquement hors ligne, avec artefacts fichier ;
+- aucun paquet pré-import consolidé ne combine encore synchronisation, triage V2, ROME et compétences ;
 - pas d'import PostgreSQL Free-Work ;
 - pas d'exposition API des offres Free-Work ;
 - LLM non intégré au projet et non utilisé dans cette première version ;
@@ -917,11 +1001,10 @@ Limites actuelles :
 
 Prochaines étapes logiques :
 
-1. Implémenter la synchronisation différentielle du catalogue Free-Work.
-2. Construire un paquet pré-import consolidé combinant triage V2, ROME et compétences.
-3. Faire évoluer le modèle PostgreSQL pour la provenance, le matching, la revue et le ROME.
-4. Implémenter le dry-run puis l’import transactionnel des offres et compétences.
-5. Rendre la vérification `robots.txt` bloquante lorsqu’elle renvoie explicitement `DISALLOWED`.
-6. Exécuter un pipeline Free-Work frais complet.
-7. Exposer les filtres API Free-Work.
-8. Évaluer ensuite Qwen3 8B sur les seuls cas ambigus.
+1. Construire un paquet pré-import consolidé combinant synchronisation différentielle, triage V2, ROME et compétences.
+2. Faire évoluer le modèle PostgreSQL pour la provenance, le matching, la revue et le ROME.
+3. Implémenter le dry-run puis l’import transactionnel des offres et compétences.
+4. Rendre la vérification `robots.txt` bloquante lorsqu’elle renvoie explicitement `DISALLOWED`.
+5. Exécuter un pipeline Free-Work frais complet.
+6. Exposer les filtres API Free-Work.
+7. Évaluer ensuite Qwen3 8B sur les seuls cas ambigus.
