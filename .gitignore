@@ -2,43 +2,50 @@
 .env
 .env.local
 .env.*
+!.env.example
+!/backend/.env.example
 
-# Dossiers de Ressources / Data
-# (Gère les majuscules/minuscules et l'orthographe française/anglaise)
+# Dossiers de ressources
 /[Rr]essources/
 /[Rr]esources/
 
-# Dossiers de données temporaires (les fichiers sont ignorés, sauf les .gitkeep pour le suivi du dossier)
-/data/raw/*
-!/data/raw/.gitkeep
-/data/processed/*
-!/data/processed/.gitkeep
+# Données du backend
+# Conserver les dossiers dans Git grâce aux .gitkeep,
+/backend/data/raw/*
+!/backend/data/raw/.gitkeep
 
-# Sécurité globale contre les fichiers de données volumineux
+/backend/data/processed/*
+!/backend/data/processed/.gitkeep
+
+# Sécurité globale contre les fichiers volumineux
 *.csv
+*.json
 *.xlsx
 *.parquet
 *.sqlite3
+*.zip
 
-# Caches Python & Environnement Virtuel
+# Caches Python et environnements virtuels
 __pycache__/
 *.py[cod]
 *$py.class
+
 .venv/
 venv/
 env/
 
-*.zip
+# Journaux générés
 logs/
+/backend/logs/
 
-# Local Free-Work matching experiments
-scratch/run_benchmarks.py
-scratch/evaluate_non_regression.py
+# Travail local et expériences temporaires
+/backend/scratch/
 
-# Generated matching benchmark outputs
-data/processed/matching/benchmarks/
-data/processed/matching/progress.json
-data/processed/matching/**/*.log
+# Sorties générées du matching
+/backend/data/processed/matching/benchmarks/
+/backend/data/processed/matching/progress.json
+/backend/data/processed/matching/**/*.log
+
 # Fichiers temporaires pytest
 .pytest_cache/
 .tmp_pytest*/

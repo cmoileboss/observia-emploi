@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:17
+    container_name: observia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: observia-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      RAW_DATA_FOLDER: /app/backend/data/raw
+      PROCESSED_DATA_FOLDER: /app/backend/data/processed
+      LOG_FILE: /app/logs/app.log
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
