@@ -19,6 +19,7 @@
 *.xlsx
 *.parquet
 *.sqlite3
+*.json
 
 # Caches Python & Environnement Virtuel
 __pycache__/

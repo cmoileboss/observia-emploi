@@ -11,7 +11,7 @@ from models.francetravail_model import CompetenceModel, OffreModel
 from repositories.francetravail_repository import CompetenceRepository, OffreFormationRepository, OffreRepository
 from repositories.correspondance_formation_repository import RomeCodeRepository
 from postgres_connection import SessionLocal, Base, engine
-from enums.NiveauRNCPEnum import NiveauRNCP
+from enums.niveau_rncp_enum import NiveauRNCP
 from pathlib import Path
 
 current_file = Path(__file__).resolve()
