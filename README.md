@@ -21,12 +21,12 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 | France Travail | Opérationnel | Collecte par codes ROME, pagination France Travail et stockage PostgreSQL. |
 | Mon Compte Formation | Opérationnel | Préparation CSV, enrichissement géographique et import PostgreSQL. |
 | PostgreSQL | Opérationnel | Modèle relationnel principal pour l'API actuelle. |
-| API FastAPI | Opérationnelle | Routes de consultation présentes dans `router.py`. |
+| API FastAPI | Opérationnelle | Routes réparties dans `backend/routers/` (notamment dans `backend/routers/main_router.py`) et assemblées dans `backend/main.py`. |
 | Free-Work | Source 3 retenue pour intégration | Pipeline hors ligne opérationnel jusqu'au paquet pré-import consolidé, incrémental et auditable. |
 | Synchronisation différentielle Free-Work | Implémentée hors ligne | Compare un snapshot normalisé complet au catalogue courant et classe `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED` et `INACTIVATED`, sans suppression ni import PostgreSQL. |
-| Orchestration d'un run V2 frais | Implémentée hors ligne | `scripts/run_free_work_triage_v2.py` produit un run V2 complet depuis des chemins explicites, sans `source-run-id` historique. |
-| Classification ROME Free-Work | V1 déterministe exploitable hors ligne | 143 codes confirmés depuis France Travail, 664 auto-affectations haute confiance, 7 650 offres laissées sans ROME. |
-| Paquet pré-import Free-Work | Implémenté et validé hors ligne | 7 798 créations préparées, 143 enrichissements FT préparés, 516 reports, puis 8 457 `NO_ACTION` au second passage identique. |
+| Orchestration d'un run V2 frais | Implémentée hors ligne | `backend/scripts/run_free_work_triage_v2.py` produit un run V2 complet depuis des chemins explicites, sans `source-run-id` historique. |
+| Paquet pré-import Free-Work | Implémenté et validé hors ligne | Produit le paquet auditable avec ou sans run ROME ; ROME n'est plus un prérequis bloquant. |
+| Classification ROME Free-Work | Enrichissement facultatif hors ligne | V1 déterministe conservée ; elle peut être exécutée séparément après le pipeline principal. |
 | Import PostgreSQL Free-Work | Non implémenté | La politique cible est décidée, mais aucun importeur transactionnel Free-Work n'est encore codé. |
 | Extension de l'API aux données Free-Work | À faire après l'import PostgreSQL | FastAPI et les routes actuelles existent déjà ; l'exposition des données Free-Work dépend du futur import. |
 | LLM | Non intégré | Qwen3 8B via Ollama est envisagé comme aide consultative future. |
@@ -37,7 +37,7 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 
 ### Objectif
 
-Le pipeline Free-Work prépare l'intégration de la Source 3 sans écrire en base. Il collecte le catalogue Free-Work, normalise les données, détecte les changements entre snapshots, compare les offres avec le snapshot France Travail, applique le triage V2, attribue un code ROME uniquement lorsque les preuves sont suffisantes, puis produit un paquet pré-import auditable.
+Le pipeline Free-Work prépare l'intégration de la Source 3 sans écrire en base. Il collecte le catalogue Free-Work, normalise les données, détecte les changements entre snapshots, compare les offres avec le snapshot France Travail, applique le triage V2, puis produit un paquet pré-import auditable. La classification ROME Free-Work est un enrichissement facultatif, exécutable séparément après le pipeline principal.
 
 À ce stade, Free-Work n'est pas encore importé dans PostgreSQL. Le dernier artefact validé est un paquet fichier qui dit explicitement quoi créer, quoi enrichir côté France Travail, quoi reporter, quoi désactiver et quoi laisser inchangé.
 
@@ -45,14 +45,14 @@ Le pipeline Free-Work prépare l'intégration de la Source 3 sans écrire en bas
 
 | Étape | Fichier Python | Responsabilité | Entrées principales | Sorties principales | Accès réseau / PostgreSQL |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1. Collecte | `scripts/collect_free_work_full_catalog.py` | Parcourir l'API publique Free-Work, paginer, reprendre un batch, dédupliquer et manifester la collecte. | API Free-Work, paramètres CLI, éventuel `--resume-batch-id`. | `pages/page_XXXX.json`, `offers_raw.json`, `offers_deduplicated.json`, `collection_manifest.json`, `failed_pages.json`, `resume_state.json`. | Réseau Free-Work uniquement ; pas PostgreSQL. |
-| 2. Normalisation | `scripts/normalize_free_work_offers.py` | Valider les offres dédupliquées, nettoyer les textes, structurer localisation, salaires, compétences et soft skills. | `offers_deduplicated.json`. | `offers_normalized.json`, `normalization_manifest.json`. | Aucun réseau, aucun PostgreSQL. |
-| 3. Synchronisation | `scripts/sync_free_work_catalog.py` | Comparer le snapshot normalisé au catalogue courant et produire `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED`, `INACTIVATED`. | `offers_normalized.json`, manifestes de collecte complète, catalogue courant. | `catalog/current/*`, `offers_to_process.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `sync_manifest.json`. | Hors ligne, aucun PostgreSQL. |
-| 4. Snapshot FT | `scripts/export_france_travail_snapshot.py` | Exporter les offres France Travail locales nécessaires au matching. | Table `francetravail_offres`. | `france_travail_offers_snapshot.json`, `snapshot_manifest.json`. | PostgreSQL en transaction read-only ; aucun réseau. |
-| 5. Matching | `scripts/generate_free_work_match_candidates.py` | Générer les candidats France Travail à comparer pour chaque offre Free-Work. | `offers_normalized.json`, `france_travail_offers_snapshot.json`. | `candidate_matches.json`, `review_sample.json`, `matching_manifest.json`. | Hors ligne, aucun PostgreSQL. |
-| 6. Triage V2 | `scripts/run_free_work_triage_v2.py` | Transformer les candidats en décisions déterministes et actions de revue. | Offres normalisées, snapshot FT, `candidate_matches.json`. | `run_manifest.json`, `triage_decisions.jsonl`, `import_candidates.json`, `review_queue.csv`, `triage_progress.json`. | Hors ligne, aucun PostgreSQL. |
-| 7. ROME | `scripts/classify_free_work_rome.py` | Affecter un ROME si les preuves déterministes sont suffisantes, sinon laisser l'offre sans ROME. | Offres normalisées, snapshot FT, triage optionnel, référentiel ROME/RNCP. | `rome_assignments_deterministic_v1.jsonl`, manifestes, benchmark, file de revue ROME. | Hors ligne, aucun PostgreSQL. |
-| 8. Pré-import | `scripts/build_free_work_preimport_package.py` | Consolider synchronisation, triage, ROME et compétences en paquet prêt pour audit. | Run de synchro, run V2, run ROME, offres normalisées. | `offers_to_create.json`, `existing_ft_offers_to_enrich.json`, `offers_to_defer.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `preimport_manifest.json`, `integrity_report.json`. | Hors ligne, aucun PostgreSQL ; n'importe rien en base. |
+| 1. Collecte | `backend/scripts/collect_free_work_full_catalog.py` | Parcourir l'API publique Free-Work, paginer, reprendre un batch, dédupliquer et manifester la collecte. | API Free-Work, paramètres CLI, éventuel `--resume-batch-id`. | `pages/page_XXXX.json`, `offers_raw.json`, `offers_deduplicated.json`, `collection_manifest.json`, `failed_pages.json`, `resume_state.json`. | Réseau Free-Work uniquement ; pas PostgreSQL. |
+| 2. Normalisation | `backend/scripts/normalize_free_work_offers.py` | Valider les offres dédupliquées, nettoyer les textes, structurer localisation, salaires, compétences et soft skills. | `offers_deduplicated.json`. | `offers_normalized.json`, `normalization_manifest.json`. | Aucun réseau, aucun PostgreSQL. |
+| 3. Synchronisation | `backend/scripts/sync_free_work_catalog.py` | Comparer le snapshot normalisé au catalogue courant et produire `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED`, `INACTIVATED`. | `offers_normalized.json`, manifestes de collecte complète, catalogue courant. | `catalog/current/*`, `offers_to_process.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `sync_manifest.json`. | Hors ligne, aucun PostgreSQL. |
+| 4. Snapshot FT | `backend/scripts/export_france_travail_snapshot.py` | Exporter les offres France Travail locales nécessaires au matching. | Table `public.offres`, filtre `francetravail_id IS NOT NULL`. | `france_travail_offers_snapshot.json`, `snapshot_manifest.json`. | PostgreSQL en transaction read-only ; aucun réseau. |
+| 5. Matching | `backend/scripts/generate_free_work_match_candidates.py` | Générer les candidats France Travail à comparer pour chaque offre Free-Work. | `offers_normalized.json`, `france_travail_offers_snapshot.json`. | `candidate_matches.json`, `review_sample.json`, `matching_manifest.json`. | Hors ligne, aucun PostgreSQL. |
+| 6. Triage V2 | `backend/scripts/run_free_work_triage_v2.py` | Transformer les candidats en décisions déterministes et actions de revue. | Offres normalisées, snapshot FT, `candidate_matches.json`. | `run_manifest.json`, `triage_decisions.jsonl`, `import_candidates.json`, `review_queue.csv`, `triage_progress.json`. | Hors ligne, aucun PostgreSQL. |
+| 7. Pré-import | `backend/scripts/build_free_work_preimport_package.py` | Consolider synchronisation, triage et compétences en paquet prêt pour audit. | Run de synchro, run V2, offres normalisées, run ROME optionnel. | `offers_to_create.json`, `existing_ft_offers_to_enrich.json`, `offers_to_defer.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `preimport_manifest.json`, `integrity_report.json`. | Hors ligne, aucun PostgreSQL ; n'importe rien en base. |
+| 8. ROME optionnel | `backend/scripts/classify_free_work_rome.py` | Enrichir ultérieurement les offres avec un ROME si les preuves déterministes sont suffisantes, sinon laisser l'offre sans ROME. | Offres normalisées, snapshot FT, triage optionnel, référentiel ROME/RNCP. | `rome_assignments_deterministic_v1.jsonl`, manifestes, benchmark, file de revue ROME. | Hors ligne, aucun PostgreSQL. |
 
 Ces scripts sont autonomes. Le dépôt ne fournit pas encore une commande unique orchestrant toute la chaîne de bout en bout.
 
@@ -70,14 +70,13 @@ flowchart TD
     ExportFT --> Matching
     Matching --> Triage[triage V2]
 
-    Normalisation --> Rome[classification ROME]
-    ExportFT --> Rome
-    Triage --> Rome
-
     Sync --> Preimport[paquet pré-import]
     Triage --> Preimport
-    Rome --> Preimport
     Normalisation --> Preimport
+
+    Normalisation -. enrichissement facultatif .-> Rome[classification ROME]
+    ExportFT -. enrichissement facultatif .-> Rome
+    Triage -. enrichissement facultatif .-> Rome
 
     Preimport --> Create[offers_to_create.json]
     Preimport --> Enrich[existing_ft_offers_to_enrich.json]
@@ -186,8 +185,8 @@ Ce second résultat valide le fonctionnement incrémental et l'idempotence fonct
 - Synchronisation différentielle Free-Work hors ligne, avec catalogue courant fichier, runs auditables et inactivation uniquement si la collecte complète est prouvée.
 - Génération des candidats de comparaison Free-Work / France Travail.
 - Triage V2 déterministe validé sur le run frais courant et relançable par une commande paramétrable sur des artefacts frais.
-- Classification ROME Free-Work déterministe hors ligne, sans LLM, avec héritage contrôlé du ROME France Travail pour les 143 correspondances certaines et auto-affectation seulement lorsque les seuils de confiance sont atteints.
-- Paquet pré-import consolidé Free-Work hors ligne, combinant synchronisation, triage V2, ROME et compétences sans écrire dans PostgreSQL.
+- Paquet pré-import consolidé Free-Work hors ligne, combinant synchronisation, triage V2 et compétences sans écrire dans PostgreSQL ; il fonctionne avec ou sans run ROME.
+- Classification ROME Free-Work déterministe hors ligne facultative, sans LLM, avec héritage contrôlé du ROME France Travail pour les correspondances certaines et auto-affectation seulement lorsque les seuils de confiance sont atteints.
 
 ---
 
@@ -197,13 +196,13 @@ Ce second résultat valide le fonctionnement incrémental et l'idempotence fonct
 
 ```mermaid
 flowchart TD
-    MCF[CSV Mon Compte Formation] -->|scripts/create_output.py| Merged[merged_data.csv]
-    Merged -->|scripts/sirene_enricher.py| Org[organismes_enriched.csv]
-    Merged -->|scripts/formations_enricher.py| Form[formations_enriched.csv]
-    Org -->|scripts/formations_enricher.py| Form
-    Form -->|scripts/import_formations_enriched.py| DB[(PostgreSQL)]
+    MCF[CSV Mon Compte Formation] -->|backend/scripts/create_output.py| Merged[merged_data.csv]
+    Merged -->|backend/scripts/sirene_enricher.py| Org[organismes_enriched.csv]
+    Merged -->|backend/scripts/formations_enricher.py| Form[formations_enriched.csv]
+    Org -->|backend/scripts/formations_enricher.py| Form
+    Form -->|backend/scripts/import_formations_enriched.py| DB[(PostgreSQL)]
 
-    FT[API France Travail] -->|scripts/francetravail_api_call.py| DB
+    FT[API France Travail] -->|backend/scripts/francetravail_api_call.py| DB
     DB --> API[API FastAPI]
 ```
 
@@ -211,44 +210,43 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    FWAPI[API publique Free-Work] -->|scripts/collect_free_work_full_catalog.py| Pages[pages/page_XXXX.json]
+    FWAPI[API publique Free-Work] -->|backend/scripts/collect_free_work_full_catalog.py| Pages[pages/page_XXXX.json]
     FWAPI -->|collecte exhaustive paginée| Raw[offers_raw.json]
     Raw -->|déduplication par source_id| Dedup[offers_deduplicated.json]
-    Dedup -->|scripts/normalize_free_work_offers.py| Norm[offers_normalized.json]
+    Dedup -->|backend/scripts/normalize_free_work_offers.py| Norm[offers_normalized.json]
     RawBatch[collection_manifest.json + failed_pages.json + resume_state.json] -->|preuve de complétude| Sync[Synchro différentielle]
-    Norm -->|scripts/sync_free_work_catalog.py| Sync
+    Norm -->|backend/scripts/sync_free_work_catalog.py| Sync
     Sync --> CatalogState[catalog/current/catalog_state.json]
     Sync --> ActiveOffers[catalog/current/offers_active.json]
     Sync --> SyncManifest[catalog/current/catalog_manifest.json]
 
-    DB[(PostgreSQL France Travail)] -->|scripts/export_france_travail_snapshot.py| FTSnap[france_travail_offers_snapshot.json]
-    Norm -->|scripts/generate_free_work_match_candidates.py| Match[candidate_matches.json]
-    FTSnap -->|scripts/generate_free_work_match_candidates.py| Match
-    Match -->|scripts/run_free_work_triage_v2.py| Triage[Triage V2 déterministe]
+    DB[(PostgreSQL France Travail)] -->|backend/scripts/export_france_travail_snapshot.py| FTSnap[france_travail_offers_snapshot.json]
+    Norm -->|backend/scripts/generate_free_work_match_candidates.py| Match[candidate_matches.json]
+    FTSnap -->|backend/scripts/generate_free_work_match_candidates.py| Match
+    Match -->|backend/scripts/run_free_work_triage_v2.py| Triage[Triage V2 déterministe]
     Triage --> Manifest[run_manifest.json]
     Triage --> Decisions[triage_decisions.jsonl]
     Triage --> Imports[import_candidates.json]
     Triage --> Review[review_queue.csv]
-    Norm -->|scripts/classify_free_work_rome.py| Rome[Classification ROME déterministe]
-    FTSnap --> Rome
-    Triage -->|triage_decisions.jsonl optionnel| Rome
-    Rome --> RomeResults[rome_classification_results.jsonl]
-    Rome --> RomeManifest[rome_classification_manifest.json]
-    Rome --> RomeReview[rome_review_queue.csv]
-    Rome --> RomeBenchmark[rome_classification_benchmark.json]
-
-    Sync -->|scripts/build_free_work_preimport_package.py| Preimport[Paquet pré-import consolidé]
+    Sync -->|backend/scripts/build_free_work_preimport_package.py| Preimport[Paquet pré-import consolidé]
     Triage --> Preimport
-    Rome --> Preimport
     Norm --> Preimport
     Preimport --> Create[offers_to_create.json]
     Preimport --> Enrich[existing_ft_offers_to_enrich.json]
     Preimport --> Defer[offers_to_defer.json]
     Preimport --> PreManifest[preimport_manifest.json]
     Preimport --> Integrity[integrity_report.json]
+
+    Norm -. backend/scripts/classify_free_work_rome.py .-> Rome[Classification ROME facultative]
+    FTSnap -. enrichissement séparé .-> Rome
+    Triage -. triage_decisions.jsonl optionnel .-> Rome
+    Rome --> RomeResults[rome_classification_results.jsonl]
+    Rome --> RomeManifest[rome_classification_manifest.json]
+    Rome --> RomeReview[rome_review_queue.csv]
+    Rome --> RomeBenchmark[rome_classification_benchmark.json]
 ```
 
-Note : tous les composants représentés existent et l'enchaînement complet a été validé hors ligne. La commande recommandée pour un run V2 frais est `scripts/run_free_work_triage_v2.py`. `replay_free_work_triage_v2.py` reste disponible comme commande historique de rejeu, mais dépend d'un run source contenant aussi `triage_results.json` et de chemins historiques figés.
+Note : tous les composants représentés existent. Le chemin principal validé hors ligne va jusqu'au paquet pré-import sans imposer la classification ROME ; ROME reste un enrichissement séparé. La commande recommandée pour un run V2 frais est `backend/scripts/run_free_work_triage_v2.py`. `replay_free_work_triage_v2.py` reste disponible comme commande historique de rejeu, mais dépend d'un run source contenant aussi `triage_results.json` et de chemins historiques figés.
 
 ### Roadmap technique restante
 
@@ -271,7 +269,7 @@ flowchart TD
     class Audit,Model,RepoTests,DryRun,Import,ApiValidation,ApiFilters,Robots,Fresh,E2E,TestAudit,LLM future;
 ```
 
-La comparaison, le triage V2, la classification ROME, la politique de sélection et le paquet pré-import sont déjà implémentés hors ligne. La prochaine étape réelle est l'audit du modèle PostgreSQL avant toute évolution de schéma, dry-run ou import transactionnel. Qwen3 8B reste une amélioration facultative ultérieure, pas un prérequis à l'import.
+La comparaison, le triage V2, la politique de sélection, le paquet pré-import et l'enrichissement ROME facultatif sont déjà implémentés hors ligne. La prochaine étape réelle est l'audit du modèle PostgreSQL avant toute évolution de schéma, dry-run ou import transactionnel. Qwen3 8B reste une amélioration facultative ultérieure, pas un prérequis à l'import.
 
 ---
 
@@ -309,7 +307,7 @@ cd observia-emploi
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
 ```
 
 ### Configuration
@@ -323,30 +321,40 @@ Copy-Item .env.example .env
 | `CLIENT_ID` | Oui | Oui | vide | Identifiant de l'application France Travail. |
 | `SECRET_ID` | Oui | Oui | vide | Secret de l'application France Travail. |
 | `X-INSEE-Api-Key-Integration` | Non | Oui | vide | Clé API INSEE pour SIRENE. |
-| `RAW_DATA_FOLDER` | Non | Non | `data\raw` | Dossier des données brutes. |
-| `PROCESSED_DATA_FOLDER` | Non | Non | `data\processed` | Dossier des données traitées. |
+| `RAW_DATA_FOLDER` | Non | Non | `backend\data\raw` | Dossier des données brutes. |
+| `PROCESSED_DATA_FOLDER` | Non | Non | `backend\data\processed` | Dossier des données traitées. |
 | `DATABASE_NAME` | Non | Non | `observia_emploi_db` | Nom de la base PostgreSQL. |
+| `DATABASE_HOST` | Non | Non | `localhost` | Hôte PostgreSQL, par défaut `localhost` en local, `db` avec Docker Compose. |
+| `DATABASE_PORT` | Non | Non | `5432` | Port PostgreSQL, par défaut `5432`. |
 | `DATABASE_USER` | Oui | Non | vide | Utilisateur PostgreSQL. |
 | `DATABASE_PASSWORD` | Oui | Oui | vide | Mot de passe PostgreSQL. |
 
 Le fichier `.env` contient des secrets et ne doit pas être versionné.
 
----
+Il faut également créer la base de données `PostgreSQL`. Le nom de la base de données doit correspondre à la valeur de la variable d'environnement `DATABASE_NAME`.
 
-## Exécution du pipeline principal
+## Lancement du projet
 
-### Construction complète des données
+Le code backend Python se trouve dans le dossier `backend`.
+
+La commande suivante permet de lancer le pipeline de préparation des données.
 
 ```powershell
-python main.py --build-data
+.\.venv\Scripts\python.exe -m backend.main --build-data
 ```
 
-Cette commande crée les tables si nécessaire, prépare les CSV, enrichit les organismes, importe les formations, puis collecte les offres France Travail.
+Le pipeline est lancé dans `backend\main.py`. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `backend\scripts`.
+Ordre d'exécution des scripts :
+- `create_output.py` : nettoyage des deux fichiers csv de départ contenus dans `RAW_DATA_FOLDER` et fusion dans `PROCESSED_DATA_FOLDER\merged_data.csv`,
+- `sirene_enricher.py` : récupération des localisations des entreprises grâce à leur numéro SIRET avec l'API de l'INSEE,
+- `formations_enricher.py` : enrichissement de `PROCESSED_DATA_FOLDER\merged_data.csv` grâce aux fichiers `RAW_DATA_FOLDER\cdc_filtered_tech.csv` importé manuellement et `PROCESSED_DATA_FOLDER\organismes_enriched.csv` créé précédemment,
+- `import_formations_enriched`: import des données du fichier `PROCESSED_DATA_FOLDER\formations_enriched.csv` dans la base de données,
+- `francetravail_api_call.py` : récupération des offres France Travail depuis son API, la recherche se fait par code ROME puis par code ROME et département si un code ROME possède plus de 2999 offres (limite de l'API).
 
 ### Import direct des données enrichies
 
 ```powershell
-python main.py --stock-data
+.\.venv\Scripts\python.exe -m backend.main --stock-data
 ```
 
 Cette commande initialise la base, importe les formations enrichies déjà produites, puis collecte France Travail.
@@ -354,7 +362,51 @@ Cette commande initialise la base, importe les formations enrichies déjà produ
 ### Démarrage de l'API
 
 ```powershell
-python main.py
+.\.venv\Scripts\python.exe -m backend.main
+```
+
+## Lancement avec Docker
+
+Le projet peut être démarré avec Docker Compose, avec un conteneur pour le backend et un conteneur PostgreSQL.
+
+### Démarrage des services
+
+Depuis la racine du projet :
+
+```powershell
+docker compose up --build
+```
+
+Cette commande :
+
+- construit l'image du backend à partir de `backend\Dockerfile`,
+- démarre PostgreSQL sur le port `5432`,
+- démarre l'API FastAPI sur le port `8000`.
+
+### Lancer le pipeline dans Docker
+
+Pour exécuter le pipeline complet de préparation des données dans le conteneur backend :
+
+```powershell
+docker compose run --rm backend -m backend.main --build-data
+```
+
+Pour charger les données enrichies et récupérer les offres France Travail sans relancer tout le pipeline :
+
+```powershell
+docker compose run --rm backend -m backend.main --stock-data
+```
+
+### Arrêter les services Docker
+
+```powershell
+docker compose down
+```
+
+Pour arrêter les services et supprimer aussi le volume PostgreSQL :
+
+```powershell
+docker compose down -v
 ```
 
 Le serveur démarre sur [http://localhost:8000](http://localhost:8000). La documentation Swagger est disponible sur [http://localhost:8000/docs](http://localhost:8000/docs).
@@ -366,7 +418,7 @@ Le serveur démarre sur [http://localhost:8000](http://localhost:8000). La docum
 La collecte exhaustive est portée par :
 
 ```text
-scripts/collect_free_work_full_catalog.py
+backend/scripts/collect_free_work_full_catalog.py
 ```
 
 Fonctionnement vérifié dans le code :
@@ -395,7 +447,7 @@ Fonctionnement vérifié dans le code :
 Commande de collecte exhaustive :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\collect_free_work_full_catalog.py
+.\.venv\Scripts\python.exe -m backend.scripts.collect_free_work_full_catalog
 ```
 
 Ne pas utiliser `--max-pages` pour une collecte exhaustive.
@@ -403,7 +455,7 @@ Ne pas utiliser `--max-pages` pour une collecte exhaustive.
 Commande de pilote limité :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\collect_free_work_full_catalog.py `
+.\.venv\Scripts\python.exe -m backend.scripts.collect_free_work_full_catalog `
   --delay-seconds 1.0 `
   --timeout-seconds 20 `
   --max-retries 3 `
@@ -413,11 +465,11 @@ Commande de pilote limité :
 Commande de reprise :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\collect_free_work_full_catalog.py `
+.\.venv\Scripts\python.exe -m backend.scripts.collect_free_work_full_catalog `
   --resume-batch-id "<BATCH_ID>"
 ```
 
-Fichiers produits dans `data\raw\free_work\full_catalog\batches\<BATCH_ID>\` :
+Fichiers produits dans `backend\data\raw\free_work\full_catalog\batches\<BATCH_ID>\` :
 
 - `pages/page_XXXX.json` : page brute Free-Work telle que reçue.
 - `offers_raw.json` : offres agrégées au format attendu par la normalisation.
@@ -451,14 +503,14 @@ Un run terminé avec des pages échouées n'est pas considéré comme exhaustif.
 La normalisation est portée par :
 
 ```text
-scripts/normalize_free_work_offers.py
+backend/scripts/normalize_free_work_offers.py
 ```
 
 Commande réelle :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\normalize_free_work_offers.py `
-  --input "data\raw\free_work\full_catalog\batches\<BATCH_ID>\offers_deduplicated.json"
+.\.venv\Scripts\python.exe -m backend.scripts.normalize_free_work_offers `
+  --input "backend\data\raw\free_work\full_catalog\batches\<BATCH_ID>\offers_deduplicated.json"
 ```
 
 Fonctionnement vérifié dans le code :
@@ -483,7 +535,7 @@ Les anciens chemins `/job_postings/...` sont traités comme des identifiants ou 
 Sortie produite :
 
 ```text
-data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json
+backend\data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json
 ```
 
 Le fichier `normalization_manifest.json` est également écrit dans le même dossier.
@@ -495,7 +547,7 @@ Le fichier `normalization_manifest.json` est également écrit dans le même dos
 La synchronisation différentielle est portée par :
 
 ```text
-scripts/sync_free_work_catalog.py
+backend/scripts/sync_free_work_catalog.py
 ```
 
 Elle compare un nouveau `offers_normalized.json` au catalogue courant local, sans réseau, sans PostgreSQL, sans import, sans matching, sans triage V2 et sans classification ROME.
@@ -503,10 +555,10 @@ Elle compare un nouveau `offers_normalized.json` au catalogue courant local, san
 Commande :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\sync_free_work_catalog.py `
-  --normalized-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
-  --collection-batch-dir "data\raw\free_work\full_catalog\batches\<BATCH_ID>" `
-  --catalog-root "data\processed\free_work\catalog" `
+.\.venv\Scripts\python.exe -m backend.scripts.sync_free_work_catalog `
+  --normalized-input "backend\data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --collection-batch-dir "backend\data\raw\free_work\full_catalog\batches\<BATCH_ID>" `
+  --catalog-root "backend\data\processed\free_work\catalog" `
   --run-id "<SYNC_RUN_ID>"
 ```
 
@@ -569,14 +621,14 @@ Documentation détaillée : [Synchronisation différentielle Free-Work](docs/fre
 Il est possible de s'arrêter volontairement après `offers_normalized.json`.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\collect_free_work_full_catalog.py
+.\.venv\Scripts\python.exe -m backend.scripts.collect_free_work_full_catalog
 ```
 
 Puis, en adaptant le batch produit :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\normalize_free_work_offers.py `
-  --input "data\raw\free_work\full_catalog\batches\<BATCH_ID>\offers_deduplicated.json"
+.\.venv\Scripts\python.exe -m backend.scripts.normalize_free_work_offers `
+  --input "backend\data\raw\free_work\full_catalog\batches\<BATCH_ID>\offers_deduplicated.json"
 ```
 
 Cette exécution limitée ne doit pas :
@@ -591,23 +643,101 @@ Cette exécution limitée ne doit pas :
 
 ## Classification ROME des offres Free-Work
 
-La V1 exploitable est implémentée hors ligne par `scripts/classify_free_work_rome.py`. Elle est entièrement déterministe et n'utilise aucun LLM.
+La V1 exploitable est implémentée hors ligne par `backend/scripts/classify_free_work_rome.py`. Elle est entièrement déterministe et n'utilise aucun LLM.
+
+### Fonctionnement simplifié de la classification ROME
+
+#### Question métier
+Le programme cherche à répondre à la question suivante :
+> À quel métier ROME cette offre Free-Work ressemble-t-elle le plus ?
+
+#### Technologie
+Il s'agit :
+- d'un algorithme Python déterministe ;
+- de comparaison textuelle normalisée ;
+- de règles et de scoring pondéré ;
+- exécuté hors ligne ;
+- sans LLM ;
+- sans ChatGPT ;
+- sans modèle de machine learning entraîné ;
+- sans appel à une API d'intelligence artificielle ;
+- avec les mêmes entrées et paramètres produisant toujours les mêmes sorties.
+
+Ces mécanismes sont principalement définis dans [`backend/scripts/classify_free_work_rome.py`](backend/scripts/classify_free_work_rome.py) et [`backend/services/free_work/rome_classifier.py`](backend/services/free_work/rome_classifier.py).
+
+#### Deux chemins d'attribution
+1. **L'offre Free-Work est rapprochée avec certitude d'une offre France Travail** :
+   - Le code ROME de l'offre France Travail est conservé ;
+   - Le statut d'attribution est `CONFIRMED_FROM_FT_MATCH`.
+2. **Aucun rapprochement certain n'existe** :
+   - Le programme compare le titre, les compétences et la description aux profils ROME construits à partir du référentiel ;
+   - Chaque code ROME candidat reçoit un score de similarité.
+
+#### Formule
+Le score global est calculé selon la configuration `DETERMINISTIC_V1_A` validée :
+```text
+score = 65 × similarité du titre + 10 × similarité des compétences + 25 × similarité de la description + bonus éventuel de titre exact
+```
+
+Paramètres de décision :
+- Poids titre : `65`
+- Poids compétences : `10`
+- Poids description : `25`
+- Bonus titre exact : `8`
+- Seuil score automatique : `50`
+- Seuil marge automatique : `20`
+
+La marge est définie par :
+```text
+marge = meilleur score - deuxième meilleur score
+```
+
+#### Exemple pédagogique
+* **Cas d'attribution automatique** :
+  - Candidat A : `72`
+  - Candidat B : `41`
+  - Marge : `31`
+  Le métier ROME du candidat A est attribué automatiquement, car le meilleur score est supérieur ou égal au seuil (`72 ≥ 50`) et la marge est supérieure ou égale au seuil requis (`31 ≥ 20`).
+* **Cas ambigu** :
+  - Candidat A : `61`
+  - Candidat B : `55`
+  - Marge : `6`
+  Bien que le score du Candidat A soit supérieur ou égal à 50 (`61 ≥ 50`), la marge entre les deux meilleurs candidats est insuffisante (`6 < 20`). Aucun ROME n'est attribué automatiquement (statut `UNASSIGNED_AMBIGUOUS`).
+
+#### Politique de prudence
+Le système applique une politique de prudence stricte : il préfère laisser une offre sans code ROME plutôt que forcer une attribution peu fiable.
+
+Statuts d'attribution possibles :
+- `CONFIRMED_FROM_FT_MATCH` : code ROME hérité du matching France Travail (143 cas).
+- `AUTO_ASSIGNED_HIGH_CONFIDENCE` : affectation automatique à haute confiance (664 cas).
+- `UNASSIGNED_AMBIGUOUS` : ambiguïté entre plusieurs candidats (1 366 cas).
+- `UNASSIGNED_INSUFFICIENT_SIGNAL` : signaux trop faibles ou génériques (6 284 cas).
+- `PROCESSING_ERROR` : erreur technique de traitement (0 cas).
+
+Résultats réels sur le run de référence :
+- 143 confirmés depuis France Travail
+- 664 attribués automatiquement
+- 807 offres avec ROME
+- 7 650 offres sans ROME
+- 0 erreur
+
+---
 
 Commande finale validée :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\classify_free_work_rome.py `
-  --free-work-input "data\processed\free_work\full_catalog\20260624_081715\offers_normalized.json" `
-  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
-  --triage-input "data\processed\matching\free_work_vs_france_travail\run_triage_v2_handoff_20260624\triage_decisions.jsonl" `
-  --output-dir "data\processed\free_work\rome_classification\run_rome_deterministic_v1_final_20260625_133121"
+.\.venv\Scripts\python.exe -m backend.scripts.classify_free_work_rome `
+  --free-work-input "backend\data\processed\free_work\full_catalog\20260624_081715\offers_normalized.json" `
+  --france-travail-input "backend\data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+  --triage-input "backend\data\processed\matching\free_work_vs_france_travail\run_triage_v2_handoff_20260624\triage_decisions.jsonl" `
+  --output-dir "backend\data\processed\free_work\rome_classification\run_rome_deterministic_v1_final_20260625_133121"
 ```
 
 Entrées vérifiées :
 
 - offres Free-Work normalisées : 8 457 offres ;
 - snapshot France Travail local : 33 805 offres, 52 codes ROME observés ;
-- référentiel local `data/raw/correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` : `intitule_rome` et `intitule_rncp` ;
+- référentiel local `backend/data/raw/correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` : `intitule_rome` et `intitule_rncp` ;
 - triage V2 de référence : 143 `PRESENT_IN_FT_SNAPSHOT`, 6 846 `NOT_FOUND_IN_FT_SNAPSHOT`, 1 468 `UNCERTAIN`.
 
 La baseline initiale reste documentée et conservée : 143 `CONFIRMED_FROM_FT_MATCH`, 3 086 `CANDIDATE_ONLY`, 5 039 `REVIEW_REQUIRED`, 189 `UNASSIGNED`, Top-1 `0,4685`, Top-3 `0,6084`.
@@ -682,9 +812,9 @@ Le run `run_triage_v2_handoff_20260624` reste conservé comme run historique de 
 Le matching génère d'abord des candidats de comparaison :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\generate_free_work_match_candidates.py `
-  --free-work-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
-  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json"
+.\.venv\Scripts\python.exe -m backend.scripts.generate_free_work_match_candidates `
+  --free-work-input "backend\data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --france-travail-input "backend\data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json"
 ```
 
 Options vérifiées :
@@ -698,7 +828,7 @@ Cette commande crée un dossier de matching contenant notamment `candidate_match
 L'export du snapshot France Travail lit PostgreSQL en transaction read-only :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\export_france_travail_snapshot.py
+.\.venv\Scripts\python.exe -m backend.scripts.export_france_travail_snapshot
 ```
 
 ### Création d'un nouveau run V2 frais
@@ -706,11 +836,11 @@ L'export du snapshot France Travail lit PostgreSQL en transaction read-only :
 Commande recommandée :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_free_work_triage_v2.py `
-  --free-work-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
-  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
-  --candidate-matches-input "data\processed\matching\free_work_vs_france_travail\<MATCH_RUN>\candidate_matches.json" `
-  --output-dir "data\processed\matching\free_work_vs_france_travail\<V2_RUN>"
+.\.venv\Scripts\python.exe -m backend.scripts.run_free_work_triage_v2 `
+  --free-work-input "backend\data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --france-travail-input "backend\data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+  --candidate-matches-input "backend\data\processed\matching\free_work_vs_france_travail\<MATCH_RUN>\candidate_matches.json" `
+  --output-dir "backend\data\processed\matching\free_work_vs_france_travail\<V2_RUN>"
 ```
 
 Entrées obligatoires :
@@ -734,16 +864,16 @@ Le script ne fait aucun appel réseau, aucun accès PostgreSQL et aucun import.
 La commande suivante crée un run historique V1 frais, pas un run V2 final :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\triage_free_work_matches.py `
-  --free-work-input "data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
-  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+.\.venv\Scripts\python.exe -m backend.scripts.triage_free_work_matches `
+  --free-work-input "backend\data\processed\free_work\full_catalog\<BATCH_ID>\offers_normalized.json" `
+  --france-travail-input "backend\data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
   --run-id "<RUN_ID>"
 ```
 
 Le rejeu V2 utilise les artefacts existants du run source :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\replay_free_work_triage_v2.py `
+.\.venv\Scripts\python.exe -m backend.scripts.replay_free_work_triage_v2 `
   --source-run-id "run_triage_full_20260624" `
   --target-run-id "run_triage_v2_handoff_20260624"
 ```
@@ -758,11 +888,11 @@ Cette commande de rejeu est historique. Elle reste utile pour reproduire un run 
 Commande réelle exécutée pour valider l'orchestration paramétrable sur le run V2 frais courant :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_free_work_triage_v2.py `
-  --free-work-input "data\processed\free_work\full_catalog\20260624_081715\offers_normalized.json" `
-  --france-travail-input "data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
-  --candidate-matches-input "data\processed\matching\free_work_vs_france_travail\run_triage_full_20260624\candidate_matches.json" `
-  --output-dir "data\processed\matching\free_work_vs_france_travail\run_triage_v2_fresh_20260625_140527"
+.\.venv\Scripts\python.exe -m backend.scripts.run_free_work_triage_v2 `
+  --free-work-input "backend\data\processed\free_work\full_catalog\20260624_081715\offers_normalized.json" `
+  --france-travail-input "backend\data\processed\france_travail\snapshots\current\france_travail_offers_snapshot.json" `
+  --candidate-matches-input "backend\data\processed\matching\free_work_vs_france_travail\run_triage_full_20260624\candidate_matches.json" `
+  --output-dir "backend\data\processed\matching\free_work_vs_france_travail\run_triage_v2_fresh_20260625_140527"
 ```
 
 Résultat obtenu : 8 457 décisions, 8 457 identifiants uniques, 6 846 candidats d'import, 952 lignes dans `review_queue.csv` et aucun cas `DEFER_DATA_INCOMPLETE` dans la file de revue.
@@ -817,7 +947,7 @@ Les 516 cas `DEFER_DATA_INCOMPLETE` ne figurent pas dans `review_queue.csv`.
 Le rapport HTML est optionnel et généré uniquement par commande explicite :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\generate_free_work_review_html.py `
+.\.venv\Scripts\python.exe -m backend.scripts.generate_free_work_review_html `
   --run-id "run_triage_v2_handoff_20260624"
 ```
 
@@ -881,7 +1011,7 @@ Le modèle de provenance cible ne peut pas se limiter à une simple colonne `sou
 
 État vérifié dans le code :
 
-- l'import France Travail lit `offre.get("competences", [])` dans `scripts/francetravail_api_call.py` ;
+- l'import France Travail lit `offre.get("competences", [])` dans `backend/scripts/francetravail_api_call.py` ;
 - le modèle SQLAlchemy contient la table `competences` via `CompetenceModel` ;
 - la table d'association `offre_competence` relie `offres` et `competences` ;
 - les champs conservés sont `code` et `libelle` ;
@@ -1022,7 +1152,7 @@ La décision cible reste :
 
 ## API REST
 
-Routes réellement présentes dans `router.py` :
+Routes réparties dans `backend/routers/` (notamment dans `backend/routers/main_router.py`) et assemblées dans `backend/main.py` :
 
 ### `GET /job/{job_id}/formations`
 
@@ -1091,23 +1221,35 @@ Usage cible :
 
 ## Paquet pré-import consolidé Free-Work
 
-Le script `scripts/build_free_work_preimport_package.py` permet de consolider l'ensemble des runs d'analyse hors ligne (synchro différentielle, triage V2, classification ROME déterministe, compétences) en un paquet unique et auditable. Il gère de manière robuste les runs de synchronisation incrémentaux en partitionnant les identifiants d'offres (offres actives à traiter `process_ids`, offres actives inchangées `unchanged_ids` et offres à désactiver `deactivation_ids`).
+Le script `backend/scripts/build_free_work_preimport_package.py` permet de consolider les runs d'analyse hors ligne en un paquet unique et auditable. Le mode principal utilise la synchro différentielle, le triage V2 et les offres normalisées, sans exiger de classification ROME. Si `--rome-run-dir` est fourni, le script conserve le mode historique avec enrichissement ROME. Il gère de manière robuste les runs de synchronisation incrémentaux en partitionnant les identifiants d'offres (offres actives à traiter `process_ids`, offres actives inchangées `unchanged_ids` et offres à désactiver `deactivation_ids`).
 
-Commande finale validée :
+Commande principale sans classification ROME :
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\build_free_work_preimport_package.py `
-  --catalog-sync-run-dir "data/processed/free_work/catalog_sync_validation_v2/runs/sync_bootstrap_20260625_validation" `
-  --triage-run-dir "data/processed/matching/free_work_vs_france_travail/run_triage_v2_fresh_20260625_140527" `
-  --rome-run-dir "data/processed/free_work/rome_classification/run_rome_deterministic_v1_final_20260625_133121" `
-  --normalized-input "data/processed/free_work/full_catalog/20260624_081715/offers_normalized.json" `
-  --output-dir "data/processed/free_work/preimport/run_preimport_v1_validation_bootstrap_v2_20260625" `
+.\.venv\Scripts\python.exe -m backend.scripts.build_free_work_preimport_package `
+  --catalog-sync-run-dir "backend/data/processed/free_work/catalog_sync_validation_v2/runs/sync_bootstrap_20260625_validation" `
+  --triage-run-dir "backend/data/processed/matching/free_work_vs_france_travail/run_triage_v2_fresh_20260625_140527" `
+  --normalized-input "backend/data/processed/free_work/full_catalog/20260624_081715/offers_normalized.json" `
+  --output-dir "backend/data/processed/free_work/preimport/run_preimport_v1_validation_bootstrap_v2_20260625" `
   --run-id "run_preimport_v1_validation_bootstrap_v2_20260625"
+```
+
+Compatibilité avec un run ROME existant :
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.scripts.build_free_work_preimport_package `
+  --catalog-sync-run-dir "backend/data/processed/free_work/catalog_sync_validation_v2/runs/sync_bootstrap_20260625_validation" `
+  --triage-run-dir "backend/data/processed/matching/free_work_vs_france_travail/run_triage_v2_fresh_20260625_140527" `
+  --rome-run-dir "backend/data/processed/free_work/rome_classification/run_rome_deterministic_v1_final_20260625_133121" `
+  --normalized-input "backend/data/processed/free_work/full_catalog/20260624_081715/offers_normalized.json" `
+  --output-dir "backend/data/processed/free_work/preimport/run_preimport_v1_validation_bootstrap_v2_20260625_with_rome" `
+  --run-id "run_preimport_v1_validation_bootstrap_v2_20260625_with_rome"
 ```
 
 Cette opération :
 - Applique la matrice de décision validée sans aucun accès PostgreSQL, ni import ni appel réseau.
-- Vérifie l'intégrité structurelle des identifiants (partitions disjointes, relations d'inclusions strictes avec le triage et le ROME).
+- Vérifie l'intégrité structurelle des identifiants (partitions disjointes, relation d'inclusion stricte avec le triage et, en mode `WITH_ROME` seulement, avec les affectations ROME).
+- En mode `WITHOUT_ROME`, laisse `assigned_rome_code = null` sauf héritage fiable depuis une correspondance France Travail certaine, avec `rome_assignment_method = INHERITED_FROM_FT_MATCH`.
 - Produit les fichiers structurés de sortie (`offers_to_create.json`, `offers_to_update.json`, `offers_to_reactivate.json`, `existing_ft_offers_to_enrich.json`, `offers_to_defer.json`, `offers_to_deactivate.json`, `rejected_records.json`, `unchanged_offer_ids.json` pour les offres inchangées `NO_ACTION`, rapports d'intégrité et manifestes).
 
 ---
@@ -1117,7 +1259,7 @@ Cette opération :
 Commande réelle de test :
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m pytest backend/tests
 ```
 
 Statut documenté au 25/06/2026 :
