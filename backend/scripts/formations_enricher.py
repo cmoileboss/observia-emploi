@@ -1,0 +1,86 @@
+"""
+Enrichit merged_data.csv avec :
+- la géolocalisation des organismes (depuis organismes_enriched.csv issu de SIRENE)
+- la modalité dominante par RNCP (depuis le CDC filtré)
+
+Produit : backend/data/processed/formations_enriched.csv
+"""
+
+import logging
+from pathlib import Path
+import pandas as pd
+from logging_config import configure_logging
+
+
+logger = logging.getLogger(__name__)
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = BACKEND_ROOT / "data"
+RAW_DATA_ROOT = DATA_ROOT / "raw"
+PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
+
+
+class FormationsEnricher:
+
+    GEO_COLS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal",
+                "ville", "code_commune", "departement", "region"]
+
+    def load(self, merged_path: str, organismes_path: str, cdc_path: str) -> None:
+        self.merged = pd.read_csv(
+            merged_path, sep=";",
+            dtype={"siret_of_contractant": str, "code_rncp": str},
+        )
+        self.organismes = pd.read_csv(
+            organismes_path, sep=";", dtype={"siret": str},
+        )[self.GEO_COLS]
+        self.modalite = self._compute_modalite_dominante(cdc_path)
+
+    @staticmethod
+    def _compute_modalite_dominante(cdc_path: str) -> pd.DataFrame:
+        """Retourne [code_rncp, modalite] avec la modalité majoritaire par RNCP."""
+        cdc = pd.read_csv(
+            cdc_path, sep=";",
+            dtype={"code_rncp": str, "nb_dossiers": "Int64"},
+            encoding="utf-8",
+        )
+        return (
+            cdc.groupby(["code_rncp", "modalite_presence"])["nb_dossiers"]
+            .sum()
+            .reset_index()
+            .sort_values("nb_dossiers", ascending=False)
+            .drop_duplicates("code_rncp")
+            [["code_rncp", "modalite_presence"]]
+            .rename(columns={"modalite_presence": "modalite"})
+        )
+
+    def enrich(self) -> None:
+        with_geo = self.merged.merge(
+            self.organismes,
+            left_on="siret_of_contractant",
+            right_on="siret",
+            how="left",
+        ).drop(columns=["siret"])
+
+        self.result = with_geo.merge(self.modalite, on="code_rncp", how="left")
+
+    def export(self, output_path: str) -> None:
+        self.result.to_csv(output_path, sep=";", index=False, encoding="utf-8")
+        n = len(self.result)
+        n_reg = self.result["region"].notna().sum()
+        n_mod = self.result["modalite"].notna().sum()
+        logger.info(
+            "formations_enriched : %s lignes (région: %.1f%%, modalité: %.1f%%)",
+            f"{n:,}",
+            n_reg / n * 100,
+            n_mod / n * 100,
+        )
+
+if __name__ == "__main__":
+    configure_logging()
+    enricher = FormationsEnricher()
+    enricher.load(
+        merged_path=str(PROCESSED_DATA_ROOT / "merged_data.csv"),
+        organismes_path=str(PROCESSED_DATA_ROOT / "organismes_enriched.csv"),
+        cdc_path=str(RAW_DATA_ROOT / "cdc_filtered_tech.csv"),
+    )
+    enricher.enrich()
+    enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
