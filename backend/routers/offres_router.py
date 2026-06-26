@@ -1,3 +1,5 @@
+"""Route CRUD des offres."""
+
 from repositories.francetravail_repository import OffreRepository
 from routers.model_router_factory import create_model_router
 

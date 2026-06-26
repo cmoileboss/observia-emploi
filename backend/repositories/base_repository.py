@@ -1,3 +1,5 @@
+"""Repository générique pour les opérations CRUD de base."""
+
 from __future__ import annotations
 
 from typing import Generic, TypeVar
@@ -6,18 +8,18 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 
-ModelType = TypeVar("ModelType")
+ModelT = TypeVar("ModelT")
 
 
-class BaseRepository(Generic[ModelType]):
+class BaseRepository(Generic[ModelT]):
     """Expose les opérations CRUD de base pour un modèle SQLAlchemy."""
 
-    def __init__(self, db: Session, model: type[ModelType]) -> None:
+    def __init__(self, db: Session, model: type[ModelT]) -> None:
         """Initialise le repository avec une session et un modèle cible."""
         self.db = db
         self.model = model
 
-    def get_all(self) -> list[ModelType]:
+    def get_all(self) -> list[ModelT]:
         """Retourne une liste d'entités."""
         return self.db.query(self.model).all()
 
@@ -33,11 +35,11 @@ class BaseRepository(Generic[ModelType]):
 
         return self.db.get(self.model, tuple(entity_id))
 
-    def add(self, entity: ModelType) -> ModelType:
+    def add(self, entity: ModelT) -> ModelT:
         """Ajoute une entité à la session."""
         self.db.add(entity)
         return entity
 
-    def delete(self, entity: ModelType) -> None:
+    def delete(self, entity: ModelT) -> None:
         """Supprime une entité."""
         self.db.delete(entity)

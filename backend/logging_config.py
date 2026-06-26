@@ -1,3 +1,5 @@
+"""Configuration centralisée du logging de l'application."""
+
 import os
 from logging.config import dictConfig
 

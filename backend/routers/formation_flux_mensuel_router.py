@@ -1,3 +1,5 @@
+"""Route CRUD des flux mensuels de formation."""
+
 from repositories.correspondance_formation_repository import FormationFluxMensuelRepository
 from routers.model_router_factory import create_model_router
 

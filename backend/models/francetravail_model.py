@@ -1,4 +1,6 @@
 
+"""Modèles SQLAlchemy liés aux offres et compétences."""
+
 from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
@@ -36,8 +38,16 @@ class OffreModel(Base):
     appellation_libelle = Column(String)
     entreprise_nom = Column(String)
 
-    formations = relationship("FormationModel", secondary=offre_formation_association, back_populates="offres")
-    competences = relationship("CompetenceModel", secondary=offre_competence_association, back_populates="offres")
+    formations = relationship(
+        "FormationModel",
+        secondary=offre_formation_association,
+        back_populates="offres",
+    )
+    competences = relationship(
+        "CompetenceModel",
+        secondary=offre_competence_association,
+        back_populates="offres",
+    )
     rome = relationship("RomeCodeModel", back_populates="offres")
 
 
@@ -50,4 +60,8 @@ class CompetenceModel(Base):
     code = Column(String)
     libelle = Column(String)
 
-    offres = relationship("OffreModel", secondary=offre_competence_association, back_populates="competences")
+    offres = relationship(
+        "OffreModel",
+        secondary=offre_competence_association,
+        back_populates="competences",
+    )

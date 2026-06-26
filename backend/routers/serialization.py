@@ -1,3 +1,5 @@
+"""Fonctions utilitaires de sérialisation des modèles SQLAlchemy."""
+
 from __future__ import annotations
 
 from typing import Any

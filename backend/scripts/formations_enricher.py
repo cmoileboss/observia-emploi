@@ -7,7 +7,9 @@ Produit : data/processed/formations_enriched.csv
 """
 
 import logging
+
 import pandas as pd
+
 from logging_config import configure_logging
 
 
@@ -17,18 +19,38 @@ logger = logging.getLogger(__name__)
 class FormationsEnricher:
     """Enrichit les formations avec les données géographiques et de modalité."""
 
-    GEO_COLS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal",
-                "ville", "code_commune", "departement", "region"]
+    GEO_COLS = [
+        "siret",
+        "nom_entreprise",
+        "enseigne",
+        "adresse",
+        "code_postal",
+        "ville",
+        "code_commune",
+        "departement",
+        "region",
+    ]
+
+    def __init__(self) -> None:
+        """Initialise les DataFrames utilisés pendant l'enrichissement."""
+
+        self.merged = pd.DataFrame()
+        self.organismes = pd.DataFrame()
+        self.modalite = pd.DataFrame()
+        self.result = pd.DataFrame()
 
     def load(self, merged_path: str, organismes_path: str, cdc_path: str) -> None:
         """Charge les jeux de données nécessaires à l'enrichissement."""
 
         self.merged = pd.read_csv(
-            merged_path, sep=";",
+            merged_path,
+            sep=";",
             dtype={"siret_of_contractant": str, "code_rncp": str},
         )
         self.organismes = pd.read_csv(
-            organismes_path, sep=";", dtype={"siret": str},
+            organismes_path,
+            sep=";",
+            dtype={"siret": str},
         )[self.GEO_COLS]
         self.modalite = self._compute_modalite_dominante(cdc_path)
 
@@ -75,6 +97,7 @@ class FormationsEnricher:
             n_reg / n * 100,
             n_mod / n * 100,
         )
+
 
 if __name__ == "__main__":
     configure_logging()

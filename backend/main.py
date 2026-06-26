@@ -1,3 +1,5 @@
+"""Point d'entrée de l'API Observia Emploi."""
+
 import os
 import logging
 

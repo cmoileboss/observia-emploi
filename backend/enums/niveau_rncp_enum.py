@@ -1,3 +1,5 @@
+"""Définit les niveaux RNCP utilisés lors des imports."""
+
 from enum import Enum
 
 

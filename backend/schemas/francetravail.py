@@ -1,3 +1,5 @@
+"""Schémas Pydantic pour les réponses de l'API France Travail."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
