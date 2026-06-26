@@ -6,7 +6,7 @@ Le projet s'appuie aujourd'hui sur trois sources :
 
 - France Travail, pour les offres d'emploi et leurs codes ROME.
 - Mon Compte Formation, pour les volumes d'entrées et sorties en formation.
-- Free-Work, retenue comme Source 3 à intégrer, avec un pipeline hors ligne déjà opérationnel jusqu'au triage et un premier lot de classification ROME déterministe.
+- Free-Work, retenue comme Source 3 à intégrer, avec un pipeline hors ligne opérationnel jusqu'au paquet pré-import consolidé, incrémental et auditable.
 
 L'API applicative est une API FastAPI adossée à PostgreSQL. Les traitements Free-Work actuels restent hors ligne : ils produisent des fichiers d'audit et de décision, mais n'importent pas encore Free-Work en base.
 
@@ -22,13 +22,155 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 | Mon Compte Formation | Opérationnel | Préparation CSV, enrichissement géographique et import PostgreSQL. |
 | PostgreSQL | Opérationnel | Modèle relationnel principal pour l'API actuelle. |
 | API FastAPI | Opérationnelle | Routes de consultation présentes dans `router.py`. |
-| Free-Work | Source 3 retenue pour intégration | Collecte exhaustive, normalisation, synchronisation différentielle fichier et génération des candidats de matching opérationnelles ; triage V2 validé sur le run de référence. |
+| Free-Work | Source 3 retenue pour intégration | Pipeline hors ligne opérationnel jusqu'au paquet pré-import consolidé, incrémental et auditable. |
 | Synchronisation différentielle Free-Work | Implémentée hors ligne | Compare un snapshot normalisé complet au catalogue courant et classe `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED` et `INACTIVATED`, sans suppression ni import PostgreSQL. |
 | Orchestration d'un run V2 frais | Implémentée hors ligne | `scripts/run_free_work_triage_v2.py` produit un run V2 complet depuis des chemins explicites, sans `source-run-id` historique. |
 | Classification ROME Free-Work | V1 déterministe exploitable hors ligne | 143 codes confirmés depuis France Travail, 664 auto-affectations haute confiance, 7 650 offres laissées sans ROME. |
+| Paquet pré-import Free-Work | Implémenté et validé hors ligne | 7 798 créations préparées, 143 enrichissements FT préparés, 516 reports, puis 8 457 `NO_ACTION` au second passage identique. |
 | Import PostgreSQL Free-Work | Non implémenté | La politique cible est décidée, mais aucun importeur transactionnel Free-Work n'est encore codé. |
-| Exposition API Free-Work | Non implémentée | Les filtres Free-Work relèvent de la roadmap. |
+| Extension de l'API aux données Free-Work | À faire après l'import PostgreSQL | FastAPI et les routes actuelles existent déjà ; l'exposition des données Free-Work dépend du futur import. |
 | LLM | Non intégré | Qwen3 8B via Ollama est envisagé comme aide consultative future. |
+
+---
+
+## Parcours de revue de code — pipeline Free-Work
+
+### Objectif
+
+Le pipeline Free-Work prépare l'intégration de la Source 3 sans écrire en base. Il collecte le catalogue Free-Work, normalise les données, détecte les changements entre snapshots, compare les offres avec le snapshot France Travail, applique le triage V2, attribue un code ROME uniquement lorsque les preuves sont suffisantes, puis produit un paquet pré-import auditable.
+
+À ce stade, Free-Work n'est pas encore importé dans PostgreSQL. Le dernier artefact validé est un paquet fichier qui dit explicitement quoi créer, quoi enrichir côté France Travail, quoi reporter, quoi désactiver et quoi laisser inchangé.
+
+### Scripts et responsabilités
+
+| Étape | Fichier Python | Responsabilité | Entrées principales | Sorties principales | Accès réseau / PostgreSQL |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1. Collecte | `scripts/collect_free_work_full_catalog.py` | Parcourir l'API publique Free-Work, paginer, reprendre un batch, dédupliquer et manifester la collecte. | API Free-Work, paramètres CLI, éventuel `--resume-batch-id`. | `pages/page_XXXX.json`, `offers_raw.json`, `offers_deduplicated.json`, `collection_manifest.json`, `failed_pages.json`, `resume_state.json`. | Réseau Free-Work uniquement ; pas PostgreSQL. |
+| 2. Normalisation | `scripts/normalize_free_work_offers.py` | Valider les offres dédupliquées, nettoyer les textes, structurer localisation, salaires, compétences et soft skills. | `offers_deduplicated.json`. | `offers_normalized.json`, `normalization_manifest.json`. | Aucun réseau, aucun PostgreSQL. |
+| 3. Synchronisation | `scripts/sync_free_work_catalog.py` | Comparer le snapshot normalisé au catalogue courant et produire `NEW`, `UPDATED`, `UNCHANGED`, `REACTIVATED`, `INACTIVATED`. | `offers_normalized.json`, manifestes de collecte complète, catalogue courant. | `catalog/current/*`, `offers_to_process.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `sync_manifest.json`. | Hors ligne, aucun PostgreSQL. |
+| 4. Snapshot FT | `scripts/export_france_travail_snapshot.py` | Exporter les offres France Travail locales nécessaires au matching. | Table `francetravail_offres`. | `france_travail_offers_snapshot.json`, `snapshot_manifest.json`. | PostgreSQL en transaction read-only ; aucun réseau. |
+| 5. Matching | `scripts/generate_free_work_match_candidates.py` | Générer les candidats France Travail à comparer pour chaque offre Free-Work. | `offers_normalized.json`, `france_travail_offers_snapshot.json`. | `candidate_matches.json`, `review_sample.json`, `matching_manifest.json`. | Hors ligne, aucun PostgreSQL. |
+| 6. Triage V2 | `scripts/run_free_work_triage_v2.py` | Transformer les candidats en décisions déterministes et actions de revue. | Offres normalisées, snapshot FT, `candidate_matches.json`. | `run_manifest.json`, `triage_decisions.jsonl`, `import_candidates.json`, `review_queue.csv`, `triage_progress.json`. | Hors ligne, aucun PostgreSQL. |
+| 7. ROME | `scripts/classify_free_work_rome.py` | Affecter un ROME si les preuves déterministes sont suffisantes, sinon laisser l'offre sans ROME. | Offres normalisées, snapshot FT, triage optionnel, référentiel ROME/RNCP. | `rome_assignments_deterministic_v1.jsonl`, manifestes, benchmark, file de revue ROME. | Hors ligne, aucun PostgreSQL. |
+| 8. Pré-import | `scripts/build_free_work_preimport_package.py` | Consolider synchronisation, triage, ROME et compétences en paquet prêt pour audit. | Run de synchro, run V2, run ROME, offres normalisées. | `offers_to_create.json`, `existing_ft_offers_to_enrich.json`, `offers_to_defer.json`, `offers_to_deactivate.json`, `unchanged_offer_ids.json`, `preimport_manifest.json`, `integrity_report.json`. | Hors ligne, aucun PostgreSQL ; n'importe rien en base. |
+
+Ces scripts sont autonomes. Le dépôt ne fournit pas encore une commande unique orchestrant toute la chaîne de bout en bout.
+
+### Schéma simplifié
+
+```mermaid
+flowchart TD
+    FWAPI[API Free-Work] --> Collecte[collecte]
+    Collecte --> Normalisation[normalisation]
+    Normalisation --> Sync[synchronisation différentielle]
+
+    PGFT[(PostgreSQL France Travail)] --> ExportFT[export snapshot]
+
+    Normalisation --> Matching[candidats de matching]
+    ExportFT --> Matching
+    Matching --> Triage[triage V2]
+
+    Normalisation --> Rome[classification ROME]
+    ExportFT --> Rome
+    Triage --> Rome
+
+    Sync --> Preimport[paquet pré-import]
+    Triage --> Preimport
+    Rome --> Preimport
+    Normalisation --> Preimport
+
+    Preimport --> Create[offers_to_create.json]
+    Preimport --> Enrich[existing_ft_offers_to_enrich.json]
+    Preimport --> Defer[offers_to_defer.json]
+    Preimport --> Deactivate[offers_to_deactivate.json]
+    Preimport --> NoAction[unchanged_offer_ids.json]
+    Preimport --> Manifest[preimport_manifest.json]
+    Preimport --> Integrity[integrity_report.json]
+```
+
+### Garanties techniques
+
+- Identifiants uniques vérifiés à chaque étape structurante.
+- Écritures atomiques pour les artefacts JSON principaux.
+- Dossiers de sortie non vides refusés pour les runs sensibles.
+- Hashes SHA-256 enregistrés dans les manifestes.
+- Fichiers de progression avec statut `FAILED` en cas d'erreur.
+- Absence d'accès PostgreSQL pendant les traitements hors ligne après l'export FT.
+- Absence de perte silencieuse lors des jointures du paquet pré-import.
+- Séparation conservée entre `skills` et `soft_skills`.
+- Partitions explicites `process_ids`, `unchanged_ids`, `deactivation_ids`.
+- Aucune suppression physique des offres inactives.
+- Second passage identique validé avec uniquement `NO_ACTION`.
+
+## Résultats validés
+
+### Catalogue
+
+| Indicateur | Valeur |
+| :--- | ---: |
+| Offres Free-Work normalisées | 8 457 |
+| Pages collectées avec succès | 85 |
+| Pages échouées | 0 |
+
+### Triage V2
+
+| Décision | Volume |
+| :--- | ---: |
+| Total | 8 457 |
+| `PRESENT_IN_FT_SNAPSHOT` | 143 |
+| `NOT_FOUND_IN_FT_SNAPSHOT` | 6 846 |
+| `UNCERTAIN` | 1 468 |
+| `PROCESSING_ERROR` | 0 |
+
+| Action de revue | Volume |
+| :--- | ---: |
+| `NO_MANUAL_REVIEW` | 6 989 |
+| `REVIEW_NOW` | 952 |
+| `DEFER_DATA_INCOMPLETE` | 516 |
+
+### ROME
+
+| Statut | Volume |
+| :--- | ---: |
+| `CONFIRMED_FROM_FT_MATCH` | 143 |
+| `AUTO_ASSIGNED_HIGH_CONFIDENCE` | 664 |
+| `UNASSIGNED_AMBIGUOUS` | 1 366 |
+| `UNASSIGNED_INSUFFICIENT_SIGNAL` | 6 284 |
+| Total avec ROME | 807 |
+| Total sans ROME | 7 650 |
+
+L'absence de ROME est volontaire lorsque les preuves sont insuffisantes ou ambiguës.
+
+### Pré-import bootstrap
+
+| Action pré-import | Volume |
+| :--- | ---: |
+| `CREATE_FREE_WORK` | 7 798 |
+| `ENRICH_EXISTING_FT` | 143 |
+| `DEFER` | 516 |
+| `UPDATE_FREE_WORK` | 0 |
+| `REACTIVATE_FREE_WORK` | 0 |
+| `DEACTIVATE_FREE_WORK` | 0 |
+| `NO_ACTION` | 0 |
+| `REJECT` | 0 |
+| Total | 8 457 |
+
+### Second passage identique
+
+| Action pré-import | Volume |
+| :--- | ---: |
+| `NO_ACTION` | 8 457 |
+| Toutes les opérations d'écriture | 0 |
+
+Ce second résultat valide le fonctionnement incrémental et l'idempotence fonctionnelle avant PostgreSQL.
+
+### Tests
+
+```text
+21 tests ciblés pour le paquet pré-import
+195 tests dans la suite complète
+0 échec
+```
 
 ---
 
@@ -43,8 +185,9 @@ Les opérations applicatives journalisées écrivent dans `logs/app.log` ou selo
 - Normalisation Free-Work hors ligne.
 - Synchronisation différentielle Free-Work hors ligne, avec catalogue courant fichier, runs auditables et inactivation uniquement si la collecte complète est prouvée.
 - Génération des candidats de comparaison Free-Work / France Travail.
-- Triage V2 déterministe validé sur le run de référence et relançable par une commande paramétrable sur des artefacts frais.
+- Triage V2 déterministe validé sur le run frais courant et relançable par une commande paramétrable sur des artefacts frais.
 - Classification ROME Free-Work déterministe hors ligne, sans LLM, avec héritage contrôlé du ROME France Travail pour les 143 correspondances certaines et auto-affectation seulement lorsque les seuils de confiance sont atteints.
+- Paquet pré-import consolidé Free-Work hors ligne, combinant synchronisation, triage V2, ROME et compétences sans écrire dans PostgreSQL.
 
 ---
 
@@ -93,29 +236,42 @@ flowchart TD
     Rome --> RomeManifest[rome_classification_manifest.json]
     Rome --> RomeReview[rome_review_queue.csv]
     Rome --> RomeBenchmark[rome_classification_benchmark.json]
+
+    Sync -->|scripts/build_free_work_preimport_package.py| Preimport[Paquet pré-import consolidé]
+    Triage --> Preimport
+    Rome --> Preimport
+    Norm --> Preimport
+    Preimport --> Create[offers_to_create.json]
+    Preimport --> Enrich[existing_ft_offers_to_enrich.json]
+    Preimport --> Defer[offers_to_defer.json]
+    Preimport --> PreManifest[preimport_manifest.json]
+    Preimport --> Integrity[integrity_report.json]
 ```
 
-Note : tous les composants représentés existent et l'enchaînement complet a été validé sur le run de référence. La commande recommandée pour un run V2 frais est `scripts/run_free_work_triage_v2.py`. `replay_free_work_triage_v2.py` reste disponible comme commande historique de rejeu, mais dépend d'un run source contenant aussi `triage_results.json` et de chemins historiques figés.
+Note : tous les composants représentés existent et l'enchaînement complet a été validé hors ligne. La commande recommandée pour un run V2 frais est `scripts/run_free_work_triage_v2.py`. `replay_free_work_triage_v2.py` reste disponible comme commande historique de rejeu, mais dépend d'un run source contenant aussi `triage_results.json` et de chemins historiques figés.
 
-### Pipeline cible restant à développer
+### Roadmap technique restante
 
 ```mermaid
 flowchart TD
-    Norm[offers_normalized.json] -.-> RomeFW[Classification ROME Free-Work]
-    RomeFW -.-> Scope[Filtrage du périmètre Tech/IA]
-    Scope -.-> Compare[Comparaison et triage]
-    Compare -.-> LLM[Qwen3 8B consultatif sur UNCERTAIN / REVIEW_NOW]
-    Compare -.-> Policy[Politique finale de sélection d'import]
-    LLM -.-> Policy
-    Policy -.-> Import[Import transactionnel et idempotent PostgreSQL]
-    Import -.-> Skills[Import des compétences]
-    Skills -.-> APIFuture[API avec filtres]
+    Done[Paquet pré-import consolidé terminé] --> Audit[Audit du modèle PostgreSQL]
+    Audit --> Model[Évolution du modèle PostgreSQL multi-source]
+    Model --> RepoTests[Tests des modèles et repositories]
+    RepoTests --> DryRun[Dry-run d'import]
+    DryRun --> Import[Import transactionnel et idempotent]
+    Import --> ApiValidation[Validation de l'API REST existante]
+    ApiValidation --> ApiFilters[Adaptation éventuelle des filtres Free-Work]
+    ApiFilters --> Robots[Correction robots.txt bloquant si DISALLOWED]
+    Robots --> Fresh[Pipeline frais complet]
+    Fresh --> E2E[Validation de bout en bout]
+    E2E --> TestAudit[Audit global des tests]
+    TestAudit -.-> LLM[Qwen3 8B facultatif sur cas ambigus]
 
     classDef future stroke-dasharray: 5 5;
-    class Scope,Policy,Import,Skills,APIFuture,LLM future;
+    class Audit,Model,RepoTests,DryRun,Import,ApiValidation,ApiFilters,Robots,Fresh,E2E,TestAudit,LLM future;
 ```
 
-Ce pipeline cible reste partiellement à développer. La classification ROME Free-Work existe désormais comme traitement hors ligne, mais l'import PostgreSQL, l'exposition API, le dry-run d'import et l'évaluation Qwen3 8B ne sont pas encore implémentés.
+La comparaison, le triage V2, la classification ROME, la politique de sélection et le paquet pré-import sont déjà implémentés hors ligne. La prochaine étape réelle est l'audit du modèle PostgreSQL avant toute évolution de schéma, dry-run ou import transactionnel. Qwen3 8B reste une amélioration facultative ultérieure, pas un prérequis à l'import.
 
 ---
 
@@ -515,11 +671,13 @@ Ce lot ne fait aucun import PostgreSQL et ne modifie pas les fichiers sources. L
 
 ## Matching et triage V2 Free-Work
 
-Le run de référence actuel est :
+Le run V2 frais courant est :
 
 ```text
-run_triage_v2_handoff_20260624
+run_triage_v2_fresh_20260625_140527
 ```
+
+Le run `run_triage_v2_handoff_20260624` reste conservé comme run historique de passation.
 
 Le matching génère d'abord des candidats de comparaison :
 
@@ -597,7 +755,7 @@ Options vérifiées :
 
 Cette commande de rejeu est historique. Elle reste utile pour reproduire un run ancien, mais elle dépend d'un `source-run-id`, d'un `triage_results.json` et des chemins figés du batch de référence.
 
-Commande réelle exécutée pour valider l'orchestration paramétrable sur le run de référence :
+Commande réelle exécutée pour valider l'orchestration paramétrable sur le run V2 frais courant :
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_free_work_triage_v2.py `
@@ -637,7 +795,7 @@ Décisions principales :
 - `PRESENT_IN_FT_SNAPSHOT` : l'offre est déjà présente dans le snapshot France Travail selon les signaux V2.
 - `NOT_FOUND_IN_FT_SNAPSHOT` : aucun candidat France Travail crédible n'a été retenu.
 - `UNCERTAIN` : la présence dans France Travail est ambiguë ou les données sont insuffisantes.
-- `PROCESSING_ERROR` : traitement impossible ; volume nul dans le run de référence.
+- `PROCESSING_ERROR` : traitement impossible ; volume nul dans le run V2 frais courant.
 
 Actions de revue :
 
@@ -694,11 +852,15 @@ Calcul cible :
 Total contrôlé : 8 457
 ```
 
-Écart technique actuel :
+Articulation avec le paquet pré-import :
 
 ```text
-Le run V2 actuel annonce 6 846 candidats à l'import.
-L'artefact ou le futur importeur devra être adapté pour intégrer aussi les 952 cas REVIEW_NOW conformément à la politique décidée.
+L'artefact V2 import_candidates.json contient les 6 846 offres
+NOT_FOUND_IN_FT_SNAPSHOT.
+
+Le paquet pré-import consolidé applique ensuite la politique finale et
+ajoute les 952 offres UNCERTAIN / REVIEW_NOW, portant le total
+CREATE_FREE_WORK à 7 798.
 ```
 
 Pour les 143 correspondances certaines :
@@ -738,7 +900,7 @@ Le modèle de provenance cible ne peut pas se limiter à une simple colonne `sou
 - les compétences sont propagées dans `triage_decisions.jsonl`, `import_candidates.json`, `review_queue.csv` et le manifeste V2 ;
 - aucun import PostgreSQL de ces compétences Free-Work n'est encore implémenté.
 
-Métriques revérifiées dans `run_manifest.json` du run `run_triage_v2_handoff_20260624` :
+Métriques historiques revérifiées dans `run_manifest.json` du run de passation `run_triage_v2_handoff_20260624` :
 
 | Métrique | Valeur |
 | :--- | ---: |
@@ -939,8 +1101,8 @@ Commande finale validée :
   --triage-run-dir "data/processed/matching/free_work_vs_france_travail/run_triage_v2_fresh_20260625_140527" `
   --rome-run-dir "data/processed/free_work/rome_classification/run_rome_deterministic_v1_final_20260625_133121" `
   --normalized-input "data/processed/free_work/full_catalog/20260624_081715/offers_normalized.json" `
-  --output-dir "data/processed/free_work/preimport/run_preimport_v1_validation_20260625" `
-  --run-id "run_preimport_v1_validation_20260625"
+  --output-dir "data/processed/free_work/preimport/run_preimport_v1_validation_bootstrap_v2_20260625" `
+  --run-id "run_preimport_v1_validation_bootstrap_v2_20260625"
 ```
 
 Cette opération :
@@ -961,7 +1123,7 @@ Commande réelle de test :
 Statut documenté au 25/06/2026 :
 
 ```text
-178 tests réussis
+195 tests réussis
 ```
 
 Garanties couvertes par les tests existants autour de Free-Work :
@@ -1012,10 +1174,9 @@ Le collecteur Free-Work réalise une collecte via API publique et conserve les a
 
 Limites actuelles :
 
-- classification ROME Free-Work implémentée uniquement hors ligne, sans import PostgreSQL ;
-- synchronisation différentielle Free-Work implémentée uniquement hors ligne, avec artefacts fichier ;
+- pipeline Free-Work implémenté uniquement hors ligne jusqu'au paquet pré-import, sans import PostgreSQL ;
 - pas d'import PostgreSQL Free-Work ;
-- pas d'exposition API des offres Free-Work ;
+- pas encore d'exposition API des offres Free-Work importées, car les données Free-Work ne sont pas encore en base ;
 - LLM non intégré au projet et non utilisé dans cette première version ;
 - les URL historiques `/job_postings/...` ne sont pas considérées comme des URL publiques fiables ;
 - les rapprochements V2 dépendent du snapshot France Travail utilisé au moment du run.
@@ -1023,10 +1184,14 @@ Limites actuelles :
 
 Prochaines étapes logiques :
 
-1. Construire un paquet pré-import consolidé combinant synchronisation différentielle, triage V2, ROME et compétences (étape réalisée hors ligne).
-2. Faire évoluer le modèle PostgreSQL pour la provenance, le matching, la revue et le ROME.
-3. Implémenter le dry-run puis l’import transactionnel des offres et compétences.
-4. Rendre la vérification `robots.txt` bloquante lorsqu’elle renvoie explicitement `DISALLOWED`.
-5. Exécuter un pipeline Free-Work frais complet.
-6. Exposer les filtres API Free-Work.
-7. Évaluer ensuite Qwen3 8B sur les seuls cas ambigus.
+1. Auditer le modèle PostgreSQL existant.
+2. Faire évoluer le modèle pour gérer la provenance multi-source.
+3. Tester les modèles et repositories modifiés.
+4. Implémenter le dry-run d'import.
+5. Implémenter l'import transactionnel et idempotent.
+6. Valider la compatibilité de l'API REST existante.
+7. Adapter éventuellement les filtres API Free-Work.
+8. Rendre `robots.txt` bloquant lorsqu'il répond explicitement `DISALLOWED`.
+9. Exécuter un pipeline Free-Work frais complet.
+10. Réaliser une validation de bout en bout.
+11. Réaliser l'audit global des tests.
