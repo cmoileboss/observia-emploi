@@ -67,7 +67,11 @@ REGIONS: list[str] = sorted({_normalize_region(region) for region in _DEPARTEMEN
 
 
 class Service():
+    """Regroupe les opérations métier exposées par l'API principale."""
+
     def __init__(self, db: Session):
+        """Initialise les repositories utilisés par les traitements métier."""
+
         self.offre_repository = OffreRepository(db)
         self.formation_repository = FormationRepository(db)
         self.rome_repository = RomeCodeRepository(db)

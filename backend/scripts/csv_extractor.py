@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class CsvExtractor:
+    """Charge, nettoie et fusionne les jeux de données CSV du pipeline."""
 
     def charge_raw_data(self, raw_input_folder: str):
         """Chargement des données brutes des fichiers CSV du dossier data"""

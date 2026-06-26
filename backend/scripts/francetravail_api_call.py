@@ -21,6 +21,8 @@ CSV_PATH = current_dir / ".." / "data" / "processed" / "formations_enriched.csv"
 
 
 def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
+    """Mappe un libellé RNCP brut vers le nom normalisé de l'énumération."""
+
     if not niveau_libelle:
         return None
 

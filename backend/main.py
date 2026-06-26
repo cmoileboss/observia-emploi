@@ -55,6 +55,8 @@ app.include_router(rome_codes_router)
 app.include_router(main_router)
 
 def main() -> None:
+    """Démarre le serveur Uvicorn pour l'API FastAPI."""
+
     logger.info("Démarrage de l'API FastAPI")
     uvicorn.run(
         "main:app",

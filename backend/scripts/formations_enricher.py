@@ -15,11 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class FormationsEnricher:
+    """Enrichit les formations avec les données géographiques et de modalité."""
 
     GEO_COLS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal",
                 "ville", "code_commune", "departement", "region"]
 
     def load(self, merged_path: str, organismes_path: str, cdc_path: str) -> None:
+        """Charge les jeux de données nécessaires à l'enrichissement."""
+
         self.merged = pd.read_csv(
             merged_path, sep=";",
             dtype={"siret_of_contractant": str, "code_rncp": str},
@@ -48,6 +51,8 @@ class FormationsEnricher:
         )
 
     def enrich(self) -> None:
+        """Fusionne les données de formation avec les enrichissements disponibles."""
+
         with_geo = self.merged.merge(
             self.organismes,
             left_on="siret_of_contractant",
@@ -58,6 +63,8 @@ class FormationsEnricher:
         self.result = with_geo.merge(self.modalite, on="code_rncp", how="left")
 
     def export(self, output_path: str) -> None:
+        """Écrit le jeu de données enrichi dans un fichier CSV."""
+
         self.result.to_csv(output_path, sep=";", index=False, encoding="utf-8")
         n = len(self.result)
         n_reg = self.result["region"].notna().sum()

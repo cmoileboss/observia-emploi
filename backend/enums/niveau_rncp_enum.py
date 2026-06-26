@@ -1,6 +1,9 @@
 from enum import Enum
 
+
 class NiveauRNCP(Enum):
+    """Enumère les niveaux RNCP manipulés lors de l'import des offres."""
+
     NIV3 = "CAP, BEP et équivalents"
     NIV4 = "Niveau Bac"
     NIV5 = "Bac+2 ou équivalents"

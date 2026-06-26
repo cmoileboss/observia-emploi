@@ -10,6 +10,8 @@ class FormationRepository(BaseRepository[FormationModel]):
     """Encapsule les accès en base pour les formations."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des formations."""
+
         super().__init__(db, FormationModel)
 
     def exists_by_intitule_and_siret(self, intitule_certification: str, siret: str) -> bool:
@@ -60,12 +62,16 @@ class FormationFluxMensuelRepository(BaseRepository[FormationFluxMensuelModel]):
     """Encapsule les accès en base pour les flux mensuels des formations."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des flux mensuels."""
+
         super().__init__(db, FormationFluxMensuelModel)
 
 class RomeCodeRepository(BaseRepository[RomeCodeModel]):
     """Encapsule les accès en base pour les codes ROME."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des codes ROME."""
+
         super().__init__(db, RomeCodeModel)
 
     def get_or_create(self, code_rome: str, intitule_rome: str | None) -> RomeCodeModel:

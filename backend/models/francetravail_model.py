@@ -21,6 +21,8 @@ offre_competence_association = Table(
 
 
 class OffreModel(Base):
+    """Représente une offre d'emploi importée depuis France Travail ou FreeWork."""
+
     __tablename__ = "offres"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -40,6 +42,8 @@ class OffreModel(Base):
 
 
 class CompetenceModel(Base):
+    """Représente une compétence associable à une offre d'emploi."""
+
     __tablename__ = "competences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

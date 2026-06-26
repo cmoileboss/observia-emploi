@@ -3,6 +3,8 @@ from logging.config import dictConfig
 
 
 def configure_logging() -> None:
+    """Configure les handlers et le niveau de logs de l'application."""
+
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     log_file = os.getenv("LOG_FILE", os.path.join("logs", "app.log"))
     log_dir = os.path.dirname(log_file)

@@ -121,6 +121,8 @@ class OffreFormationRepository(BaseRepository[FormationModel]):
     """Fournit les opérations d'accès aux formations."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des formations liées aux offres."""
+
         super().__init__(db, FormationModel)
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
@@ -132,6 +134,8 @@ class CompetenceRepository(BaseRepository[CompetenceModel]):
     """Fournit les opérations d'accès aux compétences."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des compétences."""
+
         super().__init__(db, CompetenceModel)
 
     def find_by_code(self, code: str) -> CompetenceModel | None:

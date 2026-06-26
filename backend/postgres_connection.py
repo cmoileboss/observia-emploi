@@ -30,10 +30,14 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Base(DeclarativeBase):
+    """Base déclarative commune à tous les modèles SQLAlchemy du projet."""
+
     pass
 
 
 def get_db():
+    """Fournit une session SQLAlchemy et la ferme après usage."""
+
     db = SessionLocal()
     try:
         yield db

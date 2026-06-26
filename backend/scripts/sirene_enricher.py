@@ -53,6 +53,8 @@ DEPT_TO_REGION = {
 
 
 def _departement_from_code_commune(code_commune: str | None) -> str | None:
+    """Déduit le code département à partir d'un code commune INSEE."""
+
     if not code_commune:
         return None
     code = str(code_commune)

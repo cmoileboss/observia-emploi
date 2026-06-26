@@ -14,6 +14,8 @@ formation_rome_association = Table(
 
 
 class FormationModel(Base):
+    """Représente une formation enrichie et ses métadonnées principales."""
+
     __tablename__ = "formations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -38,6 +40,8 @@ class FormationModel(Base):
 
 
 class FormationFluxMensuelModel(Base):
+    """Stocke les indicateurs mensuels associés à une formation."""
+
     __tablename__ = "formation_flux_mensuel"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -52,6 +56,8 @@ class FormationFluxMensuelModel(Base):
 
 
 class RomeCodeModel(Base):
+    """Décrit un code ROME et les relations métier qui y sont rattachées."""
+
     __tablename__ = "rome_code"
 
     code_rome = Column(String, primary_key=True)
