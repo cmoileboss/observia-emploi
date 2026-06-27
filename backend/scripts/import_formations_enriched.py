@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import os
 from pathlib import Path
 
 from logging_config import configure_logging
@@ -15,7 +16,15 @@ from repositories.correspondance_formation_repository import FormationRepository
 current_file = Path(__file__).resolve()
 current_dir = current_file.parent
 
-CSV_PATH = current_dir / ".." / "data" / "processed" / "formations_enriched.csv"
+
+def resolve_csv_path() -> Path:
+    """Retourne le chemin du CSV enrichi selon l'environnement d'exécution."""
+    file_path = Path("backend/data/processed/formations_enriched.csv")
+    abs_path = file_path.resolve()
+    return abs_path
+
+
+CSV_PATH = resolve_csv_path()
 
 logger = logging.getLogger(__name__)
 

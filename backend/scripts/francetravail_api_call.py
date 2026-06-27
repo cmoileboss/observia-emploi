@@ -25,7 +25,15 @@ from repositories.francetravail_repository import (
 current_file = Path(__file__).resolve()
 current_dir = current_file.parent
 
-CSV_PATH = current_dir / ".." / "data" / "processed" / "formations_enriched.csv"
+
+def resolve_csv_path() -> Path:
+    """Retourne le chemin du CSV enrichi selon l'environnement d'exécution."""
+    file_path = Path("backend/data/processed/formations_enriched.csv")
+    abs_path = file_path.resolve()
+    return abs_path
+
+
+CSV_PATH = resolve_csv_path()
 
 
 def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
