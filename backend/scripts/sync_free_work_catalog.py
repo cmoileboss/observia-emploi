@@ -1,3 +1,4 @@
+"""."""
 import argparse
 import hashlib
 import json
@@ -43,10 +44,12 @@ CHANGE_TYPES = {"NEW", "UPDATED", "UNCHANGED", "REACTIVATED", "INACTIVATED"}
 
 
 def utc_now_iso():
+    """."""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def read_json_file(path):
+    """."""
     try:
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
@@ -55,6 +58,7 @@ def read_json_file(path):
 
 
 def write_json_atomic(path, payload):
+    """."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     with tmp_path.open("w", encoding="utf-8", newline="\n") as handle:
@@ -71,6 +75,7 @@ def write_json_atomic(path, payload):
 
 
 def write_jsonl_atomic(path, rows):
+    """."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     with tmp_path.open("w", encoding="utf-8", newline="\n") as handle:
@@ -88,6 +93,7 @@ def write_jsonl_atomic(path, rows):
 
 
 def sha256_file(path):
+    """."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -96,27 +102,43 @@ def sha256_file(path):
 
 
 def sha256_payload(payload):
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    """."""
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(
+            ",",
+            ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
 def canonicalize(value):
+    """."""
     if isinstance(value, dict):
         return {key: canonicalize(value[key]) for key in sorted(value)}
     if isinstance(value, list):
         canonical_items = [canonicalize(item) for item in value]
         return sorted(
             canonical_items,
-            key=lambda item: json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(
+                    ",",
+                    ":")),
         )
     return value
 
 
 def business_projection(offer):
+    """."""
     return {field: canonicalize(offer.get(field)) for field in BUSINESS_FIELDS}
 
 
 def business_hash(offer):
+    """."""
     return sha256_payload(
         {
             "content_hash_version": CONTENT_HASH_VERSION,
@@ -126,6 +148,7 @@ def business_hash(offer):
 
 
 def changed_business_fields(previous_offer, next_offer):
+    """."""
     previous_projection = business_projection(previous_offer)
     next_projection = business_projection(next_offer)
     return [
@@ -136,6 +159,7 @@ def changed_business_fields(previous_offer, next_offer):
 
 
 def validate_normalized_offers(offers):
+    """."""
     if not isinstance(offers, list):
         raise ValueError("Normalized input root must be a JSON list.")
 
@@ -153,12 +177,14 @@ def validate_normalized_offers(offers):
 
 
 def load_normalized_offers(normalized_input):
+    """."""
     offers = read_json_file(normalized_input)
     validate_normalized_offers(offers)
     return sorted(deepcopy(offers), key=lambda offer: str(offer["source_id"]))
 
 
 def validate_collection_complete(collection_batch_dir):
+    """."""
     manifest_path = collection_batch_dir / "collection_manifest.json"
     failed_pages_path = collection_batch_dir / "failed_pages.json"
     resume_state_path = collection_batch_dir / "resume_state.json"
@@ -169,7 +195,9 @@ def validate_collection_complete(collection_batch_dir):
         if not path.exists()
     ]
     if missing:
-        raise ValueError("Collection completeness cannot be proven; missing files: " + ", ".join(missing))
+        raise ValueError(
+            "Collection completeness cannot be proven; missing files: " +
+            ", ".join(missing))
 
     manifest = read_json_file(manifest_path)
     failed_pages = read_json_file(failed_pages_path)
@@ -209,6 +237,7 @@ def validate_collection_complete(collection_batch_dir):
 
 
 def verify_catalog_coherence(catalog_root):
+    """."""
     current_dir = Path(catalog_root) / "current"
     manifest_path = current_dir / "catalog_manifest.json"
     state_path = current_dir / "catalog_state.json"
@@ -221,7 +250,7 @@ def verify_catalog_coherence(catalog_root):
     # If some files exist but not all, it's incoherent
     if not (manifest_path.exists() and state_path.exists() and active_path.exists()):
         raise ValueError(
-            "Incoherent catalog state: one or more current files are missing (partial promotion detected)."
+            "Incoherent catalog state: one or more current files are missing (partial promotion detected)."  # pylint: disable=line-too-long
         )
 
     try:
@@ -236,13 +265,16 @@ def verify_catalog_coherence(catalog_root):
     calculated_active_sha = sha256_payload(active)
 
     if manifest.get("catalog_state_sha256") != calculated_state_sha:
-        raise ValueError("Incoherent catalog state: catalog_state.json hash mismatch against manifest.")
+        raise ValueError(
+            "Incoherent catalog state: catalog_state.json hash mismatch against manifest.")
 
     if manifest.get("offers_active_sha256") != calculated_active_sha:
-        raise ValueError("Incoherent catalog state: offers_active.json hash mismatch against manifest.")
+        raise ValueError(
+            "Incoherent catalog state: offers_active.json hash mismatch against manifest.")
 
 
 def get_collection_input_hashes(collection_batch_dir, normalized_input_path):
+    """."""
     hashes = {}
     for name in ["collection_manifest.json", "failed_pages.json", "resume_state.json"]:
         file_path = collection_batch_dir / name
@@ -257,6 +289,7 @@ def get_collection_input_hashes(collection_batch_dir, normalized_input_path):
 
 
 def load_current_state(catalog_root):
+    """."""
     verify_catalog_coherence(catalog_root)
     state_path = catalog_root / "current" / "catalog_state.json"
     if not state_path.exists():
@@ -281,6 +314,7 @@ def load_current_state(catalog_root):
 
 
 def make_state_entry(free_work_id, offer, content_hash, now, source_batch_id, change_type):
+    """."""
     return {
         "free_work_id": free_work_id,
         "is_active": True,
@@ -295,7 +329,14 @@ def make_state_entry(free_work_id, offer, content_hash, now, source_batch_id, ch
     }
 
 
-def change_log_entry(change_type, free_work_id, now, previous_entry=None, next_entry=None, changed_fields=None):
+def change_log_entry(
+        change_type,
+        free_work_id,
+        now,
+        previous_entry=None,
+        next_entry=None,
+        changed_fields=None):
+    """."""
     previous_hash = previous_entry.get("content_hash") if previous_entry else None
     next_hash = next_entry.get("content_hash") if next_entry else None
     entry = {
@@ -311,6 +352,7 @@ def change_log_entry(change_type, free_work_id, now, previous_entry=None, next_e
 
 
 def build_diff(previous_state, next_offers, source_batch_id, now):
+    """."""
     previous_by_id = {str(entry["free_work_id"]): entry for entry in previous_state}
     next_by_id = {str(offer["source_id"]): offer for offer in next_offers}
 
@@ -330,7 +372,8 @@ def build_diff(previous_state, next_offers, source_batch_id, now):
         previous_entry = previous_by_id.get(free_work_id)
 
         if previous_entry is None:
-            next_entry = make_state_entry(free_work_id, offer, next_hash, now, source_batch_id, "NEW")
+            next_entry = make_state_entry(
+                free_work_id, offer, next_hash, now, source_batch_id, "NEW")
             buckets["NEW"].append(next_entry)
             change_log.append(change_log_entry("NEW", free_work_id, now, next_entry=next_entry))
         else:
@@ -400,8 +443,12 @@ def build_diff(previous_state, next_offers, source_batch_id, now):
             preserved["source_batch_id"] = source_batch_id
             buckets["INACTIVATED"].append(preserved)
             change_log.append(
-                change_log_entry("INACTIVATED", free_work_id, now, previous_entry=previous_entry, next_entry=preserved)
-            )
+                change_log_entry(
+                    "INACTIVATED",
+                    free_work_id,
+                    now,
+                    previous_entry=previous_entry,
+                    next_entry=preserved))
         next_state_by_id[free_work_id] = preserved
 
     next_state = [next_state_by_id[key] for key in sorted(next_state_by_id)]
@@ -409,6 +456,7 @@ def build_diff(previous_state, next_offers, source_batch_id, now):
 
 
 def compact_deactivation_entry(entry):
+    """."""
     offer = entry.get("offer") or {}
     return {
         "free_work_id": entry["free_work_id"],
@@ -422,6 +470,7 @@ def compact_deactivation_entry(entry):
 
 
 def validate_invariants(next_state, buckets, next_offers):
+    """."""
     state_ids = [entry["free_work_id"] for entry in next_state]
     if len(state_ids) != len(set(state_ids)):
         raise ValueError("Invariant failed: catalog_state contains duplicate free_work_id.")
@@ -440,6 +489,7 @@ def validate_invariants(next_state, buckets, next_offers):
 
 
 def write_progress(run_dir, status, stage, started_at, error=None):
+    """."""
     payload = {
         "schema_version": SYNC_SCHEMA_VERSION,
         "status": status,
@@ -453,6 +503,7 @@ def write_progress(run_dir, status, stage, started_at, error=None):
 
 
 def source_batch_id_from(collection_info, collection_batch_dir):
+    """."""
     manifest_batch_id = collection_info["collection_manifest"].get("batch_id")
     if manifest_batch_id:
         return str(manifest_batch_id)
@@ -474,6 +525,7 @@ def build_manifest(
     mode,
     collection_input_hashes,
 ):
+    """."""
     active_offers_before = sum(1 for entry in previous_state if entry.get("is_active"))
     active_offers_after = sum(1 for entry in next_state if entry.get("is_active"))
     known_offers_before = len(previous_state)
@@ -512,7 +564,7 @@ def build_manifest(
         "known_offers_after": known_offers_after,
         "inactive_offers_after": inactive_offers_after,
         "unique_active_offer_ids": unique_active_offer_ids,
-        "offers_to_process": len(buckets["NEW"]) + len(buckets["UPDATED"]) + len(buckets["REACTIVATED"]),
+        "offers_to_process": len(buckets["NEW"]) + len(buckets["UPDATED"]) + len(buckets["REACTIVATED"]),  # pylint: disable=line-too-long
         "offers_to_deactivate": len(buckets["INACTIVATED"]),
         "business_fields_hashed": BUSINESS_FIELDS,
         "technical_fields_excluded_from_hash": TECHNICAL_FIELDS_EXCLUDED_FROM_HASH,
@@ -520,18 +572,27 @@ def build_manifest(
 
 
 def write_run_artifacts(run_dir, buckets, change_log, manifest):
+    """."""
     write_json_atomic(run_dir / "new_offers.json", buckets["NEW"])
     write_json_atomic(run_dir / "updated_offers.json", buckets["UPDATED"])
     write_json_atomic(run_dir / "reactivated_offers.json", buckets["REACTIVATED"])
-    write_json_atomic(run_dir / "unchanged_offer_ids.json", [entry["free_work_id"] for entry in buckets["UNCHANGED"]])
+    write_json_atomic(run_dir / "unchanged_offer_ids.json",
+                      [entry["free_work_id"] for entry in buckets["UNCHANGED"]])
     write_json_atomic(run_dir / "inactivated_offers.json", buckets["INACTIVATED"])
-    write_json_atomic(run_dir / "offers_to_process.json", buckets["NEW"] + buckets["UPDATED"] + buckets["REACTIVATED"])
-    write_json_atomic(run_dir / "offers_to_deactivate.json", [compact_deactivation_entry(entry) for entry in buckets["INACTIVATED"]])
+    write_json_atomic(
+        run_dir /
+        "offers_to_process.json",
+        buckets["NEW"] +
+        buckets["UPDATED"] +
+        buckets["REACTIVATED"])
+    write_json_atomic(run_dir / "offers_to_deactivate.json",
+                      [compact_deactivation_entry(entry) for entry in buckets["INACTIVATED"]])
     write_jsonl_atomic(run_dir / "change_log.jsonl", change_log)
     write_json_atomic(run_dir / "sync_manifest.json", manifest)
 
 
 def write_current_catalog(catalog_root, run_id, next_state, manifest):
+    """."""
     current_dir = catalog_root / "current"
     active_offers = [
         deepcopy(entry["offer"])
@@ -550,6 +611,7 @@ def write_current_catalog(catalog_root, run_id, next_state, manifest):
 
 
 def sync_catalog(normalized_input, collection_batch_dir, catalog_root, run_id):
+    """."""
     normalized_input = Path(normalized_input)
     collection_batch_dir = Path(collection_batch_dir)
     catalog_root = Path(catalog_root)
@@ -576,7 +638,8 @@ def sync_catalog(normalized_input, collection_batch_dir, catalog_root, run_id):
 
         write_progress(run_dir, "RUNNING", "diff", started_at)
         now = utc_now_iso()
-        next_state, buckets, change_log = build_diff(previous_state, next_offers, source_batch_id, now)
+        next_state, buckets, change_log = build_diff(
+            previous_state, next_offers, source_batch_id, now)
         validate_invariants(next_state, buckets, next_offers)
 
         # Confirm unique active offer ids
@@ -586,7 +649,8 @@ def sync_catalog(normalized_input, collection_batch_dir, catalog_root, run_id):
 
         completed_at = utc_now_iso()
         duration_seconds = time.perf_counter() - start_time
-        collection_input_hashes = get_collection_input_hashes(collection_batch_dir, normalized_input)
+        collection_input_hashes = get_collection_input_hashes(
+            collection_batch_dir, normalized_input)
 
         manifest = build_manifest(
             run_id=run_id,
@@ -618,9 +682,9 @@ def sync_catalog(normalized_input, collection_batch_dir, catalog_root, run_id):
 
 
 def parse_args():
+    """."""
     parser = argparse.ArgumentParser(
-        description="Synchronise offline a normalized Free-Work catalog snapshot with the current local catalog."
-    )
+        description="Synchronise offline a normalized Free-Work catalog snapshot with the current local catalog.")  # pylint: disable=line-too-long
     parser.add_argument("--normalized-input", required=True, type=Path)
     parser.add_argument("--collection-batch-dir", required=True, type=Path)
     parser.add_argument("--catalog-root", required=True, type=Path)
@@ -629,6 +693,7 @@ def parse_args():
 
 
 def main():
+    """."""
     args = parse_args()
     manifest = sync_catalog(
         normalized_input=args.normalized_input,
@@ -636,7 +701,8 @@ def main():
         catalog_root=args.catalog_root,
         run_id=args.run_id,
     )
-    print(json.dumps({"status": "COMPLETED", "run_id": args.run_id, "counts": manifest["counts"]}, ensure_ascii=False))
+    print(json.dumps({"status": "COMPLETED", "run_id": args.run_id,
+          "counts": manifest["counts"]}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

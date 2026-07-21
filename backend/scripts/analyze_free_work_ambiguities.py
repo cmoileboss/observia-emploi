@@ -1,3 +1,4 @@
+"""."""
 import argparse
 import csv
 import json
@@ -7,8 +8,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
-from pathlib import Path
-import sys
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = REPOSITORY_ROOT
@@ -29,19 +28,22 @@ HUMAN_FIELDS = [
 
 
 class AnalysisError(RuntimeError):
-    pass
+    """."""
 
 
 def load_json(path):
+    """."""
     with path.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def write_json(path, data):
+    """."""
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def score_band(score):
+    """."""
     if score is None:
         return "NO_SCORE"
     if score < 30:
@@ -60,6 +62,7 @@ def score_band(score):
 
 
 def margin_band(margin):
+    """."""
     if margin is None:
         return "NO_SECOND_CANDIDATE"
     if margin < 2:
@@ -74,6 +77,7 @@ def margin_band(margin):
 
 
 def coverage_band(coverage):
+    """."""
     if coverage is None:
         return "UNKNOWN"
     if coverage < 55:
@@ -86,6 +90,7 @@ def coverage_band(coverage):
 
 
 def get_score(candidate):
+    """."""
     if not candidate:
         return None
     if "preliminary_match_score" in candidate:
@@ -94,18 +99,21 @@ def get_score(candidate):
 
 
 def get_candidate_id(candidate):
+    """."""
     if not candidate:
         return None
     return str(candidate.get("france_travail_id") or candidate.get("source_id") or "")
 
 
 def get_reason_key(reason_codes):
+    """."""
     if not reason_codes:
         return "NO_REASON"
     return "+".join(sorted(str(reason) for reason in reason_codes))
 
 
 def is_company_compatible(raw_candidate):
+    """."""
     comparison = (raw_candidate or {}).get("company_comparison", {})
     return comparison.get("match_type") in {
         "EXACT_NORMALIZED",
@@ -116,39 +124,47 @@ def is_company_compatible(raw_candidate):
 
 
 def is_company_incompatible_or_missing(raw_candidate):
+    """."""
     comparison = (raw_candidate or {}).get("company_comparison", {})
     return comparison.get("match_type") in {"NO_MATCH", "MISSING", None, ""}
 
 
 def is_geo_compatible(raw_candidate):
+    """."""
     comparison = (raw_candidate or {}).get("geography_comparison", {})
     return comparison.get("result") in {"EXACT_POSTAL_CODE", "SAME_LOCALITY", "SAME_DEPARTMENT"}
 
 
 def is_geo_different(raw_candidate):
+    """."""
     comparison = (raw_candidate or {}).get("geography_comparison", {})
     return comparison.get("result") == "DIFFERENT"
 
 
 def has_strong_fingerprint(raw_candidate):
+    """."""
     blocks = set((raw_candidate or {}).get("candidate_blocks", []))
     return bool(blocks & {"EXACT_FINGERPRINT", "FALLBACK_EXACT_FINGERPRINT"})
 
 
 def title_similarity(raw_candidate):
+    """."""
     return ((raw_candidate or {}).get("title_comparison") or {}).get("sequence_similarity")
 
 
 def description_similarity(raw_candidate):
+    """."""
     components = (raw_candidate or {}).get("components", {})
     return components.get("description_token_jaccard")
 
 
 def candidate_set_signature(raw_candidates, limit=3):
+    """."""
     return tuple(get_candidate_id(candidate) for candidate in (raw_candidates or [])[:limit])
 
 
 def validate_inputs(audit_hr, prioritized, triage_results):
+    """."""
     audit_ids = [str(item["free_work"]["source_id"]) for item in audit_hr]
     prioritized_ids = [str(item["free_work"]["source_id"]) for item in prioritized]
     triage_hr_ids = [
@@ -158,14 +174,17 @@ def validate_inputs(audit_hr, prioritized, triage_results):
     ]
 
     if len(audit_ids) != EXPECTED_HUMAN_REVIEW_COUNT:
-        raise AnalysisError(f"Expected {EXPECTED_HUMAN_REVIEW_COUNT} audit HR cases, got {len(audit_ids)}")
+        raise AnalysisError(
+            f"Expected {EXPECTED_HUMAN_REVIEW_COUNT} audit HR cases, got {
+                len(audit_ids)}")
     if len(set(audit_ids)) != len(audit_ids):
         duplicates = [item for item, count in Counter(audit_ids).items() if count > 1]
         raise AnalysisError(f"Duplicate Free-Work ids in audit HR file: {duplicates[:10]}")
     if set(audit_ids) != set(prioritized_ids):
         raise AnalysisError("Prioritized queue ids do not match audit_human_review_required ids")
     if set(audit_ids) != set(triage_hr_ids):
-        raise AnalysisError("Triage HUMAN_REVIEW_REQUIRED ids do not match audit_human_review_required ids")
+        raise AnalysisError(
+            "Triage HUMAN_REVIEW_REQUIRED ids do not match audit_human_review_required ids")
 
     bad_categories = [
         item["free_work"]["source_id"]
@@ -173,30 +192,43 @@ def validate_inputs(audit_hr, prioritized, triage_results):
         if item.get("triage", {}).get("category") != "HUMAN_REVIEW_REQUIRED"
     ]
     if bad_categories:
-        raise AnalysisError(f"Non HUMAN_REVIEW_REQUIRED category found in HR audit file: {bad_categories[:10]}")
+        raise AnalysisError(
+            f"Non HUMAN_REVIEW_REQUIRED category found in HR audit file: {bad_categories[:10]}")
 
     priority_counts = Counter(item.get("triage", {}).get("priority") for item in prioritized)
     if dict(priority_counts) != EXPECTED_PRIORITIES:
-        raise AnalysisError(f"Priority counters mismatch: expected {EXPECTED_PRIORITIES}, got {dict(priority_counts)}")
+        raise AnalysisError(
+            f"Priority counters mismatch: expected {EXPECTED_PRIORITIES}, got {
+                dict(priority_counts)}")
 
     human_prefilled = []
     for item in prioritized:
         human_review = item.get("human_review", {})
-        if any(human_review.get(key) for key in ("decision", "selected_france_travail_id", "comment", "reviewed_at")):
+        if any(
+            human_review.get(key) for key in (
+                "decision",
+                "selected_france_travail_id",
+                "comment",
+                "reviewed_at")):
             human_prefilled.append(item["free_work"]["source_id"])
     if human_prefilled:
-        raise AnalysisError(f"Human review fields are already filled for ids: {human_prefilled[:10]}")
+        raise AnalysisError(
+            f"Human review fields are already filled for ids: {human_prefilled[:10]}")
 
 
 def build_case_metrics(item, raw_match):
+    """."""
     raw_candidates = (raw_match or {}).get("top_candidates", [])
     best_raw = raw_candidates[0] if raw_candidates else None
     second_raw = raw_candidates[1] if len(raw_candidates) > 1 else None
     best_audit = item.get("best_france_travail_candidate")
     alternatives = item.get("alternative_candidates") or []
     best_score = get_score(best_raw) if best_raw else get_score(best_audit)
-    second_score = get_score(second_raw) if second_raw else (alternatives[0].get("score_total") if alternatives else None)
-    margin = round(best_score - second_score, 2) if best_score is not None and second_score is not None else None
+    second_score = get_score(second_raw) if second_raw else (
+        alternatives[0].get("score_total") if alternatives else None)
+    margin = round(
+        best_score - second_score,
+        2) if best_score is not None and second_score is not None else None
     reason_codes = item.get("triage", {}).get("reason_codes", [])
     coverage = item.get("triage", {}).get("data_coverage")
     fw = item.get("free_work", {})
@@ -218,7 +250,8 @@ def build_case_metrics(item, raw_match):
     contradictions = []
     if best_raw and is_company_compatible(best_raw) and is_geo_different(best_raw):
         contradictions.append("COMPANY_COMPATIBLE_BUT_GEOGRAPHY_DIFFERENT")
-    if best_raw and is_company_incompatible_or_missing(best_raw) and best_score is not None and best_score >= 60:
+    if best_raw and is_company_incompatible_or_missing(
+            best_raw) and best_score is not None and best_score >= 60:
         contradictions.append("HIGH_SCORE_BUT_COMPANY_INCOMPATIBLE_OR_MISSING")
     if best_raw and is_geo_compatible(best_raw) and title_sim is not None and title_sim < 0.35:
         contradictions.append("GEOGRAPHY_COMPATIBLE_BUT_TITLE_WEAK")
@@ -226,15 +259,21 @@ def build_case_metrics(item, raw_match):
     strong_fp = has_strong_fingerprint(best_raw)
     evidence = {
         "strong_fingerprint": strong_fp,
-        "company_compatible": bool(best_raw and is_company_compatible(best_raw)),
-        "company_incompatible_or_missing": bool(best_raw and is_company_incompatible_or_missing(best_raw)),
-        "geography_compatible": bool(best_raw and is_geo_compatible(best_raw)),
-        "geography_different": bool(best_raw and is_geo_different(best_raw)),
+        "company_compatible": bool(
+            best_raw and is_company_compatible(best_raw)),
+        "company_incompatible_or_missing": bool(
+            best_raw and is_company_incompatible_or_missing(best_raw)),
+        "geography_compatible": bool(
+            best_raw and is_geo_compatible(best_raw)),
+        "geography_different": bool(
+            best_raw and is_geo_different(best_raw)),
         "title_similarity": title_sim,
         "description_similarity": desc_sim,
     }
-    weak_only = bool(raw_candidates) and all((get_score(candidate) or 0) < 40 for candidate in raw_candidates)
-    close_candidates = bool(margin is not None and margin < 5 and best_score is not None and best_score >= 50)
+    weak_only = bool(raw_candidates) and all(
+        (get_score(candidate) or 0) < 40 for candidate in raw_candidates)
+    close_candidates = bool(margin is not None and margin <
+                            5 and best_score is not None and best_score >= 50)
     insufficient_data = bool(coverage is None or coverage < 80 or missing_data)
 
     return {
@@ -245,11 +284,11 @@ def build_case_metrics(item, raw_match):
         "best_score": best_score,
         "second_score": second_score,
         "top1_top2_margin": margin,
-        "candidate_count": len(raw_candidates) if raw_candidates else len(alternatives) + (1 if best_audit else 0),
+        "candidate_count": len(raw_candidates) if raw_candidates else len(alternatives) + (1 if best_audit else 0),  # pylint: disable=line-too-long
         "data_coverage": coverage,
         "title_similarity": title_sim,
         "description_similarity": desc_sim,
-        "score_breakdown": (best_raw or best_audit or {}).get("score_breakdown") or (best_raw or {}).get("components"),
+        "score_breakdown": (best_raw or best_audit or {}).get("score_breakdown") or (best_raw or {}).get("components"),  # pylint: disable=line-too-long
         "evidence": evidence,
         "missing_data": sorted(set(missing_data)),
         "contradictions": contradictions,
@@ -262,6 +301,7 @@ def build_case_metrics(item, raw_match):
 
 
 def add_counter(counter, *keys):
+    """."""
     cursor = counter
     for key in keys[:-1]:
         cursor = cursor.setdefault(str(key), {})
@@ -270,6 +310,7 @@ def add_counter(counter, *keys):
 
 
 def build_analysis(cases):
+    """."""
     priority_counts = Counter(case["priority"] for case in cases)
     reason_counts = Counter(case["reason_key"] for case in cases)
     score_distribution = Counter(score_band(case["best_score"]) for case in cases)
@@ -283,14 +324,17 @@ def build_analysis(cases):
     for case in cases:
         add_counter(priority_by_score, case["priority"], score_band(case["best_score"]))
         add_counter(priority_by_reason, case["priority"], case["reason_key"])
-        add_counter(coverage_by_score, coverage_band(case["data_coverage"]), score_band(case["best_score"]))
+        add_counter(
+            coverage_by_score, coverage_band(
+                case["data_coverage"]), score_band(
+                case["best_score"]))
 
     return {
         "summary": {
             "analyzed_cases": len(cases),
             "priority_counts": dict(sorted(priority_counts.items())),
             "only_weak_candidates": sum(1 for case in cases if case["only_weak_candidates"]),
-            "multiple_close_candidates": sum(1 for case in cases if case["multiple_close_candidates"]),
+            "multiple_close_candidates": sum(1 for case in cases if case["multiple_close_candidates"]),  # pylint: disable=line-too-long
             "contradictory_evidence_cases": sum(1 for case in cases if case["contradictions"]),
             "insufficient_data_cases": sum(1 for case in cases if case["insufficient_data"]),
         },
@@ -298,7 +342,7 @@ def build_analysis(cases):
             "reason_counts": dict(reason_counts.most_common()),
             "best_score_bands": dict(sorted(score_distribution.items())),
             "top1_top2_margin_bands": dict(sorted(margin_distribution.items())),
-            "candidate_count": dict(sorted(candidate_count_distribution.items(), key=lambda item: int(item[0]))),
+            "candidate_count": dict(sorted(candidate_count_distribution.items(), key=lambda item: int(item[0]))),  # pylint: disable=line-too-long
             "data_coverage_bands": dict(sorted(coverage_distribution.items())),
         },
         "cross_tabs": {
@@ -311,6 +355,7 @@ def build_analysis(cases):
 
 
 def probably_new_explanation(case):
+    """."""
     return (
         "Simulation uniquement : le meilleur candidat France Travail reste faible, "
         "aucune empreinte forte n'est présente, les signaux de titre/description/entreprise "
@@ -319,6 +364,7 @@ def probably_new_explanation(case):
 
 
 def is_simulated_probably_new(case, policy="BALANCED"):
+    """."""
     score_limits = {"CONSERVATIVE": 35, "BALANCED": 40, "AGGRESSIVE": 45}
     score_limit = score_limits[policy]
     evidence = case["evidence"]
@@ -333,7 +379,7 @@ def is_simulated_probably_new(case, policy="BALANCED"):
     if case["contradictions"] and policy == "CONSERVATIVE":
         return False
     title_ok = evidence["title_similarity"] is None or evidence["title_similarity"] < 0.55
-    desc_ok = evidence["description_similarity"] is None or evidence["description_similarity"] < 0.25
+    desc_ok = evidence["description_similarity"] is None or evidence["description_similarity"] < 0.25  # pylint: disable=line-too-long
     no_convergence = not (
         evidence["company_compatible"]
         and evidence["geography_compatible"]
@@ -344,6 +390,7 @@ def is_simulated_probably_new(case, policy="BALANCED"):
 
 
 def build_simulated_probably_new(prioritized_by_id, matches_by_id, cases):
+    """."""
     simulated = []
     for case in cases:
         if not is_simulated_probably_new(case, "BALANCED"):
@@ -356,16 +403,20 @@ def build_simulated_probably_new(prioritized_by_id, matches_by_id, cases):
                 "free_work_id": case["free_work_id"],
                 "free_work": item["free_work"],
                 "best_france_travail_candidate": item.get("best_france_travail_candidate"),
-                "raw_best_candidate_score_detail": (best_raw or {}).get("components"),
+                "raw_best_candidate_score_detail": (
+                    best_raw or {}).get("components"),
                 "score": case["best_score"],
-                "evidence_present": {key: value for key, value in case["evidence"].items() if value},
-                "evidence_absent": [key for key, value in case["evidence"].items() if not value],
+                "evidence_present": {
+                    key: value for key,
+                    value in case["evidence"].items() if value},
+                "evidence_absent": [
+                    key for key,
+                    value in case["evidence"].items() if not value],
                 "current_category": "HUMAN_REVIEW_REQUIRED",
                 "simulated_category": "PROBABLY_NEW",
                 "simulated_rule": "BALANCED_LOW_SIGNAL_PROBABLY_NEW_SIMULATION",
                 "human_explanation": probably_new_explanation(case),
-            }
-        )
+            })
     simulated.sort(key=lambda item: (item["score"], item["free_work_id"]))
     return simulated
 
@@ -384,11 +435,13 @@ GENERIC_TITLE_TOKENS = {
 
 
 def is_generic_title(title_norm):
+    """."""
     tokens = set(str(title_norm or "").split())
     return len(tokens) < 3 or tokens.issubset(GENERIC_TITLE_TOKENS)
 
 
 def cluster_key(item, case):
+    """."""
     fw = item.get("free_work", {})
     title_norm = fw.get("title_normalized")
     company_norm = fw.get("company_normalized")
@@ -408,6 +461,7 @@ def cluster_key(item, case):
 
 
 def build_clusters(prioritized_by_id, cases):
+    """."""
     by_key = defaultdict(list)
     cases_by_id = {case["free_work_id"]: case for case in cases}
     for case in cases:
@@ -418,11 +472,13 @@ def build_clusters(prioritized_by_id, cases):
 
     clusters = []
     clustered_ids = set()
-    for index, (key, member_ids) in enumerate(sorted(by_key.items(), key=lambda entry: (-len(entry[1]), entry[0])), start=1):
+    for index, (key, member_ids) in enumerate(
+            sorted(by_key.items(), key=lambda entry: (-len(entry[1]), entry[0])), start=1):
         if len(member_ids) < 2:
             continue
         member_cases = [cases_by_id[member_id] for member_id in sorted(member_ids)]
-        score_values = [case["best_score"] for case in member_cases if case["best_score"] is not None]
+        score_values = [case["best_score"]
+                        for case in member_cases if case["best_score"] is not None]
         coverages = {case["data_coverage"] for case in member_cases}
         candidate_sets = {case["top_candidate_ids"] for case in member_cases}
         priorities = {case["priority"] for case in member_cases}
@@ -443,7 +499,7 @@ def build_clusters(prioritized_by_id, cases):
                     "same_normalized_title",
                     "same_normalized_company" if company_norm else "company_missing_or_empty",
                     "same_postal_code" if postal_code else "postal_code_missing_or_empty",
-                    "same_best_france_travail_candidate" if best_candidate_id else "best_candidate_missing",
+                    "same_best_france_travail_candidate" if best_candidate_id else "best_candidate_missing",  # pylint: disable=line-too-long
                     "same_triage_reason",
                     "same_score_band",
                 ],
@@ -458,7 +514,7 @@ def build_clusters(prioritized_by_id, cases):
                 "differing_fields": {
                     "priorities": sorted(priorities),
                     "data_coverages": sorted(coverages),
-                    "top_candidate_sets": [list(candidate_set) for candidate_set in sorted(candidate_sets)],
+                    "top_candidate_sets": [list(candidate_set) for candidate_set in sorted(candidate_sets)],  # pylint: disable=line-too-long
                     "score_min": min(score_values) if score_values else None,
                     "score_max": max(score_values) if score_values else None,
                 },
@@ -471,7 +527,8 @@ def build_clusters(prioritized_by_id, cases):
         clustered_ids.update(member_ids)
 
     sizes = [cluster["cluster_size"] for cluster in clusters]
-    safe_savings = sum(cluster["cluster_size"] - 1 for cluster in clusters if cluster["safe_for_bulk_review"])
+    safe_savings = sum(cluster["cluster_size"] -
+                       1 for cluster in clusters if cluster["safe_for_bulk_review"])
     all_group_savings = sum(cluster["cluster_size"] - 1 for cluster in clusters)
     return {
         "summary": {
@@ -499,8 +556,10 @@ def build_clusters(prioritized_by_id, cases):
 
 
 def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
+    """."""
     cases_by_id = {case["free_work_id"]: case for case in cases}
-    cluster_member_ids = {member_id for cluster in clusters["clusters"] for member_id in cluster["member_free_work_ids"]}
+    cluster_member_ids = {
+        member_id for cluster in clusters["clusters"] for member_id in cluster["member_free_work_ids"]}  # pylint: disable=line-too-long
 
     buckets = defaultdict(list)
     for case in cases:
@@ -522,6 +581,7 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
     quotas["HIGH"] += max_size - sum(quotas.values())
 
     def take_from_priority(priority, quota):
+        """."""
         priority_buckets = [
             (bucket, ids)
             for bucket, ids in buckets.items()
@@ -562,7 +622,11 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
         while len(selected) < max_size:
             added = False
             for _, ids in sorted_buckets:
-                for fw_id in sorted(ids, key=lambda value: (prioritized_by_id[value]["free_work"].get("title_normalized") or "", value)):
+                for fw_id in sorted(
+                    ids,
+                    key=lambda value: (
+                        prioritized_by_id[value]["free_work"].get("title_normalized") or "",
+                        value)):
                     if fw_id not in seen:
                         seen.add(fw_id)
                         selected.append(fw_id)
@@ -615,7 +679,7 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
                 "source_url": item["free_work"].get("source_url"),
                 "title": item["free_work"].get("title_raw"),
                 "company": item["free_work"].get("company_raw"),
-                "location": item["free_work"].get("location_raw") or item["free_work"].get("postal_code"),
+                "location": item["free_work"].get("location_raw") or item["free_work"].get("postal_code"),  # pylint: disable=line-too-long
                 "date": item["free_work"].get("published_at"),
                 "description_excerpt": item["free_work"].get("description_excerpt"),
             },
@@ -637,6 +701,7 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
 
 
 def write_sample_csv(path, sample):
+    """."""
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(
             file,
@@ -659,7 +724,7 @@ def write_sample_csv(path, sample):
         )
         writer.writeheader()
         for item in sample:
-            best = item["top_france_travail_candidates"][0] if item["top_france_travail_candidates"] else {}
+            best = item["top_france_travail_candidates"][0] if item["top_france_travail_candidates"] else {}  # pylint: disable=line-too-long
             context = item["selection_context"]
             writer.writerow(
                 {
@@ -686,6 +751,7 @@ def write_sample_csv(path, sample):
 
 
 def simulate_policies(cases, clusters):
+    """."""
     policies = {}
     duplicate_rules = {
         "CONSERVATIVE_REDUCTION": lambda case: False,
@@ -720,7 +786,8 @@ def simulate_policies(cases, clusters):
         for member_id in cluster["member_free_work_ids"]
     }
     for policy, pn_policy in probably_new_policy.items():
-        moved_new = {case["free_work_id"] for case in cases if is_simulated_probably_new(case, pn_policy)}
+        moved_new = {case["free_work_id"]
+                     for case in cases if is_simulated_probably_new(case, pn_policy)}
         moved_duplicate = {
             case["free_work_id"]
             for case in cases
@@ -741,14 +808,16 @@ def simulate_policies(cases, clusters):
         policies[policy] = {
             "rules_simulated": {
                 "probably_new": pn_policy,
-                "duplicate": "NONE" if policy == "CONSERVATIVE_REDUCTION" else "strong score + compatible company/title/geography simulation",
+                "duplicate": "NONE" if policy == "CONSERVATIVE_REDUCTION" else "strong score + compatible company/title/geography simulation",  # pylint: disable=line-too-long
                 "bulk_review": "safe_for_bulk_review clusters only",
             },
             "moved_to_probably_new": len(moved_new),
             "moved_to_duplicate_high_confidence": len(moved_duplicate),
-            "remaining_individual_review": len(remaining) - regroupable,
+            "remaining_individual_review": len(remaining) -
+            regroupable,
             "regroupable_cases": regroupable,
-            "theoretical_human_decisions": len(remaining) - safe_savings,
+            "theoretical_human_decisions": len(remaining) -
+            safe_savings,
             "risks": policy_risks(policy),
             "recommended_without_human_calibration": policy == "CONSERVATIVE_REDUCTION",
         }
@@ -756,6 +825,7 @@ def simulate_policies(cases, clusters):
 
 
 def policy_risks(policy):
+    """."""
     if policy == "CONSERVATIVE_REDUCTION":
         return [
             "Réduction limitée de charge.",
@@ -763,7 +833,7 @@ def policy_risks(policy):
         ]
     if policy == "BALANCED_REDUCTION":
         return [
-            "Risque modéré de classer nouvelle une offre réellement dupliquée avec signaux faibles.",
+            "Risque modéré de classer nouvelle une offre réellement dupliquée avec signaux faibles.",  # pylint: disable=line-too-long
             "Nécessite calibration humaine avant activation.",
         ]
     return [
@@ -773,10 +843,11 @@ def policy_risks(policy):
 
 
 def write_markdown(path, analysis, simulated_count, clusters, policies):
+    """."""
     lines = [
         "# Analyse des ambiguïtés Free-Work / France Travail",
         "",
-        "Cette analyse utilise uniquement les résultats déjà calculés du run `run_triage_full_20260624`.",
+        "Cette analyse utilise uniquement les résultats déjà calculés du run `run_triage_full_20260624`.",  # pylint: disable=line-too-long
         "Elle ne modifie aucune catégorie officielle et ne remplit aucune décision humaine.",
         "",
         "## Synthèse",
@@ -789,7 +860,7 @@ def write_markdown(path, analysis, simulated_count, clusters, policies):
         f"- Cas simulés comme probablement nouveaux : {simulated_count}",
         f"- Groupes homogènes détectés : {clusters['summary']['group_count']}",
         f"- Cas isolés : {clusters['summary']['isolated_case_count']}",
-        f"- Décisions économisées en revue groupée sûre : {clusters['summary']['theoretical_decisions_saved_safe_bulk_only']}",
+        f"- Décisions économisées en revue groupée sûre : {clusters['summary']['theoretical_decisions_saved_safe_bulk_only']}",  # pylint: disable=line-too-long
         "",
         "## Priorités",
         "",
@@ -806,7 +877,8 @@ def write_markdown(path, analysis, simulated_count, clusters, policies):
     for name, policy in policies.items():
         lines.append(f"### {name}")
         lines.append(f"- Vers `PROBABLY_NEW`: {policy['moved_to_probably_new']}")
-        lines.append(f"- Vers `DUPLICATE_HIGH_CONFIDENCE`: {policy['moved_to_duplicate_high_confidence']}")
+        lines.append(
+            f"- Vers `DUPLICATE_HIGH_CONFIDENCE`: {policy['moved_to_duplicate_high_confidence']}")
         lines.append(f"- Revue individuelle restante: {policy['remaining_individual_review']}")
         lines.append(f"- Cas regroupables: {policy['regroupable_cases']}")
         lines.append(f"- Décisions humaines théoriques: {policy['theoretical_human_decisions']}")
@@ -815,26 +887,27 @@ def write_markdown(path, analysis, simulated_count, clusters, policies):
 
 
 def write_rules_proposal(path):
+    """."""
     path.write_text(
         """# Proposition non activée de règles de triage V2
 
-Cette proposition est une base de discussion. Elle ne modifie pas `CONSERVATIVE_RULESET_V1` et ne doit pas être activée avant annotation de l'échantillon de calibration.
+Cette proposition est une base de discussion. Elle ne modifie pas `CONSERVATIVE_RULESET_V1` et ne doit pas être activée avant annotation de l'échantillon de calibration.  # pylint: disable=line-too-long
 
 ## 1. Doublons à preuves fortes
 
-Classer automatiquement seulement lorsque plusieurs signaux forts convergent : score du meilleur candidat élevé, titre très similaire, entreprise compatible, géographie compatible, marge suffisante avec le deuxième candidat et absence de contradiction. Une empreinte forte reste un signal majeur, mais elle doit rester auditée.
+Classer automatiquement seulement lorsque plusieurs signaux forts convergent : score du meilleur candidat élevé, titre très similaire, entreprise compatible, géographie compatible, marge suffisante avec le deuxième candidat et absence de contradiction. Une empreinte forte reste un signal majeur, mais elle doit rester auditée.  # pylint: disable=line-too-long
 
 ## 2. Nouvelles offres à preuves faibles concordantes
 
-Simuler `PROBABLY_NEW` lorsque la couverture Free-Work est suffisante, le meilleur score reste faible, aucune empreinte forte n'est présente, le titre et la description sont peu compatibles, l'entreprise est incompatible ou absente côté candidats, et aucun faisceau entreprise + titre + géographie ne converge.
+Simuler `PROBABLY_NEW` lorsque la couverture Free-Work est suffisante, le meilleur score reste faible, aucune empreinte forte n'est présente, le titre et la description sont peu compatibles, l'entreprise est incompatible ou absente côté candidats, et aucun faisceau entreprise + titre + géographie ne converge.  # pylint: disable=line-too-long
 
 ## 3. Groupes homogènes pour revue commune
 
-Regrouper les cas partageant titre normalisé, entreprise normalisée, localisation, meilleur candidat France Travail, raisons de triage, bande de score et ensemble de candidats proche. Un groupe ne doit pas reposer seulement sur un titre générique. `safe_for_bulk_review` doit rester faux dès qu'une différence de priorité, de couverture, de candidats ou de score est significative.
+Regrouper les cas partageant titre normalisé, entreprise normalisée, localisation, meilleur candidat France Travail, raisons de triage, bande de score et ensemble de candidats proche. Un groupe ne doit pas reposer seulement sur un titre générique. `safe_for_bulk_review` doit rester faux dès qu'une différence de priorité, de couverture, de candidats ou de score est significative.  # pylint: disable=line-too-long
 
 ## 4. Noyau réellement ambigu pour revue individuelle
 
-Conserver en revue individuelle les cas à score intermédiaire, marge Top 1 / Top 2 faible, signaux contradictoires, données insuffisantes ou candidats crédibles multiples. Ce noyau doit rester priorisé après calibration humaine.
+Conserver en revue individuelle les cas à score intermédiaire, marge Top 1 / Top 2 faible, signaux contradictoires, données insuffisantes ou candidats crédibles multiples. Ce noyau doit rester priorisé après calibration humaine.  # pylint: disable=line-too-long
 
 ## Garde-fous
 
@@ -848,6 +921,7 @@ Conserver en revue individuelle les cas à score intermédiaire, marge Top 1 / T
 
 
 def run_analysis(run_dir):
+    """."""
     start = time.time()
     print("[1/6] Chargement des fichiers existants")
     audit_hr = load_json(run_dir / "audit_human_review_required.json")
@@ -897,7 +971,13 @@ def run_analysis(run_dir):
 
     print("[5/6] Écriture des fichiers d'analyse")
     write_json(run_dir / "ambiguity_analysis.json", analysis)
-    write_markdown(run_dir / "ambiguity_analysis.md", analysis, len(simulated_probably_new), clusters, policies)
+    write_markdown(
+        run_dir /
+        "ambiguity_analysis.md",
+        analysis,
+        len(simulated_probably_new),
+        clusters,
+        policies)
     write_json(run_dir / "simulated_probably_new_candidates.json", simulated_probably_new)
     write_json(run_dir / "ambiguity_clusters.json", clusters)
     write_json(run_dir / "ambiguity_calibration_sample.json", sample)
@@ -926,7 +1006,9 @@ def run_analysis(run_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Analyse hors ligne des ambiguïtés Free-Work / France Travail.")
+    """."""
+    parser = argparse.ArgumentParser(
+        description="Analyse hors ligne des ambiguïtés Free-Work / France Travail.")
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     args = parser.parse_args()
     run_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / args.run_id

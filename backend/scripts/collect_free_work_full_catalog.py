@@ -1,3 +1,4 @@
+"""."""
 import argparse
 import hashlib
 import json
@@ -25,6 +26,7 @@ START_TIME = time.time()
 
 
 def normaliser_cle(texte: str | None) -> str:
+    """."""
     if texte is None:
         return ""
     s = str(texte)
@@ -35,7 +37,15 @@ def normaliser_cle(texte: str | None) -> str:
     return s.strip()
 
 
-def write_progress(stage_name: str, stage_number: int, current: int, total: int, message: str, status: str = "RUNNING", extra_stats: dict = None):
+def write_progress(
+        stage_name: str,
+        stage_number: int,
+        current: int,
+        total: int,
+        message: str,
+        status: str = "RUNNING",
+        extra_stats: dict = None):
+    """."""
     elapsed = time.time() - START_TIME
     percent = round((current / total) * 100, 2) if total else 0.0
     if current > 0 and elapsed > 0:
@@ -62,7 +72,10 @@ def write_progress(stage_name: str, stage_number: int, current: int, total: int,
     dest_path = PROCESSED_DATA_ROOT / "matching" / "progress.json"
     try:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        content_bytes = json.dumps(progress_data, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+        content_bytes = json.dumps(
+            progress_data,
+            ensure_ascii=False,
+            indent=2).encode("utf-8") + b"\n"
     except Exception as e:
         print(f"Warning: Failed to format progress data: {e}", file=sys.stderr)
         return
@@ -73,7 +86,9 @@ def write_progress(stage_name: str, stage_number: int, current: int, total: int,
     try:
         temp_path.write_bytes(content_bytes)
     except Exception as e:
-        print(f"Warning: Failed to write to temporary progress file {temp_path}: {e}", file=sys.stderr)
+        print(
+            f"Warning: Failed to write to temporary progress file {temp_path}: {e}",
+            file=sys.stderr)
         if temp_path.exists():
             try:
                 temp_path.unlink()
@@ -92,7 +107,9 @@ def write_progress(stage_name: str, stage_number: int, current: int, total: int,
                 time.sleep(backoff)
                 backoff *= 2
             else:
-                print(f"Warning: Failed to replace progress file after {max_retries} attempts: {e}", file=sys.stderr)
+                print(
+                    f"Warning: Failed to replace progress file after {max_retries} attempts: {e}",
+                    file=sys.stderr)
         except Exception as e:
             print(f"Warning: Unexpected error replacing progress file: {e}", file=sys.stderr)
             break
@@ -105,6 +122,7 @@ def write_progress(stage_name: str, stage_number: int, current: int, total: int,
 
 
 def is_robots_allowed(url: str) -> bool:
+    """."""
     try:
         headers = {"User-Agent": USER_AGENT}
         r = requests.get(ROBOTS_URL, headers=headers, timeout=10)
@@ -118,6 +136,7 @@ def is_robots_allowed(url: str) -> bool:
 
 
 def format_duration(seconds: float) -> str:
+    """."""
     m, s = divmod(int(seconds), 60)
     return f"{m:02d}:{s:02d}"
 
@@ -129,6 +148,7 @@ def collecter_exhaustive(
     max_pages: int | None,
     resume_batch_id: str | None
 ) -> str:
+    """."""
     print("Démarrage de la collecte exhaustive Free-Work...")
 
     # Configuration structurante pour le hash de validation du checkpoint
@@ -256,12 +276,15 @@ def collecter_exhaustive(
                     break
                 elif response.status_code == 429:
                     retry_after = response.headers.get("Retry-After")
-                    sleep_time = int(retry_after) if retry_after and retry_after.isdigit() else 2 ** attempt
+                    sleep_time = int(
+                        retry_after) if retry_after and retry_after.isdigit() else 2 ** attempt
                     print(f"HTTP 429: Trop de requêtes. Attente de {sleep_time}s...")
                     time.sleep(sleep_time)
                 elif response.status_code >= 500:
                     sleep_time = 2 ** attempt
-                    print(f"HTTP {response.status_code}: Erreur serveur. Nouvelle tentative dans {sleep_time}s...")
+                    print(
+                        f"HTTP {
+                            response.status_code}: Erreur serveur. Nouvelle tentative dans {sleep_time}s...")  # pylint: disable=line-too-long
                     time.sleep(sleep_time)
                 else:
                     response.raise_for_status()
@@ -273,7 +296,8 @@ def collecter_exhaustive(
                     time.sleep(sleep_time)
 
         if response is None or response.status_code != 200:
-            err_msg = str(attempt_err) if attempt_err else f"HTTP {response.status_code if response else 'Inconnu'}"
+            err_msg = str(attempt_err) if attempt_err else f"HTTP {
+                response.status_code if response else 'Inconnu'}"
             print(f"Échec définitif de la page {page_num} : {err_msg}")
             pages_failed[str(page_num)] = current_url
             failed_pages_list.append({"page": page_num, "url": current_url, "error": err_msg})
@@ -288,7 +312,8 @@ def collecter_exhaustive(
         except Exception as e:
             print(f"Erreur de décodage JSON sur la page {page_num} : {e}")
             pages_failed[str(page_num)] = current_url
-            failed_pages_list.append({"page": page_num, "url": current_url, "error": "JSON invalide"})
+            failed_pages_list.append(
+                {"page": page_num, "url": current_url, "error": "JSON invalide"})
             next_page_num = page_num + 1
             current_url = f"{API_URL}?page={next_page_num}&itemsPerPage=100&locationKeys=fr~~~"
             continue
@@ -297,7 +322,8 @@ def collecter_exhaustive(
         if "hydra:member" not in data or "hydra:totalItems" not in data:
             print(f"Structure de schéma invalide sur la page {page_num}")
             pages_failed[str(page_num)] = current_url
-            failed_pages_list.append({"page": page_num, "url": current_url, "error": "Schéma invalide"})
+            failed_pages_list.append(
+                {"page": page_num, "url": current_url, "error": "Schéma invalide"})
             next_page_num = page_num + 1
             current_url = f"{API_URL}?page={next_page_num}&itemsPerPage=100&locationKeys=fr~~~"
             continue
@@ -403,8 +429,12 @@ def collecter_exhaustive(
             "status": "RUNNING"
         }
         try:
-            state_bytes = json.dumps(state_data, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
-            temp_state_path = checkpoint_path if 'checkpoint_path' in locals() else batch_dir / "resume_state.json"
+            state_bytes = json.dumps(
+                state_data,
+                ensure_ascii=False,
+                indent=2).encode("utf-8") + b"\n"
+            temp_state_path = checkpoint_path if 'checkpoint_path' in locals() else batch_dir / \
+                "resume_state.json"
             # Écriture atomique
             tmp_checkpoint = temp_state_path.with_name(temp_state_path.name + ".tmp")
             tmp_checkpoint.write_bytes(state_bytes)
@@ -415,7 +445,8 @@ def collecter_exhaustive(
         # Sauvegarde de la liste brute agrégée courante
         uniques_list = list(offers_by_id.values())
         try:
-            uniques_bytes = json.dumps(uniques_list, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+            uniques_bytes = json.dumps(uniques_list, ensure_ascii=False,
+                                       indent=2).encode("utf-8") + b"\n"
             tmp_raw = (batch_dir / "offers_raw.json").with_name("offers_raw.json.tmp")
             tmp_raw.write_bytes(uniques_bytes)
             tmp_raw.replace(batch_dir / "offers_raw.json")
@@ -428,7 +459,8 @@ def collecter_exhaustive(
         est_total_pages = max(1, (total_items_announced + 99) // 100)
         pages_speed = (pages_processed / elapsed * 60) if elapsed > 0 else 0
         offers_speed = (raw_offer_occurrences / elapsed * 60) if elapsed > 0 else 0
-        eta = (est_total_pages - pages_processed) / (pages_processed / elapsed) if pages_processed > 0 else 0
+        eta = (est_total_pages - pages_processed) / \
+            (pages_processed / elapsed) if pages_processed > 0 else 0
 
         extra_stats = {
             "pages_processed": pages_processed,
@@ -443,8 +475,15 @@ def collecter_exhaustive(
         }
 
         # Affiche à la console et écrit progress.json de façon robuste
-        write_progress("FULL_CATALOG_SCRAPING", 1, pages_processed, est_total_pages, "Collecte exhaustive en cours", "RUNNING", extra_stats)
-        print(f"[{pages_processed}/{est_total_pages}] {len(unique_source_ids)} uniques | {raw_offer_occurrences - len(unique_source_ids)} doublons | Vitesse: {offers_speed:.1f} offres/min | Restant: {format_duration(eta)}")
+        write_progress(
+            "FULL_CATALOG_SCRAPING",
+            1,
+            pages_processed,
+            est_total_pages,
+            "Collecte exhaustive en cours",
+            "RUNNING",
+            extra_stats)
+        print(f"[{pages_processed}/{est_total_pages}] {len(unique_source_ids)} uniques | {raw_offer_occurrences - len(unique_source_ids)} doublons | Vitesse: {offers_speed:.1f} offres/min | Restant: {format_duration(eta)}")  # pylint: disable=line-too-long
 
         # Respect du délai
         if delay_seconds > 0 and current_url:
@@ -461,7 +500,9 @@ def collecter_exhaustive(
         tmp_raw.write_bytes(uniques_bytes)
         tmp_raw.replace(batch_dir / "offers_raw.json")
 
-        tmp_dedup = (batch_dir / "offers_deduplicated.json").with_name("offers_deduplicated.json.tmp")
+        tmp_dedup = (
+            batch_dir /
+            "offers_deduplicated.json").with_name("offers_deduplicated.json.tmp")
         tmp_dedup.write_bytes(uniques_bytes)
         tmp_dedup.replace(batch_dir / "offers_deduplicated.json")
     except Exception as e:
@@ -469,7 +510,10 @@ def collecter_exhaustive(
 
     # Écriture de failed_pages.json
     try:
-        failed_bytes = json.dumps(failed_pages_list, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+        failed_bytes = json.dumps(
+            failed_pages_list,
+            ensure_ascii=False,
+            indent=2).encode("utf-8") + b"\n"
         tmp_failed = failed_pages_path.with_name(failed_pages_path.name + ".tmp")
         tmp_failed.write_bytes(failed_bytes)
         tmp_failed.replace(failed_pages_path)
@@ -478,8 +522,13 @@ def collecter_exhaustive(
 
     # Écriture de duplicate_diagnostics.json
     try:
-        diag_bytes = json.dumps(duplicate_diagnostics, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
-        tmp_diag = (batch_dir / "duplicate_diagnostics.json").with_name("duplicate_diagnostics.json.tmp")
+        diag_bytes = json.dumps(
+            duplicate_diagnostics,
+            ensure_ascii=False,
+            indent=2).encode("utf-8") + b"\n"
+        tmp_diag = (
+            batch_dir /
+            "duplicate_diagnostics.json").with_name("duplicate_diagnostics.json.tmp")
         tmp_diag.write_bytes(diag_bytes)
         tmp_diag.replace(batch_dir / "duplicate_diagnostics.json")
     except Exception as e:
@@ -557,7 +606,9 @@ def collecter_exhaustive(
     }
     try:
         manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
-        tmp_manifest = (batch_dir / "collection_manifest.json").with_name("collection_manifest.json.tmp")
+        tmp_manifest = (
+            batch_dir /
+            "collection_manifest.json").with_name("collection_manifest.json.tmp")
         tmp_manifest.write_bytes(manifest_bytes)
         tmp_manifest.replace(batch_dir / "collection_manifest.json")
     except Exception as e:
@@ -577,8 +628,8 @@ def collecter_exhaustive(
             "raw_offers": raw_offer_occurrences,
             "unique_offers": len(unique_source_ids),
             "duplicates": raw_offer_occurrences - len(unique_source_ids),
-            "pages_per_minute": round((pages_processed / (time.time() - START_TIME) * 60) if time.time() - START_TIME > 0 else 0, 2),
-            "offers_per_minute": round((raw_offer_occurrences / (time.time() - START_TIME) * 60) if time.time() - START_TIME > 0 else 0, 2),
+            "pages_per_minute": round((pages_processed / (time.time() - START_TIME) * 60) if time.time() - START_TIME > 0 else 0, 2),  # pylint: disable=line-too-long
+            "offers_per_minute": round((raw_offer_occurrences / (time.time() - START_TIME) * 60) if time.time() - START_TIME > 0 else 0, 2),  # pylint: disable=line-too-long
             "eta_seconds": 0,
             "heartbeat": time.time()
         }
@@ -589,12 +640,19 @@ def collecter_exhaustive(
 
 
 def main() -> None:
+    """."""
     parser = argparse.ArgumentParser(description="Collecte exhaustive du catalogue Free-Work.")
     parser.add_argument("--delay-seconds", type=float, default=1.0, help="Délai entre requêtes.")
     parser.add_argument("--timeout-seconds", type=int, default=20, help="Timeout de connexion.")
-    parser.add_argument("--max-retries", type=int, default=3, help="Tentatives de relance sur erreur HTTP.")
-    parser.add_argument("--max-pages", type=int, default=None, help="Nombre max de pages à collecter (pilote).")
-    parser.add_argument("--resume-batch-id", type=str, default=None, help="ID du batch à reprendre.")
+    parser.add_argument("--max-retries", type=int, default=3,
+                        help="Tentatives de relance sur erreur HTTP.")
+    parser.add_argument("--max-pages", type=int, default=None,
+                        help="Nombre max de pages à collecter (pilote).")
+    parser.add_argument(
+        "--resume-batch-id",
+        type=str,
+        default=None,
+        help="ID du batch à reprendre.")
     args = parser.parse_args()
 
     try:

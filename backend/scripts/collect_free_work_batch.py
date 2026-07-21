@@ -1,7 +1,8 @@
+"""."""
+from backend.scripts.collect_free_work import collecter_offres
 import argparse
 import csv
 import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -10,8 +11,6 @@ from pathlib import Path
 import requests
 
 # Insertion du dossier parent pour que les imports depuis scripts.* fonctionnent
-from pathlib import Path
-import sys
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = REPOSITORY_ROOT
@@ -19,8 +18,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
-
-from backend.scripts.collect_free_work import collecter_offres
 
 
 def charger_selection_rome(csv_path: Path) -> dict[str, str]:
@@ -33,12 +30,11 @@ def charger_selection_rome(csv_path: Path) -> dict[str, str]:
         raise FileNotFoundError(
             f"Fichier ROME introuvable : {csv_path}\n"
             f"Ce fichier est un résultat du pipeline de préparation de données.\n"
-            f"Le pipeline de données doit être exécuté avant le batch. Vous pouvez le lancer via :\n"
+            f"Le pipeline de données doit être exécuté avant le batch. Vous pouvez le lancer via :\n"  # pylint: disable=line-too-long
             f"python main.py --build-data"
         )
 
     selection = {}
-    seen_codes = set()
 
     with csv_path.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f, delimiter=";")
@@ -63,19 +59,19 @@ def charger_selection_rome(csv_path: Path) -> dict[str, str]:
 
             code = code.strip()
             if not code:
-                raise ValueError(f"Fichier ROME invalide à la ligne {line_num} : le code ROME est vide.")
+                raise ValueError(
+                    f"Fichier ROME invalide à la ligne {line_num} : le code ROME est vide.")
 
             if label is None or not label.strip():
                 raise ValueError(
-                    f"Fichier ROME invalide pour le code {code} à la ligne {line_num} : l'intitulé est vide."
-                )
+                    f"Fichier ROME invalide pour le code {code} à la ligne {line_num} : l'intitulé est vide.")  # pylint: disable=line-too-long
 
             label = label.strip()
 
             if code in selection:
                 if selection[code] != label:
                     raise ValueError(
-                        f"Fichier ROME invalide : le code ROME '{code}' est associé à des intitulés différents "
+                        f"Fichier ROME invalide : le code ROME '{code}' est associé à des intitulés différents "  # pylint: disable=line-too-long
                         f"('{selection[code]}' et '{label}')."
                     )
                 continue
@@ -116,7 +112,8 @@ def collecter_avec_retry(label: str, max_attempts: int) -> tuple[Path, int]:
                 if retry_after and retry_after.isdigit():
                     sleep_time = float(retry_after)
 
-            print(f"Tentative {attempts} échouée pour '{label}' : {e}. Nouvelle tentative dans {sleep_time}s...")
+            print(
+                f"Tentative {attempts} échouée pour '{label}' : {e}. Nouvelle tentative dans {sleep_time}s...")  # pylint: disable=line-too-long
             time.sleep(sleep_time)
 
 
@@ -167,7 +164,9 @@ def valider_batch_parent(parent_path: Path) -> dict:
     for sq in succeeded_queries:
         raw_dir_str = sq.get("raw_run_directory")
         if not raw_dir_str:
-            raise ValueError(f"raw_run_directory manquant pour le succès ROME {sq.get('rome_code')}")
+            raise ValueError(
+                f"raw_run_directory manquant pour le succès ROME {
+                    sq.get('rome_code')}")
         raw_dir = PROJECT_ROOT / raw_dir_str
         if not raw_dir.exists():
             raise FileNotFoundError(f"Dossier brut référencé introuvable : {raw_dir}")
@@ -234,13 +233,14 @@ def orchestrer_batch(
         invalid_codes = [c for c in rome_codes_filter if c not in selection]
         if invalid_codes:
             raise ValueError(
-                f"Codes ROME demandés invalides ou absents de la sélection : {', '.join(invalid_codes)}"
-            )
+                f"Codes ROME demandés invalides ou absents de la sélection : {
+                    ', '.join(invalid_codes)}")
 
     # Déterminer la liste des codes ROME à traiter
     if resume_parent_path:
         # Reprise : uniquement les codes ROME qui ont échoué dans le parent
-        codes_to_run = [q["rome_code"] for q in parent_manifest["queries"] if q["status"] != "success"]
+        codes_to_run = [q["rome_code"]
+                        for q in parent_manifest["queries"] if q["status"] != "success"]
     else:
         codes_to_run = rome_codes_filter if rome_codes_filter else list(selection.keys())
 
@@ -253,7 +253,7 @@ def orchestrer_batch(
     for idx, code in enumerate(codes_to_run):
         label = selection[code]
         queries_attempted += 1
-        print(f"[{queries_attempted}/{len(codes_to_run)}] Collecte du code ROME {code} - {label}...")
+        print(f"[{queries_attempted}/{len(codes_to_run)}] Collecte du code ROME {code} - {label}...")  # pylint: disable=line-too-long
 
         try:
             raw_dir, attempts = collecter_avec_retry(label, max_attempts)
@@ -315,7 +315,8 @@ def orchestrer_batch(
     global_offers = {}
     offers_before_global_deduplication = 0
 
-    # Dictionnaire temporaire pour regrouper tous les doublons par source_id afin d'analyser les conflits
+    # Dictionnaire temporaire pour regrouper tous les doublons par source_id
+    # afin d'analyser les conflits
     offers_by_id = {}
 
     for q_res in all_queries:
@@ -386,7 +387,8 @@ def orchestrer_batch(
                     any_diff = True
                     # Recherche des clés de premier niveau différentes
                     keys = set(first_payload.keys()) | set(other_payload.keys())
-                    item_diff_keys = {k for k in keys if first_payload.get(k) != other_payload.get(k)}
+                    item_diff_keys = {
+                        k for k in keys if first_payload.get(k) != other_payload.get(k)}
                     all_differing_keys.update(item_diff_keys)
 
                     # Validation context vs business
@@ -449,18 +451,19 @@ def orchestrer_batch(
         "rome_codes_available": len(selection),
         "rome_codes_requested": len(selection) if resume_parent_path else len(codes_to_run),
         "queries_attempted": len(all_queries),
-        "queries_succeeded": len(all_queries) - queries_failed_total,
+        "queries_succeeded": len(all_queries) -
+        queries_failed_total,
         "queries_failed": queries_failed_total,
         "offers_before_global_deduplication": offers_before_global_deduplication,
         "offers_after_global_deduplication": offers_after_global_deduplication,
         "duplicates_removed": duplicates_removed,
-        "conflicting_duplicate_payloads": duplicate_payloads_search_context_only + duplicate_payloads_business_fields_different,
+        "conflicting_duplicate_payloads": duplicate_payloads_search_context_only +
+        duplicate_payloads_business_fields_different,
         "duplicate_payloads_identical": duplicate_payloads_identical,
         "duplicate_payloads_search_context_only": duplicate_payloads_search_context_only,
-        "duplicate_payloads_business_fields_different": duplicate_payloads_business_fields_different,
+        "duplicate_payloads_business_fields_different": duplicate_payloads_business_fields_different,  # pylint: disable=line-too-long
         "offers_file": "offers_deduplicated.json",
-        "queries": all_queries
-    }
+        "queries": all_queries}
 
     if resume_parent_path:
         manifest.update({
@@ -482,6 +485,7 @@ def orchestrer_batch(
 
 
 def valider_delai(valeur_str: str) -> float:
+    """."""
     try:
         valeur = float(valeur_str)
     except ValueError:
@@ -492,6 +496,7 @@ def valider_delai(valeur_str: str) -> float:
 
 
 def valider_max_attempts(valeur_str: str) -> int:
+    """."""
     try:
         valeur = int(valeur_str)
     except ValueError:
@@ -502,6 +507,7 @@ def valider_max_attempts(valeur_str: str) -> int:
 
 
 def lire_arguments() -> argparse.Namespace:
+    """."""
     parser = argparse.ArgumentParser(
         description="Orchestre la collecte et la fusion globale Free-Work par code ROME."
     )
@@ -531,6 +537,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
+    """."""
     args = lire_arguments()
     rome_csv_path = PROCESSED_DATA_ROOT / "formations_enriched.csv"
     resume_path = Path(args.resume_batch) if args.resume_batch else None

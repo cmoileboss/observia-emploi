@@ -1,3 +1,4 @@
+"""."""
 import argparse
 import hashlib
 import json
@@ -55,6 +56,7 @@ def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
 
 
 def _row_to_dict(row) -> dict:
+    """."""
     if isinstance(row, Mapping):
         return dict(row)
     if hasattr(row, "_mapping"):
@@ -63,6 +65,7 @@ def _row_to_dict(row) -> dict:
 
 
 def _clean_required(value, field_name: str, offer_id: str | None = None) -> str:
+    """."""
     if value is None:
         if offer_id:
             raise ValueError(f"Champ obligatoire '{field_name}' absent pour l'offre {offer_id}.")
@@ -78,6 +81,7 @@ def _clean_required(value, field_name: str, offer_id: str | None = None) -> str:
 
 
 def _clean_optional(value) -> str | None:
+    """."""
     if value is None:
         return None
     value_str = str(value).strip()
@@ -85,6 +89,7 @@ def _clean_optional(value) -> str | None:
 
 
 def export_snapshot() -> None:
+    """."""
     output_dir = PROCESSED_DATA_ROOT / "france_travail" / "snapshots" / "current"
     offers_file_path = output_dir / "france_travail_offers_snapshot.json"
     manifest_file_path = output_dir / "snapshot_manifest.json"
@@ -120,7 +125,10 @@ def export_snapshot() -> None:
             seen_ids.add(france_travail_id)
 
             title = _clean_required(row_dict.get("intitule"), "intitule", france_travail_id)
-            description = _clean_required(row_dict.get("description"), "description", france_travail_id)
+            description = _clean_required(
+                row_dict.get("description"),
+                "description",
+                france_travail_id)
             rome_code = _clean_required(row_dict.get("rome_code"), "rome_code", france_travail_id)
             company_name = _clean_optional(row_dict.get("entreprise_nom"))
             postal_code = _clean_optional(row_dict.get("lieu_code_postal"))
@@ -199,7 +207,9 @@ def export_snapshot() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Exporte un snapshot France Travail local en lecture seule.")
+    """."""
+    parser = argparse.ArgumentParser(
+        description="Exporte un snapshot France Travail local en lecture seule.")
     parser.parse_args()
     try:
         export_snapshot()

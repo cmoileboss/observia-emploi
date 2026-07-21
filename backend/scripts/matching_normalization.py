@@ -1,14 +1,20 @@
+"""."""
 import re
 import unicodedata
 import html
 from bs4 import BeautifulSoup
 
+
 def supprimer_diacritiques(texte: str) -> str:
+    """."""
     if not texte:
         return ""
-    return "".join(c for c in unicodedata.normalize("NFD", texte) if unicodedata.category(c) != "Mn")
+    return "".join(c for c in unicodedata.normalize(
+        "NFD", texte) if unicodedata.category(c) != "Mn")
+
 
 def normaliser_entreprise(nom: str | None) -> str:
+    """."""
     if not nom:
         return ""
     s = str(nom)
@@ -32,7 +38,9 @@ def normaliser_entreprise(nom: str | None) -> str:
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 
+
 def normaliser_localite(nom: str | None) -> str:
+    """."""
     if not nom:
         return ""
     s = str(nom)
@@ -45,7 +53,9 @@ def normaliser_localite(nom: str | None) -> str:
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 
+
 def extraire_departement(pc: str | None) -> str:
+    """."""
     if not pc:
         return ""
     pc = str(pc).strip()
@@ -53,7 +63,9 @@ def extraire_departement(pc: str | None) -> str:
         return pc[:3]
     return pc[:2]
 
+
 def normaliser_titre(titre: str | None) -> str:
+    """."""
     if not titre:
         return ""
     s = str(titre)
@@ -77,7 +89,9 @@ def normaliser_titre(titre: str | None) -> str:
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 
+
 def normaliser_description(desc: str | None) -> str:
+    """."""
     if not desc:
         return ""
     s = str(desc)
@@ -85,7 +99,8 @@ def normaliser_description(desc: str | None) -> str:
     # clean HTML
     try:
         soup = BeautifulSoup(s, "html.parser")
-        for tag in soup.find_all(["p", "div", "br", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6"]):
+        for tag in soup.find_all(["p", "div", "br", "li", "ul", "ol",
+                                 "h1", "h2", "h3", "h4", "h5", "h6"]):
             tag.insert_after(" ")
         s = soup.get_text()
     except Exception:

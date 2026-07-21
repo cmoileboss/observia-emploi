@@ -1,8 +1,9 @@
+"""."""
+from backend.scripts.free_work_triage_v2 import resolve_free_work_url
 import argparse
 import hashlib
 import html
 import json
-import os
 import re
 import sys
 import unicodedata
@@ -14,8 +15,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
-
-from backend.scripts.free_work_triage_v2 import resolve_free_work_url
 
 
 def normaliser_texte(texte: str | None) -> str | None:
@@ -43,13 +42,15 @@ def normaliser_html(html_content: str | None) -> str | None:
     content_str = str(html_content)
     soup = BeautifulSoup(content_str, "html.parser")
     # Ajoute un espace après les balises de blocs et sauts de ligne pour éviter de coller les mots
-    for tag in soup.find_all(["p", "div", "br", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6"]):
-         tag.insert_after(" ")
+    for tag in soup.find_all(["p", "div", "br", "li", "ul", "ol",
+                             "h1", "h2", "h3", "h4", "h5", "h6"]):
+        tag.insert_after(" ")
     text = soup.get_text()
     return normaliser_texte(text)
 
 
 def normaliser_nom_competence(nom: str | None) -> str | None:
+    """."""
     nom_clean = normaliser_texte(nom)
     if not nom_clean:
         return None
@@ -59,6 +60,7 @@ def normaliser_nom_competence(nom: str | None) -> str | None:
 
 
 def normaliser_competences(raw_skills) -> list[dict]:
+    """."""
     if not isinstance(raw_skills, list):
         return []
 
@@ -67,17 +69,20 @@ def normaliser_competences(raw_skills) -> list[dict]:
         if not isinstance(item, dict):
             continue
         source_skill_id = item.get("id")
-        source_skill_id = str(source_skill_id).strip() if source_skill_id is not None and str(source_skill_id).strip() else None
+        source_skill_id = str(source_skill_id).strip() if source_skill_id is not None and str(
+            source_skill_id).strip() else None
         source_ref = normaliser_texte(item.get("@id"))
         name = normaliser_texte(item.get("name"))
         name_normalized = normaliser_nom_competence(name)
         slug = normaliser_texte(item.get("slug"))
         displayed = item.get("displayed") if isinstance(item.get("displayed"), bool) else None
 
-        if not any([source_skill_id, source_ref, name, name_normalized, slug, displayed is not None]):
+        if not any([source_skill_id, source_ref, name,
+                   name_normalized, slug, displayed is not None]):
             continue
 
-        dedup_key = ("id", source_skill_id) if source_skill_id else ("name", name_normalized or slug or source_ref)
+        dedup_key = ("id", source_skill_id) if source_skill_id else (
+            "name", name_normalized or slug or source_ref)
         if dedup_key[1] is None:
             continue
 
@@ -103,6 +108,7 @@ def normaliser_competences(raw_skills) -> list[dict]:
 
 
 def calculer_sha256_fichier(filepath: Path) -> str:
+    """."""
     h = hashlib.sha256()
     with filepath.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -130,6 +136,7 @@ def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
 
 
 def normaliser_offres(input_file: Path) -> Path:
+    """."""
     if not input_file.exists():
         raise FileNotFoundError(f"Fichier d'entrée introuvable : {input_file}")
 
@@ -182,10 +189,12 @@ def normaliser_offres(input_file: Path) -> Path:
 
         for q_idx, q in enumerate(matched_rome_queries):
             if not isinstance(q, dict):
-                raise ValueError(f"La requête ROME à l'index {q_idx} de l'offre {source_id} n'est pas un dictionnaire.")
+                raise ValueError(
+                    f"La requête ROME à l'index {q_idx} de l'offre {source_id} n'est pas un dictionnaire.")  # pylint: disable=line-too-long
             for field in ["rome_code", "rome_label", "query"]:
                 if field not in q or not str(q[field]).strip():
-                    raise ValueError(f"Le champ ROME '{field}' est manquant ou vide pour l'offre {source_id}.")
+                    raise ValueError(
+                        f"Le champ ROME '{field}' est manquant ou vide pour l'offre {source_id}.")
 
         offer = item["offer"]
         if not isinstance(offer, dict):
@@ -195,14 +204,16 @@ def normaliser_offres(input_file: Path) -> Path:
         if offer_id is None:
             raise ValueError(f"L'offre sous source_id {source_id} ne contient aucun identifiant.")
         if str(offer_id) != source_id:
-            raise ValueError(f"Incohérence d'identifiant : source_id={source_id}, offer_id={offer_id}.")
+            raise ValueError(
+                f"Incohérence d'identifiant : source_id={source_id}, offer_id={offer_id}.")
 
         title = offer.get("title")
         if not title or not str(title).strip():
             raise ValueError(f"Titre manquant ou vide pour l'offre {source_id}.")
 
         # URL source : conserver uniquement un href public fiable.
-        # Les @id /job_postings/... sont des identifiants API historiques, pas des routes publiques garanties.
+        # Les @id /job_postings/... sont des identifiants API historiques, pas des
+        # routes publiques garanties.
         source_url_resolution = resolve_free_work_url(offer)
 
         # Tri et déduplication des provenances ROME
@@ -366,6 +377,7 @@ def normaliser_offres(input_file: Path) -> Path:
 
 
 def lire_arguments() -> argparse.Namespace:
+    """."""
     parser = argparse.ArgumentParser(
         description="Normalise les offres d'emploi Free-Work dédupliquées."
     )
@@ -378,6 +390,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
+    """."""
     args = lire_arguments()
     input_file = Path(args.input)
     try:

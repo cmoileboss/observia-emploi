@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
+"""."""
 import json
 import argparse
 import sys
 from pathlib import Path
 
-from pathlib import Path
-import sys
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = REPOSITORY_ROOT
@@ -273,7 +272,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: inline-block;
             margin-top: 0.25rem;
         }
-        
+
         .comp-match { background-color: #d1fae5; color: #065f46; }
         .comp-partial { background-color: #fef3c7; color: #92400e; }
         .comp-diff { background-color: #fee2e2; color: #991b1b; }
@@ -371,7 +370,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="no-selection" id="no-selection-msg">
                 Sélectionnez une offre dans la liste pour commencer la revue humaine.
             </div>
-            
+
             <div class="details-wrapper" id="details-panel" style="display: none;">
                 <!-- Synthèse de comparaison -->
                 <div class="synthesis-card">
@@ -465,10 +464,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             <span class="field-label">Code ROME</span>
                             <div class="field-value" id="ft-rome">-</div>
                         </div>
-                        
+
                         <!-- Indicateurs de proximité détaillés -->
                         <h3 style="font-size: 0.9rem; margin-top: 1.5rem; margin-bottom: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; color: var(--text-muted);">Indicateurs de Proximité</h3>
-                        
+
                         <div class="field-group">
                             <span class="field-label">Score Global</span>
                             <div class="field-value" id="comp-score" style="font-weight: 700;">-</div>
@@ -524,7 +523,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
         // Injection dynamique des données
         const DATA = %DATA_PLACEHOLDER%;
-        
+
         let filteredData = [];
         let currentItem = null;
         const localReviews = {};
@@ -558,13 +557,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             filteredData = DATA.filter(d => {
                 const fw = d.free_work_offer;
-                const matchesSearch = 
+                const matchesSearch =
                     fw.title.toLowerCase().includes(search) ||
                     (fw.company && fw.company.toLowerCase().includes(search)) ||
                     fw.source_id.includes(search);
-                
+
                 const matchesPriority = priority === 'ALL' || d.human_review_priority === priority;
-                
+
                 const score = d.comparison.score_global || 0;
                 const matchesScore = score >= minScore;
 
@@ -586,7 +585,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             filteredData.forEach(item => {
                 const div = document.createElement('div');
                 div.className = `queue-item ${currentItem && currentItem.free_work_offer.source_id === item.free_work_offer.source_id ? 'active' : ''}`;
-                
+
                 // Indicateur de décision locale validée
                 const isReviewed = localReviews[item.free_work_offer.source_id];
                 const reviewedIndicator = isReviewed ? ' ✓' : '';
@@ -608,14 +607,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             // Mise à jour du bandeau statistiques
             const reviewedCount = Object.keys(localReviews).length;
-            document.getElementById('stats-summary').textContent = 
+            document.getElementById('stats-summary').textContent =
                 `${filteredData.length} cas filtrés sur ${DATA.length} cas incertains au total. Décisions arbitrées : ${reviewedCount}/${filteredData.length}`;
         }
 
         // Sélection d'une fiche
         function selectItem(item) {
             currentItem = item;
-            
+
             // Mettre en évidence dans la liste
             document.querySelectorAll('.queue-item').forEach(el => el.classList.remove('active'));
             renderList();
@@ -634,7 +633,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('fw-title').textContent = fw.title;
             document.getElementById('fw-company').textContent = fw.company || 'Non renseigné';
             document.getElementById('fw-location').textContent = fw.location ? `${fw.location.locality || ''} (${fw.location.postal_code || ''})` : 'Inconnu';
-            
+
             const skillsDiv = document.getElementById('fw-skills');
             skillsDiv.innerHTML = '';
             if (fw.skills && fw.skills.length > 0) {
@@ -663,7 +662,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
 
             document.getElementById('fw-desc').textContent = fw.description_excerpt;
-            
+
             if (fw.url) {
                 document.getElementById('fw-url-container').style.display = 'block';
                 document.getElementById('fw-url').href = fw.url;
@@ -680,7 +679,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             // Remplir comparaison
             document.getElementById('comp-score').textContent = comp.score_global ? `${Math.round(comp.score_global)}/100` : 'N/A';
-            
+
             const badges = [
                 { id: 'comp-title-badge', val: comp.title_human },
                 { id: 'comp-company-badge', val: comp.company_human },
@@ -747,8 +746,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 def main():
+    """."""
     parser = argparse.ArgumentParser(description="Générateur de la vue HTML de revue humaine.")
-    parser.add_argument("--run-id", default="run_triage_v2_candidate_20260624", help="Identifiant du run")
+    parser.add_argument(
+        "--run-id",
+        default="run_triage_v2_candidate_20260624",
+        help="Identifiant du run")
     args = parser.parse_args()
 
     run_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / args.run_id
@@ -760,7 +763,7 @@ def main():
 
     print(f"Chargement des cas incertains depuis {decisions_path}...")
     uncertain_records = []
-    
+
     with decisions_path.open("r", encoding="utf-8") as f:
         for line in f:
             if not line.strip():
