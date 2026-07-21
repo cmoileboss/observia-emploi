@@ -18,9 +18,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: ghcr.io/cmoileboss/observia-emploi/backend:latest
     container_name: observia-backend
     restart: unless-stopped
     depends_on:
@@ -31,13 +29,13 @@ services:
     environment:
       DATABASE_HOST: db
       DATABASE_PORT: 5432
-      RAW_DATA_FOLDER: /app/backend/data/raw
-      PROCESSED_DATA_FOLDER: /app/backend/data/processed
+      RAW_DATA_FOLDER: /app/data/raw
+      PROCESSED_DATA_FOLDER: /app/data/processed
       LOG_FILE: /app/logs/app.log
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data
+      - ./data:/app/data
       - ./logs:/app/logs
 
 volumes:

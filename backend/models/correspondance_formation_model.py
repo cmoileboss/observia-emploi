@@ -1,4 +1,6 @@
 
+"""Modèles SQLAlchemy liés aux formations et aux codes ROME."""
+
 from sqlalchemy import Column, ForeignKey, Integer, String, Table, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -14,6 +16,8 @@ formation_rome_association = Table(
 
 
 class FormationModel(Base):
+    """Représente une formation enrichie et ses métadonnées principales."""
+
     __tablename__ = "formations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -29,15 +33,29 @@ class FormationModel(Base):
     commentaire = Column(String)
 
     __table_args__ = (
-        UniqueConstraint("intitule_certification", "siret_of_contractant", name="uq_formation_intitule_siret"),
+        UniqueConstraint(
+            "intitule_certification",
+            "siret_of_contractant",
+            name="uq_formation_intitule_siret",
+        ),
     )
 
-    flux_mensuels = relationship("FormationFluxMensuelModel", back_populates="formation", cascade="all, delete-orphan")
-    codes_rome = relationship("RomeCodeModel", secondary=formation_rome_association, back_populates="formations")
+    flux_mensuels = relationship(
+        "FormationFluxMensuelModel",
+        back_populates="formation",
+        cascade="all, delete-orphan",
+    )
+    codes_rome = relationship(
+        "RomeCodeModel",
+        secondary=formation_rome_association,
+        back_populates="formations",
+    )
     offres = relationship("OffreModel", secondary="offre_formation", back_populates="formations")
 
 
 class FormationFluxMensuelModel(Base):
+    """Stocke les indicateurs mensuels associés à une formation."""
+
     __tablename__ = "formation_flux_mensuel"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -52,10 +70,16 @@ class FormationFluxMensuelModel(Base):
 
 
 class RomeCodeModel(Base):
+    """Décrit un code ROME et les relations métier qui y sont rattachées."""
+
     __tablename__ = "rome_code"
 
     code_rome = Column(String, primary_key=True)
     intitule_rome = Column(String)
 
-    formations = relationship("FormationModel", secondary=formation_rome_association, back_populates="codes_rome")
+    formations = relationship(
+        "FormationModel",
+        secondary=formation_rome_association,
+        back_populates="codes_rome",
+    )
     offres = relationship("OffreModel", back_populates="rome")

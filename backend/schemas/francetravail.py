@@ -1,9 +1,13 @@
+"""Schémas Pydantic pour les réponses de l'API France Travail."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class LieuTravailSchema(BaseModel):
+    """Décrit le lieu d'exercice d'une offre d'emploi."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     libelle: str | None = None
@@ -14,6 +18,8 @@ class LieuTravailSchema(BaseModel):
 
 
 class EntrepriseSchema(BaseModel):
+    """Décrit l'entreprise associée à une offre d'emploi."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     nom: str | None = None
@@ -24,6 +30,8 @@ class EntrepriseSchema(BaseModel):
 
 
 class SalaireSchema(BaseModel):
+    """Décrit les informations de rémunération d'une offre."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     libelle: str | None = None
@@ -34,6 +42,8 @@ class SalaireSchema(BaseModel):
 
 
 class FormationSchema(BaseModel):
+    """Décrit une formation exigée ou souhaitée par une offre."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     code_formation: str | None = Field(None, alias="codeFormation")
@@ -44,6 +54,8 @@ class FormationSchema(BaseModel):
 
 
 class LangueSchema(BaseModel):
+    """Décrit une exigence linguistique d'une offre."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     libelle: str | None = None
@@ -51,6 +63,8 @@ class LangueSchema(BaseModel):
 
 
 class PermisSchema(BaseModel):
+    """Décrit une exigence de permis de conduire."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     libelle: str | None = None
@@ -58,6 +72,8 @@ class PermisSchema(BaseModel):
 
 
 class CompetenceSchema(BaseModel):
+    """Décrit une compétence attendue pour une offre."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     code: str | None = None
@@ -66,6 +82,8 @@ class CompetenceSchema(BaseModel):
 
 
 class OffreEmploiSchema(BaseModel):
+    """Modélise une offre d'emploi renvoyée par l'API France Travail."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     id: str
@@ -116,6 +134,8 @@ class OffreEmploiSchema(BaseModel):
 
 
 class RechercheOffresResponse(BaseModel):
+    """Encapsule la liste des offres renvoyées par une recherche."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     resultats: list[OffreEmploiSchema] = []

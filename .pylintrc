@@ -1,0 +1,15 @@
+[MASTER]
+ignore=.pytest_cache
+init-hook='import sys; from pathlib import Path; sys.path.insert(0, str(Path().resolve() / "backend"))'
+
+[MESSAGES CONTROL]
+disable=
+    too-few-public-methods,
+    too-many-locals,
+    duplicate-code,
+    inconsistent-return-statements,
+    too-many-return-statements,
+    not-callable
+
+[FORMAT]
+max-line-length=100

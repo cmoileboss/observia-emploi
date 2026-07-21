@@ -1,56 +1,25 @@
+"""Services métier principaux de l'API Observia Emploi."""
+
 from http.client import BAD_REQUEST
 import logging
-import os
 import re
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from logging_config import configure_logging
-from backend.scripts.francetravail_api_call import get_unique_rome_codes_from_csv_file, search_offres_by_rome
-from backend.scripts.import_formations_enriched import import_formations_enriched
-from backend.models.correspondance_formation_model import FormationModel
-from backend.repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
-from backend.repositories.francetravail_repository import OffreRepository
+from models.correspondance_formation_model import FormationModel
+from region_mapping import DEPARTMENT_TO_REGION
+from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
+from repositories.francetravail_repository import OffreRepository
+from scripts.francetravail_api_call import (
+    get_unique_rome_codes_from_csv_file,
+    search_offres_by_rome,
+)
+from scripts.import_formations_enriched import import_formations_enriched
 
 configure_logging()
 logger = logging.getLogger(__name__)
-
-_DEPARTEMENT_TO_REGION: dict[str, str] = {
-    "01": "Auvergne-Rhône-Alpes", "03": "Auvergne-Rhône-Alpes", "07": "Auvergne-Rhône-Alpes",
-    "15": "Auvergne-Rhône-Alpes", "26": "Auvergne-Rhône-Alpes", "38": "Auvergne-Rhône-Alpes",
-    "42": "Auvergne-Rhône-Alpes", "43": "Auvergne-Rhône-Alpes", "63": "Auvergne-Rhône-Alpes",
-    "69": "Auvergne-Rhône-Alpes", "73": "Auvergne-Rhône-Alpes", "74": "Auvergne-Rhône-Alpes",
-    "21": "Bourgogne-Franche-Comté", "25": "Bourgogne-Franche-Comté", "39": "Bourgogne-Franche-Comté",
-    "58": "Bourgogne-Franche-Comté", "70": "Bourgogne-Franche-Comté", "71": "Bourgogne-Franche-Comté",
-    "89": "Bourgogne-Franche-Comté", "90": "Bourgogne-Franche-Comté",
-    "22": "Bretagne", "29": "Bretagne", "35": "Bretagne", "56": "Bretagne",
-    "18": "Centre-Val de Loire", "28": "Centre-Val de Loire", "36": "Centre-Val de Loire",
-    "37": "Centre-Val de Loire", "41": "Centre-Val de Loire", "45": "Centre-Val de Loire",
-    "2A": "Corse", "2B": "Corse",
-    "08": "Grand Est", "10": "Grand Est", "51": "Grand Est", "52": "Grand Est",
-    "54": "Grand Est", "55": "Grand Est", "57": "Grand Est", "67": "Grand Est",
-    "68": "Grand Est", "88": "Grand Est",
-    "02": "Hauts-de-France", "59": "Hauts-de-France", "60": "Hauts-de-France",
-    "62": "Hauts-de-France", "80": "Hauts-de-France",
-    "75": "Île-de-France", "77": "Île-de-France", "78": "Île-de-France", "91": "Île-de-France",
-    "92": "Île-de-France", "93": "Île-de-France", "94": "Île-de-France", "95": "Île-de-France",
-    "14": "Normandie", "27": "Normandie", "50": "Normandie", "61": "Normandie", "76": "Normandie",
-    "16": "Nouvelle-Aquitaine", "17": "Nouvelle-Aquitaine", "19": "Nouvelle-Aquitaine",
-    "23": "Nouvelle-Aquitaine", "24": "Nouvelle-Aquitaine", "33": "Nouvelle-Aquitaine",
-    "40": "Nouvelle-Aquitaine", "47": "Nouvelle-Aquitaine", "64": "Nouvelle-Aquitaine",
-    "79": "Nouvelle-Aquitaine", "86": "Nouvelle-Aquitaine", "87": "Nouvelle-Aquitaine",
-    "09": "Occitanie", "11": "Occitanie", "12": "Occitanie", "30": "Occitanie",
-    "31": "Occitanie", "32": "Occitanie", "34": "Occitanie", "46": "Occitanie",
-    "48": "Occitanie", "65": "Occitanie", "66": "Occitanie", "81": "Occitanie", "82": "Occitanie",
-    "44": "Pays de la Loire", "49": "Pays de la Loire", "53": "Pays de la Loire",
-    "72": "Pays de la Loire", "85": "Pays de la Loire",
-    "04": "Provence-Alpes-Côte d'Azur", "05": "Provence-Alpes-Côte d'Azur",
-    "06": "Provence-Alpes-Côte d'Azur", "13": "Provence-Alpes-Côte d'Azur",
-    "83": "Provence-Alpes-Côte d'Azur", "84": "Provence-Alpes-Côte d'Azur",
-    "971": "Guadeloupe", "972": "Martinique", "973": "Guyane",
-    "974": "La Réunion", "976": "Mayotte",
-}
 
 
 def _normalize_region(region: str | None) -> str:
@@ -63,11 +32,17 @@ def _normalize_region(region: str | None) -> str:
     return cleaned_region or "regioninconnue"
 
 
-REGIONS: list[str] = sorted({_normalize_region(region) for region in _DEPARTEMENT_TO_REGION.values()})
+REGIONS: list[str] = sorted(
+    {_normalize_region(region) for region in DEPARTMENT_TO_REGION.values()}
+)
 
 
-class Service():
-    def __init__(self, db: Session):
+class Service:
+    """Regroupe les opérations métier exposées par l'API principale."""
+
+    def __init__(self, db: Session) -> None:
+        """Initialise les repositories utilisés par les traitements métier."""
+
         self.offre_repository = OffreRepository(db)
         self.formation_repository = FormationRepository(db)
         self.rome_repository = RomeCodeRepository(db)
@@ -77,16 +52,32 @@ class Service():
         """Retourne un libellé exploitable pour les régions manquantes."""
         return _normalize_region(region)
 
-    def count_formation_entries_by_region_and_quarter(self, region: str | None = None, quarter: str | None = None) -> dict[str, dict[str, dict[str, int] | int] | int]:
+    def count_formation_entries_by_region_and_quarter(
+        self,
+        region: str | None = None,
+        quarter: str | None = None,
+    ) -> dict[str, dict[str, dict[str, int] | int] | int]:
         """Retourne le nombre d'entrées de formation par région et par trimestre."""
         if region and region not in REGIONS:
-            raise HTTPException(status_code=BAD_REQUEST, detail=f"Région invalide : {region}. Les régions valides sont : {', '.join(REGIONS)}")
+            raise HTTPException(
+                status_code=BAD_REQUEST,
+                detail=(
+                    f"Région invalide : {region}. "
+                    f"Les régions valides sont : {', '.join(REGIONS)}"
+                ),
+            )
         if quarter and not re.fullmatch(r"\d{4}-T[1-4]", quarter):
-            raise HTTPException(status_code=BAD_REQUEST, detail=f"Trimestre invalide : {quarter}. Format attendu : YYYY-T1 a YYYY-T4")
+            raise HTTPException(
+                status_code=BAD_REQUEST,
+                detail=(
+                    f"Trimestre invalide : {quarter}. "
+                    "Format attendu : YYYY-T1 a YYYY-T4"
+                ),
+            )
 
         selected_region = region
         selected_quarter = quarter
-        nb_offers = self.offre_repository.count_offres()
+        offer_count = self.offre_repository.count_offres()
         formations = self.formation_repository.get_all()
         result: dict[str, dict[str, dict[str, int]]] = {}
         for formation in formations:
@@ -113,8 +104,14 @@ class Service():
                         "sorties_realisation_totale": 0,
                     }
                 result[formation_region][quarter_str]["entrees_formation"] += flux.entrees_formation
-                result[formation_region][quarter_str]["sorties_realisation_partielle"] += flux.sorties_realisation_partielle or 0
-                result[formation_region][quarter_str]["sorties_realisation_totale"] += flux.sorties_realisation_totale or 0
+                quarter_result = result[formation_region][quarter_str]
+                quarter_result["entrees_formation"] += flux.entrees_formation
+                quarter_result["sorties_realisation_partielle"] += (
+                    flux.sorties_realisation_partielle or 0
+                )
+                quarter_result["sorties_realisation_totale"] += (
+                    flux.sorties_realisation_totale or 0
+                )
 
         offres_by_region: dict[str, int] = {}
         for code_postal, count in self.offre_repository.count_offres_by_code_postal():
@@ -130,13 +127,16 @@ class Service():
             region: {
                 **dict(sorted(quarters.items())),
                 "Total des entrées en formation pour les trimestres choisis": sum(
-                    quarter_values["entrees_formation"] for quarter_values in quarters.values()
+                    quarter_values["entrees_formation"]
+                    for quarter_values in quarters.values()
                 ),
                 "Total des sorties en réalisation partielle pour les trimestres choisis": sum(
-                    quarter_values["sorties_realisation_partielle"] for quarter_values in quarters.values()
+                    quarter_values["sorties_realisation_partielle"]
+                    for quarter_values in quarters.values()
                 ),
                 "Total des sorties en réalisation totale pour les trimestres choisis": sum(
-                    quarter_values["sorties_realisation_totale"] for quarter_values in quarters.values()
+                    quarter_values["sorties_realisation_totale"]
+                    for quarter_values in quarters.values()
                 ),
                 "Nombre d'offres dans la région": offres_by_region.get(region, 0),
             }
@@ -144,7 +144,7 @@ class Service():
         }
         if selected_region is None and selected_quarter is None:
             sorted_result["Total des entrées en formation dans toute la France"] = grand_total
-            sorted_result["Nombre d'offres trouvées dans toute la France"] = nb_offers
+            sorted_result["Nombre d'offres trouvées dans toute la France"] = offer_count
         return sorted_result
 
     def get_region_by_code_postal(self, code_postal: str) -> str | None:
@@ -153,21 +153,24 @@ class Service():
         # DOM-TOM : codes à 5 chiffres commençant par 971-976
         for prefix in ("971", "972", "973", "974", "976"):
             if code_postal.startswith(prefix):
-                return self._normalize_region(_DEPARTEMENT_TO_REGION.get(prefix))
+                return self._normalize_region(DEPARTMENT_TO_REGION.get(prefix))
         dept = code_postal[:2]
-        return self._normalize_region(_DEPARTEMENT_TO_REGION.get(dept))
+        return self._normalize_region(DEPARTMENT_TO_REGION.get(dept))
 
-    def get_formations_by_offre_id(self, offre_id: str) -> list[FormationModel]:
+    def get_formations_by_offre_id(
+        self,
+        offre_id: str,
+    ) -> list[FormationModel] | dict[str, str]:
         """Retourne les formations liées au code ROME d'une offre France Travail."""
         offre = self.offre_repository.get_by_francetravail_id(offre_id)
         if offre is None:
-            return { "error": f"Aucune offre trouvée avec l'identifiant {offre_id}" }
+            return {"error": f"Aucune offre trouvée avec l'identifiant {offre_id}"}
         rome_formations = self.rome_repository.list_formations_by_rome(offre.rome_code)
         seen_ids = {f.id for f in offre.formations}
         merged = list(offre.formations) + [f for f in rome_formations if f.id not in seen_ids]
         return merged
 
-    def get_best_skills(self):
+    def get_best_skills(self) -> dict[str, int]:
         """Retourne les compétences les plus demandées dans les offres France Travail."""
         offres = self.offre_repository.get_all()
         skill_count: dict[str, int] = {}
@@ -175,11 +178,19 @@ class Service():
             for competence in offre.competences:
                 if competence:
                     skill_count[competence.libelle] = skill_count.get(competence.libelle, 0) + 1
-        return dict(sorted(((k, v) for k, v in skill_count.items() if v > 1), key=lambda x: x[1], reverse=True))
+        return dict(
+            sorted(
+                ((label, count) for label, count in skill_count.items() if count > 1),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        )
 
-    def populate_database(self):
+    def populate_database(self) -> None:
         """Initialise la base de données avec les données enrichies."""
-        logger.info("Stockage des données enrichies dans la base de données sans démarrer l'API.")
+        logger.info(
+            "Stockage des données enrichies dans la base de données sans démarrer l'API."
+        )
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()
         logger.info("=== Appel à l'API France Travail ===")

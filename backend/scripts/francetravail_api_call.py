@@ -1,26 +1,44 @@
+"""Appels à l'API France Travail et import des offres en base."""
+
+from pathlib import Path
+
 import os
 import logging
 
+import pandas as pd
 import requests
 from dotenv import load_dotenv
-import pandas as pd
-from logging_config import configure_logging
 
-from backend.models.correspondance_formation_model import FormationModel
-from backend.models.francetravail_model import CompetenceModel, OffreModel
-from backend.repositories.francetravail_repository import CompetenceRepository, OffreFormationRepository, OffreRepository
-from backend.repositories.correspondance_formation_repository import RomeCodeRepository
-from backend.postgres_connection import SessionLocal, Base, engine
-from backend.enums.NiveauRNCPEnum import NiveauRNCP
-from pathlib import Path
+from enums.niveau_rncp_enum import NiveauRNCP
+from logging_config import configure_logging
+from models.correspondance_formation_model import FormationModel
+from models.francetravail_model import CompetenceModel, OffreModel
+from postgres_connection import Base, engine
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import RomeCodeRepository
+from repositories.francetravail_repository import (
+    CompetenceRepository,
+    OffreFormationRepository,
+    OffreRepository,
+)
 
 current_file = Path(__file__).resolve()
 current_dir = current_file.parent
 
-CSV_PATH = current_dir / ".." / "data" / "processed" / "formations_enriched.csv"
+
+def resolve_csv_path() -> Path:
+    """Retourne le chemin du CSV enrichi selon l'environnement d'exécution."""
+    file_path = Path("backend/data/processed/formations_enriched.csv")
+    abs_path = file_path.resolve()
+    return abs_path
+
+
+CSV_PATH = resolve_csv_path()
 
 
 def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
+    """Mappe un libellé RNCP brut vers le nom normalisé de l'énumération."""
+
     if not niveau_libelle:
         return None
 
@@ -34,11 +52,11 @@ def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
 
 logger = logging.getLogger(__name__)
 
-base_url = "https://api.francetravail.io/partenaire/offresdemploi"
-access_token_url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
-get_offers_url = f"{base_url}/v2/offres/search"
+BASE_URL = "https://api.francetravail.io/partenaire/offresdemploi"
+ACCESS_TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
+GET_OFFERS_URL = f"{BASE_URL}/v2/offres/search"
 
-departements = [
+DEPARTEMENTS = [
     "01", "02", "03", "04", "05", "06", "07", "08", "09",
     "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "2A", "2B",
     "21", "22", "23", "24", "25", "26", "27", "28", "29",
@@ -58,7 +76,7 @@ def get_access_token() -> str:
     Returns:
         str: Le token d'accès à utiliser dans les requêtes API."""
     response = requests.post(
-        access_token_url,
+        ACCESS_TOKEN_URL,
         params={"realm": "/partenaire"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={
@@ -72,31 +90,33 @@ def get_access_token() -> str:
     response.raise_for_status()
     return response.json()["access_token"]
 
-def search_offres_by_rome(code_rome: str):
-    """Recherche des offres d'emploi par code ROME.
-    Si le nombre total d'offres dépasse 3000, bascule sur une recherche par code ROME et département.
-    Injection des offres dans la BDD.
-    Args:
-        code_rome (str): Le code ROME pour lequel rechercher les offres."""
+def search_offres_by_rome(code_rome: str) -> None:
+    """Recherche les offres d'emploi associées à un code ROME.
+
+    Si le nombre total d'offres dépasse 3000, la recherche bascule
+    sur un filtrage par département avant l'import en base.
+    """
     token = get_access_token()
     min_range = 0
     max_range = 149
     while True:
         try:
             response = requests.get(
-                get_offers_url,
-                headers={
-                    "Authorization": f"Bearer {token}"},
+                GET_OFFERS_URL,
+                headers={"Authorization": f"Bearer {token}"},
                 params={
-                "codeROME": code_rome,
-                "range": f"{min_range}-{max_range}",
-            },
-            timeout=30,
-        )
-            response.raise_for_status()
+                    "codeROME": code_rome,
+                    "range": f"{min_range}-{max_range}",
+                },
+                timeout=30,
+            )
         except requests.RequestException as e:
-            logger.error("Erreur lors de la requête pour le code ROME %s : %s", code_rome, e)
-            break
+            logger.error(
+                "Erreur lors de la requête pour le code ROME %s : %s",
+                code_rome,
+                e,
+            )
+            return
 
         if response.status_code == 204:
             logger.info("Aucune offre (204 No Content) pour le code ROME %s.", code_rome)
@@ -105,7 +125,7 @@ def search_offres_by_rome(code_rome: str):
         content_range = response.headers.get("Content-Range")
         if content_range and content_range.split("/")[1] == "0":
             logger.info("Aucune offre trouvée pour le code ROME %s.", code_rome)
-            break
+            return
         if content_range:
             total_count = int(content_range.split("/")[1])
             if total_count >= 3000:
@@ -115,42 +135,58 @@ def search_offres_by_rome(code_rome: str):
                     code_rome,
                     total_count,
                 )
-                return get_offres_by_rome_and_departement(code_rome)
+                get_offres_by_rome_and_departement(code_rome)
+                return
         if not response.content:
-            logger.warning("Réponse vide (status %s) pour le code ROME %s.", response.status_code, code_rome)
-            break
+            logger.warning(
+                "Réponse vide (status %s) pour le code ROME %s.",
+                response.status_code,
+                code_rome,
+            )
+            return
         if response.status_code not in (200, 206):
-            logger.warning("Status inattendu %s pour le code ROME %s.", response.status_code, code_rome)
-            break
+            logger.warning(
+                "Status inattendu %s pour le code ROME %s.",
+                response.status_code,
+                code_rome,
+            )
+            return
         current_offers = response.json()
         if len(current_offers["resultats"]) < 150:
             if len(current_offers["resultats"]) == 0:
-                break
-            logger.info("Récupération des offres pour le code ROME %s : %s", code_rome, content_range)
+                return
+            logger.info(
+                "Récupération des offres pour le code ROME %s : %s",
+                code_rome,
+                content_range,
+            )
             populate_database_with_offres(current_offers["resultats"])
-            break
+            return
         populate_database_with_offres(current_offers["resultats"])
-        logger.info("Recherche des offres pour le code ROME : %s, range : %s", code_rome, content_range)
+        logger.info(
+            "Recherche des offres pour le code ROME : %s, range : %s",
+            code_rome,
+            content_range,
+        )
         min_range += 150
         max_range += 150
 
-        
-def get_offres_by_rome_and_departement(code_rome: str):
+
+def get_offres_by_rome_and_departement(code_rome: str) -> None:
     """Recherche des offres d'emploi par code ROME et département.
     Injection des offres dans la BDD.
     Args:
         code_rome (str): Le code ROME pour lequel rechercher les offres.
     """
     token = get_access_token()
-    for departement in departements:
+    for departement in DEPARTEMENTS:
         min_range = 0
         max_range = 149
         while True:
             try:
                 response = requests.get(
-                    get_offers_url,
-                    headers={
-                        "Authorization": f"Bearer {token}"},
+                    GET_OFFERS_URL,
+                    headers={"Authorization": f"Bearer {token}"},
                     params={
                         "codeROME": code_rome,
                         "departement": departement,
@@ -160,7 +196,12 @@ def get_offres_by_rome_and_departement(code_rome: str):
                 )
                 response.raise_for_status()
             except requests.RequestException as e:
-                logger.error("Erreur lors de la requête pour le code ROME %s et le departement %s : %s", code_rome, departement, e)
+                logger.error(
+                    "Erreur lors de la requête pour le code ROME %s et le departement %s : %s",
+                    code_rome,
+                    departement,
+                    e,
+                )
                 break
 
             if response.status_code == 204:
@@ -183,7 +224,7 @@ def get_offres_by_rome_and_departement(code_rome: str):
                     "Récupération des offres pour le code ROME %s et le département %s : %s",
                     code_rome,
                     departement,
-                    content_range
+                    content_range,
                 )
                 populate_database_with_offres(current_offers["resultats"])
                 break
@@ -198,12 +239,12 @@ def get_offres_by_rome_and_departement(code_rome: str):
             max_range += 150
 
 
-def populate_database_with_offres(offres):
+def populate_database_with_offres(offres: list[dict]) -> None:
     """Injection des offres dans la BDD.
     Args:
         offres (list): Liste des offres à injecter.
     """
-    db = SessionLocal()
+    db = SESSION_LOCAL()
     offre_repository = OffreRepository(db)
     rome_repository = RomeCodeRepository(db)
     formation_repository = OffreFormationRepository(db)
@@ -217,12 +258,24 @@ def populate_database_with_offres(offres):
         offre_model = OffreModel(
             francetravail_id=offre["id"],
             intitule=offre["intitule"],
-            description=offre.get("description").strip() if offre.get("description") else None,
+            description=(
+                offre.get("description").strip()
+                if offre.get("description")
+                else None
+            ),
             lieu_code_postal=offre.get("lieuTravail", {}).get("codePostal"),
             rome_code=rome_code,
             rome_libelle=offre.get("romeLibelle"),
-            appellation_libelle=offre.get("appellationlibelle").strip() if offre.get("appellationlibelle") else None,
-            entreprise_nom=offre.get("entreprise", {}).get("nom").strip() if offre.get("entreprise", {}).get("nom") else None,
+            appellation_libelle=(
+                offre.get("appellationlibelle").strip()
+                if offre.get("appellationlibelle")
+                else None
+            ),
+            entreprise_nom=(
+                offre.get("entreprise", {}).get("nom").strip()
+                if offre.get("entreprise", {}).get("nom")
+                else None
+            ),
         )
         saved_offre = offre_repository.create_offre(offre_model)
         if rome is not None and saved_offre.rome is None:
@@ -236,23 +289,35 @@ def populate_database_with_offres(offres):
             if formation is None:
                 formation = FormationModel(
                     code_rncp=code_formation,
-                    intitule_certification=formation_data.get("domaineLibelle").strip() if formation_data.get("domaineLibelle") else None,
+                    intitule_certification=(
+                        formation_data.get("domaineLibelle").strip()
+                        if formation_data.get("domaineLibelle")
+                        else None
+                    ),
                     niveau_rncp=normalize_niveau_rncp(formation_data.get("niveauLibelle")),
-                    commentaire=formation_data.get("commentaire").strip() if formation_data.get("commentaire") else None,
+                    commentaire=(
+                        formation_data.get("commentaire").strip()
+                        if formation_data.get("commentaire")
+                        else None
+                    ),
                 )
                 db.add(formation)
                 db.flush()
             offre_repository.attach_formation(saved_offre, formation, commit=False)
 
         for competence_data in offre.get("competences", []):
-            code = competence_data.get("code")
-            if code is None:
+            competence_code = competence_data.get("code")
+            if competence_code is None:
                 continue
-            competence = competence_repository.find_by_code(code)
+            competence = competence_repository.find_by_code(competence_code)
             if competence is None:
                 competence = CompetenceModel(
-                    code=code,
-                    libelle=competence_data.get("libelle").strip() if competence_data.get("libelle") else None,
+                    code=competence_code,
+                    libelle=(
+                        competence_data.get("libelle").strip()
+                        if competence_data.get("libelle")
+                        else None
+                    ),
                 )
                 db.add(competence)
                 db.flush()

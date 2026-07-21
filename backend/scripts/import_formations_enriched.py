@@ -1,26 +1,30 @@
+"""Importe les formations enrichies depuis le CSV vers la base de données."""
+
 from __future__ import annotations
 
 import csv
 import logging
+import os
 from pathlib import Path
 
-from pathlib import Path
-import sys
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PROJECT_ROOT = REPOSITORY_ROOT
-
-from backend.models.correspondance_formation_model import FormationModel, FormationFluxMensuelModel, RomeCodeModel
 from logging_config import configure_logging
-from backend.postgres_connection import Base, SessionLocal, engine
-from backend.repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
-
-from pathlib import Path
+from models.correspondance_formation_model import FormationFluxMensuelModel, FormationModel
+from postgres_connection import Base, engine
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 
 current_file = Path(__file__).resolve()
 current_dir = current_file.parent
 
-CSV_PATH = current_dir / ".." / "data" / "processed" / "formations_enriched.csv"
+
+def resolve_csv_path() -> Path:
+    """Retourne le chemin du CSV enrichi selon l'environnement d'exécution."""
+    file_path = Path("backend/data/processed/formations_enriched.csv")
+    abs_path = file_path.resolve()
+    return abs_path
+
+
+CSV_PATH = resolve_csv_path()
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +51,12 @@ def import_formations_enriched() -> None:
         rows = list(csv.DictReader(csv_file, delimiter=";"))
 
     # Grouper par (intitule_certification, siret_of_contractant)
-    formations_dict: dict[tuple[str, str], list[dict]] = {}
+    formations_dict: dict[tuple[str, str], list[dict[str, str]]] = {}
     for row in rows:
         key = (row["intitule_certification"], row["siret_of_contractant"])
         formations_dict.setdefault(key, []).append(row)
 
-    db = SessionLocal()
+    db = SESSION_LOCAL()
     inserted_count = 0
     try:
         repository = FormationRepository(db)
@@ -79,19 +83,25 @@ def import_formations_enriched() -> None:
                 formation.intitule_certification,
                 formation.siret_of_contractant,
             )
-            seen_flux: set[tuple] = set()
+            seen_flux: set[tuple[int | None, int | None]] = set()
             seen_rome: set[str] = set()
             for row in group:
                 flux_key = (to_int(row["annee"]), to_int(row["mois"]))
                 if flux_key not in seen_flux:
                     seen_flux.add(flux_key)
-                    formation.flux_mensuels.append(FormationFluxMensuelModel(
-                        annee=to_int(row["annee"]),
-                        mois=to_int(row["mois"]),
-                        entrees_formation=to_int(row["entrees_formation"]),
-                        sorties_realisation_partielle=to_int(row["sorties_realisation_partielle"]),
-                        sorties_realisation_totale=to_int(row["sorties_realisation_totale"]),
-                    ))
+                    formation.flux_mensuels.append(
+                        FormationFluxMensuelModel(
+                            annee=to_int(row["annee"]),
+                            mois=to_int(row["mois"]),
+                            entrees_formation=to_int(row["entrees_formation"]),
+                            sorties_realisation_partielle=to_int(
+                                row["sorties_realisation_partielle"]
+                            ),
+                            sorties_realisation_totale=to_int(
+                                row["sorties_realisation_totale"]
+                            ),
+                        )
+                    )
                     logger.info("  - Ajout du flux mensuel : %s", flux_key)
 
                 rome_key = row["code_rome"]

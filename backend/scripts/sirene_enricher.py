@@ -1,3 +1,5 @@
+"""Enrichit les organismes via l'API SIRENE."""
+
 import os
 import time
 import logging
@@ -6,13 +8,26 @@ import requests
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
+
 from logging_config import configure_logging
+from region_mapping import DEPARTMENT_TO_REGION
 
 load_dotenv()
 
 INSEE_API_KEY = os.getenv("X-INSEE-Api-Key-Integration")
 API_BASE_URL = "https://api.insee.fr/api-sirene/3.11/siret"
-OUTPUT_COLUMNS = ["siret", "nom_entreprise", "enseigne", "adresse", "code_postal", "ville", "code_commune", "departement", "region", "statut"]
+OUTPUT_COLUMNS = [
+    "siret",
+    "nom_entreprise",
+    "enseigne",
+    "adresse",
+    "code_postal",
+    "ville",
+    "code_commune",
+    "departement",
+    "region",
+    "statut",
+]
 THROTTLE_SECONDS = 2
 
 logger = logging.getLogger(__name__)
@@ -20,43 +35,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
-DEPT_TO_REGION = {
-    "01": "Auvergne-Rhône-Alpes", "03": "Auvergne-Rhône-Alpes", "07": "Auvergne-Rhône-Alpes",
-    "15": "Auvergne-Rhône-Alpes", "26": "Auvergne-Rhône-Alpes", "38": "Auvergne-Rhône-Alpes",
-    "42": "Auvergne-Rhône-Alpes", "43": "Auvergne-Rhône-Alpes", "63": "Auvergne-Rhône-Alpes",
-    "69": "Auvergne-Rhône-Alpes", "73": "Auvergne-Rhône-Alpes", "74": "Auvergne-Rhône-Alpes",
-    "21": "Bourgogne-Franche-Comté", "25": "Bourgogne-Franche-Comté", "39": "Bourgogne-Franche-Comté",
-    "58": "Bourgogne-Franche-Comté", "70": "Bourgogne-Franche-Comté", "71": "Bourgogne-Franche-Comté",
-    "89": "Bourgogne-Franche-Comté", "90": "Bourgogne-Franche-Comté",
-    "22": "Bretagne", "29": "Bretagne", "35": "Bretagne", "56": "Bretagne",
-    "18": "Centre-Val de Loire", "28": "Centre-Val de Loire", "36": "Centre-Val de Loire",
-    "37": "Centre-Val de Loire", "41": "Centre-Val de Loire", "45": "Centre-Val de Loire",
-    "2A": "Corse", "2B": "Corse",
-    "08": "Grand Est", "10": "Grand Est", "51": "Grand Est", "52": "Grand Est",
-    "54": "Grand Est", "55": "Grand Est", "57": "Grand Est", "67": "Grand Est",
-    "68": "Grand Est", "88": "Grand Est",
-    "02": "Hauts-de-France", "59": "Hauts-de-France", "60": "Hauts-de-France",
-    "62": "Hauts-de-France", "80": "Hauts-de-France",
-    "75": "Île-de-France", "77": "Île-de-France", "78": "Île-de-France", "91": "Île-de-France",
-    "92": "Île-de-France", "93": "Île-de-France", "94": "Île-de-France", "95": "Île-de-France",
-    "14": "Normandie", "27": "Normandie", "50": "Normandie", "61": "Normandie", "76": "Normandie",
-    "16": "Nouvelle-Aquitaine", "17": "Nouvelle-Aquitaine", "19": "Nouvelle-Aquitaine",
-    "23": "Nouvelle-Aquitaine", "24": "Nouvelle-Aquitaine", "33": "Nouvelle-Aquitaine",
-    "40": "Nouvelle-Aquitaine", "47": "Nouvelle-Aquitaine", "64": "Nouvelle-Aquitaine",
-    "79": "Nouvelle-Aquitaine", "86": "Nouvelle-Aquitaine", "87": "Nouvelle-Aquitaine",
-    "09": "Occitanie", "11": "Occitanie", "12": "Occitanie", "30": "Occitanie",
-    "31": "Occitanie", "32": "Occitanie", "34": "Occitanie", "46": "Occitanie",
-    "48": "Occitanie", "65": "Occitanie", "66": "Occitanie", "81": "Occitanie", "82": "Occitanie",
-    "44": "Pays de la Loire", "49": "Pays de la Loire", "53": "Pays de la Loire",
-    "72": "Pays de la Loire", "85": "Pays de la Loire",
-    "04": "Provence-Alpes-Côte d'Azur", "05": "Provence-Alpes-Côte d'Azur",
-    "06": "Provence-Alpes-Côte d'Azur", "13": "Provence-Alpes-Côte d'Azur",
-    "83": "Provence-Alpes-Côte d'Azur", "84": "Provence-Alpes-Côte d'Azur",
-    "971": "Guadeloupe", "972": "Martinique", "973": "Guyane", "974": "La Réunion", "976": "Mayotte",
-}
-
-
 def _departement_from_code_commune(code_commune: str | None) -> str | None:
+    """Déduit le code département à partir d'un code commune INSEE."""
+
     if not code_commune:
         return None
     code = str(code_commune)
@@ -90,7 +71,7 @@ def extract_data_from_response(json_response: dict) -> dict:
 
     code_commune = adresse.get("codeCommuneEtablissement")
     dept = _departement_from_code_commune(code_commune)
-    region = DEPT_TO_REGION.get(dept) if dept else None
+    region = DEPARTMENT_TO_REGION.get(dept) if dept else None
 
     return {
         "nom_entreprise": nom,
@@ -107,13 +88,25 @@ def extract_data_from_response(json_response: dict) -> dict:
 
 def fetch_siret(siret: str, session: requests.Session) -> dict:
     """Appelle l'API SIRENE pour un SIRET et retourne un dict prêt à écrire."""
-    base = {"siret": siret, "nom_entreprise": None, "enseigne": None, "adresse": None,
-            "code_postal": None, "ville": None, "code_commune": None, "departement": None,
-            "region": None, "statut": None}
+    base = {
+        "siret": siret,
+        "nom_entreprise": None,
+        "enseigne": None,
+        "adresse": None,
+        "code_postal": None,
+        "ville": None,
+        "code_commune": None,
+        "departement": None,
+        "region": None,
+        "statut": None,
+    }
     try:
         resp = session.get(
             f"{API_BASE_URL}/{siret}",
-            headers={"X-INSEE-Api-Key-Integration": INSEE_API_KEY, "accept": "application/json"},
+            headers={
+                "X-INSEE-Api-Key-Integration": INSEE_API_KEY,
+                "accept": "application/json",
+            },
             timeout=10,
         )
         if resp.status_code == 404:
@@ -164,9 +157,11 @@ if __name__ == "__main__":
 
     configure_logging()
 
-    parser = argparse.ArgumentParser(description="Enrichit les SIRETs via l'API INSEE SIRENE")
-    parser.add_argument("--input", default=str(PROCESSED_DATA_ROOT / "merged_data.csv"))
-    parser.add_argument("--output", default=str(PROCESSED_DATA_ROOT / "organismes_enriched.csv"))
+    parser = argparse.ArgumentParser(
+        description="Enrichit les SIRETs via l'API INSEE SIRENE"
+    )
+    parser.add_argument("--input", default="data/processed/merged_data.csv")
+    parser.add_argument("--output", default="data/processed/organismes_enriched.csv")
     args = parser.parse_args()
 
     enrich(args.input, args.output)

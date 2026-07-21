@@ -1,3 +1,8 @@
+"""Initialise la connexion PostgreSQL et la session SQLAlchemy."""
+
+import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
@@ -26,15 +31,17 @@ url_object = URL.create(
 )
 
 engine = create_engine(url_object)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SESSION_LOCAL = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Base(DeclarativeBase):
-    pass
+    """Base déclarative commune à tous les modèles SQLAlchemy du projet."""
 
 
 def get_db():
-    db = SessionLocal()
+    """Fournit une session SQLAlchemy et la ferme après usage."""
+
+    db = SESSION_LOCAL()
     try:
         yield db
     finally:

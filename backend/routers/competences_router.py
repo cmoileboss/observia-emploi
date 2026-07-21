@@ -1,4 +1,6 @@
-from backend.repositories.francetravail_repository import CompetenceRepository
+"""Route CRUD des compétences."""
+
+from repositories.francetravail_repository import CompetenceRepository
 from routers.model_router_factory import create_model_router
 
 

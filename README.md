@@ -307,7 +307,11 @@ cd observia-emploi
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
+<<<<<<< HEAD
 python -m pip install -r backend/requirements.txt
+=======
+pip install -r backend\requirements.txt
+>>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 ```
 
 ### Configuration
@@ -329,7 +333,28 @@ Copy-Item .env.example .env
 | `DATABASE_USER` | Oui | Non | vide | Utilisateur PostgreSQL. |
 | `DATABASE_PASSWORD` | Oui | Oui | vide | Mot de passe PostgreSQL. |
 
+<<<<<<< HEAD
 Le fichier `.env` contient des secrets et ne doit pas être versionné.
+=======
+Variables à renseigner dans `.env` :
+
+- `CLIENT_ID` : identifiant de l'application créée dans l'API France Travail
+- `SECRET_ID` : clé secrète de l'application créée dans l'API France Travail
+- `X-INSEE-Api-Key-Integration` : clé API utilisée pour récupérer les localisations des entreprises à partir de leur SIRET
+- `RAW_DATA_FOLDER` : dossier contenant les données brutes, par défaut `data\raw` ; ce dossier doit être créé manuellement
+- `PROCESSED_DATA_FOLDER` : dossier contenant les données traitées, par défaut `data\processed` ; ce dossier doit être créé manuellement
+- `DATABASE_NAME` : nom de la base de données PostgreSQL, par défaut `observia_emploi_db`
+- `DATABASE_HOST` : hôte PostgreSQL, par défaut `localhost` en local et `db` avec Docker Compose
+- `DATABASE_PORT` : port PostgreSQL, par défaut `5432`
+- `DATABASE_USER` : utilisateur PostgreSQL utilisé pour accéder à la base de données
+- `DATABASE_PASSWORD` : mot de passe de l'utilisateur PostgreSQL utilisé pour accéder à la base de données
+
+### Préparation des données
+
+Avant l'exécution de la commande de préparation des données, il faut mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
+- `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` disponible sur la page du brief Observia et
+- `entree_sortie_formation.csv` trouvable sur le site `https://www.data.gouv.fr/datasets/moncompteformation-entrees-et-sorties-de-formation`.
+>>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 
 Il faut également créer la base de données `PostgreSQL`. Le nom de la base de données doit correspondre à la valeur de la variable d'environnement `DATABASE_NAME`.
 
@@ -337,10 +362,16 @@ Il faut également créer la base de données `PostgreSQL`. Le nom de la base de
 
 Le code backend Python se trouve dans le dossier `backend`.
 
+<<<<<<< HEAD
 La commande suivante permet de lancer le pipeline de préparation des données.
 
 ```powershell
 .\.venv\Scripts\python.exe -m backend.main --build-data
+=======
+La commande suivante permet de lancer le pipeline de préparation des données.  
+```powershell
+python .\backend\main.py --build-data
+>>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 ```
 
 Le pipeline est lancé dans `backend\main.py`. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `backend\scripts`.
@@ -354,7 +385,57 @@ Ordre d'exécution des scripts :
 ### Import direct des données enrichies
 
 ```powershell
-.\.venv\Scripts\python.exe -m backend.main --stock-data
+python .\backend\main.py --stock-data
+```   
+  
+
+Une fois les données prêtes dans la base de données, l'API FastAPI sera fonctionnelle et la commande suivante permettra de démarrer un serveur HTTP local avec uvicorn. Il sera accessible depuis `http:\\localhost:8000`.
+```powershell
+python .\backend\main.py
+```
+
+## Lancement avec Docker
+
+Le projet peut être démarré avec Docker Compose, avec un conteneur pour le backend et un conteneur PostgreSQL.
+
+### Démarrage des services
+
+Depuis la racine du projet :
+
+```powershell
+docker compose up --build
+```
+
+Cette commande :
+
+- construit l'image du backend à partir de `backend\Dockerfile`,
+- démarre PostgreSQL sur le port `5432`,
+- démarre l'API FastAPI sur le port `8000`.
+
+### Lancer le pipeline dans Docker
+
+Pour exécuter le pipeline complet de préparation des données dans le conteneur backend :
+
+```powershell
+docker compose run --rm backend python main.py --build-data
+```
+
+Pour charger les données enrichies et récupérer les offres France Travail sans relancer tout le pipeline :
+
+```powershell
+docker compose run --rm backend python main.py --stock-data
+```
+
+### Arrêter les services Docker
+
+```powershell
+docker compose down
+```
+
+Pour arrêter les services et supprimer aussi le volume PostgreSQL :
+
+```powershell
+docker compose down -v
 ```
 
 Cette commande initialise la base, importe les formations enrichies déjà produites, puis collecte France Travail.

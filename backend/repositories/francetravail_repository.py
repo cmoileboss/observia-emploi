@@ -1,5 +1,8 @@
+"""Repositories liés aux offres, formations liées et compétences."""
+
 from __future__ import annotations
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.models.correspondance_formation_model import FormationModel
@@ -43,7 +46,11 @@ class OffreRepository(BaseRepository[OffreModel]):
 
     def get_by_francetravail_id(self, francetravail_id: str) -> OffreModel | None:
         """Retourne une offre par son identifiant France Travail."""
-        return self.db.query(OffreModel).filter(OffreModel.francetravail_id == francetravail_id).first()
+        return (
+            self.db.query(OffreModel)
+            .filter(OffreModel.francetravail_id == francetravail_id)
+            .first()
+        )
 
     def get_by_freework_id(self, freework_id: str) -> OffreModel | None:
         """Retourne une offre par son identifiant FreeWork."""
@@ -62,7 +69,6 @@ class OffreRepository(BaseRepository[OffreModel]):
 
     def count_offres_by_code_postal(self) -> list[tuple[str, int]]:
         """Retourne le nombre d'offres groupé par code postal."""
-        from sqlalchemy import func
         return (
             self.db.query(OffreModel.lieu_code_postal, func.count(OffreModel.id))
             .filter(OffreModel.lieu_code_postal.isnot(None))
@@ -70,7 +76,12 @@ class OffreRepository(BaseRepository[OffreModel]):
             .all()
         )
 
-    def attach_formation(self, offre: OffreModel, formation: FormationModel, commit: bool = True) -> OffreModel:
+    def attach_formation(
+        self,
+        offre: OffreModel,
+        formation: FormationModel,
+        commit: bool = True,
+    ) -> OffreModel:
         """Associe une formation existante à une offre."""
         if formation not in offre.formations:
             offre.formations.append(formation)
@@ -79,7 +90,12 @@ class OffreRepository(BaseRepository[OffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_competence(self, offre: OffreModel, competence: CompetenceModel, commit: bool = True) -> OffreModel:
+    def attach_competence(
+        self,
+        offre: OffreModel,
+        competence: CompetenceModel,
+        commit: bool = True,
+    ) -> OffreModel:
         """Associe une compétence existante à une offre."""
         if competence not in offre.competences:
             offre.competences.append(competence)
@@ -88,7 +104,11 @@ class OffreRepository(BaseRepository[OffreModel]):
             self.db.refresh(offre)
         return offre
 
-    def attach_or_create_formation(self, offre: OffreModel, formation: FormationModel) -> OffreModel:
+    def attach_or_create_formation(
+        self,
+        offre: OffreModel,
+        formation: FormationModel,
+    ) -> OffreModel:
         """Associe une formation à l'offre en la créant si nécessaire."""
         formation_repository = OffreFormationRepository(self.db)
         code_formation = formation.code_rncp
@@ -102,7 +122,11 @@ class OffreRepository(BaseRepository[OffreModel]):
 
         return self.attach_formation(offre, existing_formation)
 
-    def attach_or_create_competence(self, offre: OffreModel, competence: CompetenceModel) -> OffreModel:
+    def attach_or_create_competence(
+        self,
+        offre: OffreModel,
+        competence: CompetenceModel,
+    ) -> OffreModel:
         """Associe une compétence à l'offre en la créant si nécessaire."""
         competence_repository = CompetenceRepository(self.db)
         code = competence.code
@@ -121,17 +145,25 @@ class OffreFormationRepository(BaseRepository[FormationModel]):
     """Fournit les opérations d'accès aux formations."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des formations liées aux offres."""
+
         super().__init__(db, FormationModel)
 
     def find_by_code(self, code_formation: str) -> FormationModel | None:
         """Recherche une formation par son code métier."""
-        return self.db.query(FormationModel).filter(FormationModel.code_rncp == code_formation).first()
+        return (
+            self.db.query(FormationModel)
+            .filter(FormationModel.code_rncp == code_formation)
+            .first()
+        )
 
 
 class CompetenceRepository(BaseRepository[CompetenceModel]):
     """Fournit les opérations d'accès aux compétences."""
 
     def __init__(self, db: Session) -> None:
+        """Initialise le repository des compétences."""
+
         super().__init__(db, CompetenceModel)
 
     def find_by_code(self, code: str) -> CompetenceModel | None:

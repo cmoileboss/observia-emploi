@@ -1,4 +1,6 @@
-from backend.repositories.correspondance_formation_repository import RomeCodeRepository
+"""Route CRUD des codes ROME."""
+
+from repositories.correspondance_formation_repository import RomeCodeRepository
 from routers.model_router_factory import create_model_router
 
 

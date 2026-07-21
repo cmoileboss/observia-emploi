@@ -24,6 +24,7 @@
 *.parquet
 *.sqlite3
 *.zip
+*.json
 
 # Caches Python et environnements virtuels
 __pycache__/
