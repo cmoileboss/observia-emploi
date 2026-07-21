@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from models.correspondance_formation_model import (
     FormationFluxMensuelModel,
@@ -70,6 +71,23 @@ class FormationRepository(BaseRepository[FormationModel]):
             .filter(FormationModel.code_rncp == code_rncp)
             .all()
         )
+
+    def list_mcf_catalogue_formations(self) -> list[FormationModel]:
+        """Retourne les lignes MCF utiles au catalogue RNCP avec leurs relations."""
+        return (
+            self.db.query(FormationModel)
+            .options(
+                selectinload(FormationModel.flux_mensuels),
+                selectinload(FormationModel.codes_rome),
+            )
+            .filter(FormationModel.siret_of_contractant.isnot(None))
+            .filter(func.trim(FormationModel.siret_of_contractant) != "")
+            .filter(FormationModel.flux_mensuels.any())
+            .filter(FormationModel.codes_rome.any())
+            .order_by(FormationModel.id)
+            .all()
+        )
+
 
 class FormationFluxMensuelRepository(BaseRepository[FormationFluxMensuelModel]):
     """Encapsule les accès en base pour les flux mensuels des formations."""
