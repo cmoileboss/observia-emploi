@@ -4,7 +4,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
-from backend.postgres_connection import Base
+from postgres_connection import Base
 
 
 offre_formation_association = Table(

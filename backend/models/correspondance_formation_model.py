@@ -4,7 +4,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Table, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from backend.postgres_connection import Base
+from postgres_connection import Base
 
 
 formation_rome_association = Table(

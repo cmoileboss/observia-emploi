@@ -5,9 +5,9 @@ from __future__ import annotations
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.models.correspondance_formation_model import FormationModel
-from backend.models.francetravail_model import CompetenceModel, OffreModel
-from backend.repositories.base_repository import BaseRepository
+from models.correspondance_formation_model import FormationModel
+from models.francetravail_model import CompetenceModel, OffreModel
+from repositories.base_repository import BaseRepository
 
 
 class OffreRepository(BaseRepository[OffreModel]):
