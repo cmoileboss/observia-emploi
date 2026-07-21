@@ -70,6 +70,8 @@ class RncpCatalogueDiagnostic:
 
 @dataclass
 class _CertificationGroup:
+    """Accumule les lignes partageant un même code RNCP."""
+
     intitule_certification: str
     niveau_rncp: str | None
     codes_rome: set[str] = field(default_factory=set)
@@ -78,6 +80,8 @@ class _CertificationGroup:
 
 
 def _clean_optional_text(value: str | None) -> str | None:
+    """Supprime les espaces extérieurs et convertit le vide en valeur nulle."""
+
     if value is None:
         return None
     cleaned_value = value.strip()
@@ -85,6 +89,8 @@ def _clean_optional_text(value: str | None) -> str | None:
 
 
 def _clean_rome_codes(values: tuple[str | None, ...]) -> set[str]:
+    """Nettoie, déduplique et retourne les codes ROME non vides."""
+
     return {
         cleaned_code
         for value in values
@@ -93,6 +99,8 @@ def _clean_rome_codes(values: tuple[str | None, ...]) -> set[str]:
 
 
 def _is_catalogue_row(row: RncpCatalogueSourceRow) -> bool:
+    """Indique si une ligne contient les preuves d'appartenance au catalogue MCF."""
+
     return (
         _clean_optional_text(row.siret_of_contractant) is not None
         and row.has_monthly_flow
@@ -101,6 +109,8 @@ def _is_catalogue_row(row: RncpCatalogueSourceRow) -> bool:
 
 
 def _required_text(value: str | None, field_name: str, formation_id: int) -> str:
+    """Retourne un texte obligatoire nettoyé ou lève une erreur explicite."""
+
     cleaned_value = _clean_optional_text(value)
     if cleaned_value is None:
         raise ValueError(

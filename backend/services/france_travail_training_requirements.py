@@ -53,6 +53,8 @@ class FranceTravailTrainingRequirementsDiagnostic:
 
 
 def _clean_optional_text(value: str | None) -> str | None:
+    """Supprime les espaces extérieurs et convertit le vide en valeur nulle."""
+
     if value is None:
         return None
     cleaned_value = value.strip()
@@ -60,10 +62,14 @@ def _clean_optional_text(value: str | None) -> str | None:
 
 
 def _has_rome_code(values: tuple[str | None, ...]) -> bool:
+    """Indique si la collection contient au moins un code ROME non vide."""
+
     return any(_clean_optional_text(value) is not None for value in values)
 
 
 def _is_requirement_candidate(row: FranceTravailTrainingRequirementSourceRow) -> bool:
+    """Indique si une ligne respecte les critères d'une exigence France Travail."""
+
     return (
         _clean_optional_text(row.siret_of_contractant) is None
         and not row.has_monthly_flow
@@ -72,6 +78,8 @@ def _is_requirement_candidate(row: FranceTravailTrainingRequirementSourceRow) ->
 
 
 def _validate_positive_identifier(value: int | None, field_name: str) -> int:
+    """Valide un identifiant entier strictement positif."""
+
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"Identifiant '{field_name}' invalide : {value!r}.")
     return value
