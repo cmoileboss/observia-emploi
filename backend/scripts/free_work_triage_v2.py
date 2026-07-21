@@ -1142,7 +1142,7 @@ def review_row_from_record(record: dict, raw_candidates: list[dict]) -> dict:
             "decision_v2": record["decision"],
             "motif_revue": "; ".join(
                 record["technical_reasons"]),
-            "score_similarite": "Score de similarité: N/A",
+            "score_similarite": "Score de similarité: n_total/A",
             "couverture_preuves": "0%",
             "titre_free_work": fw.get("title") or "",
             "entreprise_free_work": fw.get("company") or "",

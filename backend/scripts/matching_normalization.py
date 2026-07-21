@@ -65,7 +65,8 @@ def extraire_departement(pc: str | None) -> str:
 
 
 def normaliser_titre(titre: str | None) -> str:
-    """Normalize job titles by handling H/F markers, protecting tech terms, and removing punctuation."""
+    """Normalize job titles by handling H/F markers,
+    protecting tech terms, and removing punctuation."""
     if not titre:
         return ""
     s = str(titre)

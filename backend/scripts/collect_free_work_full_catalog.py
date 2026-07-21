@@ -148,7 +148,8 @@ def collecter_exhaustive(
     max_pages: int | None,
     resume_batch_id: str | None
 ) -> str:
-    """Exhaustively collect Free-Work job offers with pagination, deduplication, and resume support."""
+    """Exhaustively collect Free-Work job offers with pagination,
+    deduplication, and resume support."""
     print("Démarrage de la collecte exhaustive Free-Work...")
 
     # Configuration structurante pour le hash de validation du checkpoint

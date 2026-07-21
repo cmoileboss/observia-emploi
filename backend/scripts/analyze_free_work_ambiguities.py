@@ -159,7 +159,7 @@ def description_similarity(raw_candidate):
 
 
 def candidate_set_signature(raw_candidates, limit=3):
-    """Get ordered tuple of top N candidate IDs."""
+    """Get ordered tuple of top n_total candidate IDs."""
     return tuple(get_candidate_id(candidate) for candidate in (raw_candidates or [])[:limit])
 
 

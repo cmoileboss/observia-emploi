@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-import os
-from pathlib import Path
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 

@@ -46,6 +46,7 @@ if missing_vars:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """."""
     logger.info("Les variables d'environnement %s sont bien initialisées.", ", ".join(ENV_VARS))
     logger.info("Initialisation de la base de données")
     Base.metadata.create_all(bind=engine)

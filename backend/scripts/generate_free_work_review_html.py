@@ -593,7 +593,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 div.innerHTML = `
                     <div class="item-header">
                         <span class="badge ${getBadgeClass(item.human_review_priority)}">${item.human_review_priority}</span>
-                        <span class="score-badge">${item.comparison.score_global ? Math.round(item.comparison.score_global) + '/100' : 'N/A'}</span>
+                        <span class="score-badge">${item.comparison.score_global ? Math.round(item.comparison.score_global) + '/100' : 'n_total/A'}</span>
                     </div>
                     <h3 class="item-title">${item.free_work_offer.title}</h3>
                     <div class="item-meta">
@@ -678,7 +678,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('ft-rome').textContent = ft.rome_code || '-';
 
             // Remplir comparaison
-            document.getElementById('comp-score').textContent = comp.score_global ? `${Math.round(comp.score_global)}/100` : 'N/A';
+            document.getElementById('comp-score').textContent = comp.score_global ? `${Math.round(comp.score_global)}/100` : 'n_total/A';
 
             const badges = [
                 { id: 'comp-title-badge', val: comp.title_human },
