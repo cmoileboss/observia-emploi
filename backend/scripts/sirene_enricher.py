@@ -35,6 +35,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
+
 def _departement_from_code_commune(code_commune: str | None) -> str | None:
     """Déduit le code département à partir d'un code commune INSEE."""
 

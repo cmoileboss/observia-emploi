@@ -1,3 +1,5 @@
+"""."""
+from backend.services.free_work.rome_classifier import run_classification
 import argparse
 from pathlib import Path
 import sys
@@ -6,37 +8,53 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 
-from backend.services.free_work.rome_classifier import run_classification
-
 
 def default_rome_reference_csv() -> Path:
+    """Find and return first ROME reference CSV file in raw data."""
     candidates = sorted(RAW_DATA_ROOT.glob("correspondance-rome-rncp-tech-*.csv"))
     if not candidates:
-        raise FileNotFoundError("Aucun fichier backend/data/raw/correspondance-rome-rncp-tech-*.csv trouvé.")
+        raise FileNotFoundError(
+            "Aucun fichier backend/data/raw/correspondance-rome-rncp-tech-*.csv trouvé.")
     return candidates[0]
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for ROME classification."""
     parser = argparse.ArgumentParser(
-        description="Classifie déterministiquement les offres Free-Work normalisées vers des candidats ROME."
-    )
-    parser.add_argument("--free-work-input", required=True, help="Chemin vers offers_normalized.json Free-Work.")
-    parser.add_argument("--france-travail-input", required=True, help="Chemin vers le snapshot France Travail.")
-    parser.add_argument("--triage-input", default=None, help="Chemin optionnel vers triage_decisions.jsonl.")
-    parser.add_argument("--output-dir", required=True, help="Dossier de sortie des artefacts de classification.")
-    parser.add_argument("--top-k", type=int, default=3, help="Nombre de candidats ROME à conserver par offre.")
+        description="Classifie déterministiquement les offres Free-Work normalisées vers des candidats ROME.")  # pylint: disable=line-too-long
+    parser.add_argument(
+        "--free-work-input",
+        required=True,
+        help="Chemin vers offers_normalized.json Free-Work.")
+    parser.add_argument("--france-travail-input", required=True,
+                        help="Chemin vers le snapshot France Travail.")
+    parser.add_argument(
+        "--triage-input",
+        default=None,
+        help="Chemin optionnel vers triage_decisions.jsonl.")
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Dossier de sortie des artefacts de classification.")
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=3,
+        help="Nombre de candidats ROME à conserver par offre.")
     parser.add_argument(
         "--rome-reference-csv",
         default=None,
-        help="Chemin vers correspondance-rome-rncp-tech-*.csv. Par défaut, premier fichier trouvé dans backend/data/raw.",
+        help="Chemin vers correspondance-rome-rncp-tech-*.csv. Par défaut, premier fichier trouvé dans backend/data/raw.",  # pylint: disable=line-too-long
     )
     return parser.parse_args()
 
 
 def main() -> None:
+    """Main entry point to classify Free-Work offers to ROME codes."""
     args = parse_args()
     try:
-        rome_reference = Path(args.rome_reference_csv) if args.rome_reference_csv else default_rome_reference_csv()
+        rome_reference = Path(
+            args.rome_reference_csv) if args.rome_reference_csv else default_rome_reference_csv()
         result = run_classification(
             free_work_input=Path(args.free_work_input),
             france_travail_input=Path(args.france_travail_input),

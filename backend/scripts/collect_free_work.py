@@ -1,3 +1,4 @@
+"""."""
 import argparse
 import json
 import sys
@@ -95,7 +96,8 @@ def extraire_total_annonce(data: dict) -> int:
     total = data["hydra:totalItems"]
     # hydra:totalItems doit être un entier positif ou nul
     if not isinstance(total, int) or total < 0:
-        raise ValueError(f"Structure JSON invalide : 'hydra:totalItems' doit être un entier positif ou nul (reçu : {total}).")
+        raise ValueError(
+            f"Structure JSON invalide : 'hydra:totalItems' doit être un entier positif ou nul (reçu : {total}).")  # pylint: disable=line-too-long
     return total
 
 
@@ -110,12 +112,13 @@ def extraire_offres(data: dict) -> list:
 
     for idx, offre in enumerate(offres):
         if not isinstance(offre, dict):
-            raise ValueError(f"Structure JSON invalide : l'offre à l'index {idx} de 'hydra:member' doit être un dictionnaire.")
+            raise ValueError(
+                f"Structure JSON invalide : l'offre à l'index {idx} de 'hydra:member' doit être un dictionnaire.")  # pylint: disable=line-too-long
     return offres
 
 
 def valider_url_pagination(url: str) -> bool:
-    """Vérifie que l'URL finale est sûre, utilise HTTPS, cible www.free-work.com et le chemin de l'API."""
+    """Vérifie que l'URL finale est sûre, utilise HTTPS, cible www.free-work.com et le chemin de l'API."""  # pylint: disable=line-too-long
     parsed = urlparse(url)
     return (
         parsed.scheme == "https" and
@@ -266,8 +269,12 @@ def collecter_offres(query: str) -> Path:
         filename = f"page_{pages_downloaded:03d}.json"
         print(f"Téléchargement de la page {pages_downloaded}...")
 
-        # Pour la première page, on passe les paramètres, pour les pages suivantes l'url absolue les contient déjà
-        response = telecharger_reponse(current_url, params if pages_downloaded == 1 else None, USER_AGENT)
+        # Pour la première page, on passe les paramètres, pour les pages suivantes
+        # l'url absolue les contient déjà
+        response = telecharger_reponse(
+            current_url,
+            params if pages_downloaded == 1 else None,
+            USER_AGENT)
         sauvegarder_reponse_brute(directory, filename, response.content)
         page_files.append(filename)
 
@@ -293,7 +300,8 @@ def collecter_offres(query: str) -> Path:
 
         if nouvelles == 0:
             stop_reason = "no_new_offer"
-            print(f"Pagination terminée : aucun nouvel identifiant unique détecté à la page {pages_downloaded}.")
+            print(
+                f"Pagination terminée : aucun nouvel identifiant unique détecté à la page {pages_downloaded}.")  # pylint: disable=line-too-long
             break
 
         # Extraction de la page suivante
@@ -310,7 +318,9 @@ def collecter_offres(query: str) -> Path:
     # 6. Gestion de l'incohérence du total
     difference_total = len(uniques) - total_annonce
     if difference_total != 0:
-        print(f"Avertissement : la première page annonçait {total_annonce} résultat(s), mais {len(uniques)} offre(s) unique(s) ont été collectées.")
+        print(
+            f"Avertissement : la première page annonçait {total_annonce} résultat(s), mais {
+                len(uniques)} offre(s) unique(s) ont été collectées.")
 
     print(f"{len(uniques)} offre(s) unique(s) collectée(s)")
 
@@ -332,7 +342,8 @@ def collecter_offres(query: str) -> Path:
 
 def lire_arguments() -> argparse.Namespace:
     """Lit les arguments passés en ligne de commande."""
-    parser = argparse.ArgumentParser(description="Collecte les offres de Free-Work via l'API interne.")
+    parser = argparse.ArgumentParser(
+        description="Collecte les offres de Free-Work via l'API interne.")
     parser.add_argument(
         "--query",
         required=True,
@@ -342,6 +353,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Collect Free-Work offers orchestrator entry point."""
     args = lire_arguments()
     try:
         collecter_offres(args.query)

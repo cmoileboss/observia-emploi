@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import logging
-import os
 from pathlib import Path
 
 from logging_config import configure_logging

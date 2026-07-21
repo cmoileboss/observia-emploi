@@ -1,4 +1,4 @@
-"""Définit les niveaux RNCP utilisés lors des imports."""
+"""Définit les niveaux RNCP utilisés lors des imports."""  # pylint: disable=invalid-name
 
 from enum import Enum
 

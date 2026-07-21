@@ -47,6 +47,7 @@ def normalize_niveau_rncp(niveau_libelle: str | None) -> str | None:
 
     return None
 
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.francetravail.io/partenaire/offresdemploi"
@@ -67,6 +68,7 @@ DEPARTEMENTS = [
     "971", "972", "973", "974", "976",
 ]
 
+
 def get_access_token() -> str:
     """Obtient un token d'accès OAuth2 pour l'API France Travail.
     Nécessite les variables d'environnement CLIENT_ID et SECRET_ID.
@@ -86,6 +88,7 @@ def get_access_token() -> str:
     )
     response.raise_for_status()
     return response.json()["access_token"]
+
 
 def search_offres_by_rome(code_rome: str) -> None:
     """Recherche les offres d'emploi associées à un code ROME.
@@ -202,7 +205,10 @@ def get_offres_by_rome_and_departement(code_rome: str) -> None:
                 break
 
             if response.status_code == 204:
-                logger.info("Aucune offre (204 No Content) pour le code ROME %s et le département %s.", code_rome, departement)
+                logger.info(
+                    "Aucune offre (204 No Content) pour le code ROME %s et le département %s.",
+                    code_rome,
+                    departement)
                 break
 
             content_range = response.headers.get("Content-Range")
@@ -323,12 +329,14 @@ def populate_database_with_offres(offres: list[dict]) -> None:
     db.commit()
     db.close()
 
+
 def get_unique_rome_codes_from_csv_file():
     """Lit le fichier CSV des formations enrichies et retourne la liste des codes ROME uniques.
     Returns:
         list: Liste des codes ROME uniques présents dans le fichier CSV."""
     df = pd.read_csv(CSV_PATH, sep=";")
     return df["code_rome"].unique().tolist()
+
 
 if __name__ == "__main__":
     configure_logging()
