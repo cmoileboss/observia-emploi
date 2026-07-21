@@ -13,15 +13,12 @@ from postgres_connection import Base, engine
 from postgres_connection import SESSION_LOCAL
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 
-current_file = Path(__file__).resolve()
-current_dir = current_file.parent
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def resolve_csv_path() -> Path:
-    """Retourne le chemin du CSV enrichi selon l'environnement d'exécution."""
-    file_path = Path("backend/data/processed/formations_enriched.csv")
-    abs_path = file_path.resolve()
-    return abs_path
+    """Retourne le chemin du CSV enrichi, indépendamment du dossier courant."""
+    return BACKEND_ROOT / "data" / "processed" / "formations_enriched.csv"
 
 
 CSV_PATH = resolve_csv_path()
