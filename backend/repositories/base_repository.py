@@ -19,9 +19,12 @@ class BaseRepository(Generic[ModelT]):
         self.db = db
         self.model = model
 
-    def get_all(self) -> list[ModelT]:
-        """Retourne une liste d'entités."""
-        return self.db.query(self.model).all()
+    def get_all(self, skip: int = 0, limit: int | None = None) -> list[ModelT]:
+        """Retourne une liste d'entités avec pagination optionnelle."""
+        query = self.db.query(self.model).offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     def get_by_id(self, entity_id):
         """Retourne une entité par sa clé primaire."""

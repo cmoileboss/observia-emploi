@@ -50,11 +50,13 @@ def create_model_router(
 
     @router.get("/")
     async def get_all(
+        skip: int = 0,
+        limit: int | None = None,
         repository: BaseRepository[Any] = Depends(get_repository),
     ) -> list[dict[str, Any]]:
         """Retourne l'ensemble des entités exposées par le repository."""
 
-        return serialize_models(repository.get_all())
+        return serialize_models(repository.get_all(skip=skip, limit=limit))
 
     @router.get("/{entity_id}")
     async def get_by_id(
