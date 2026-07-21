@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-
+import autoflake
 
 PROJECT_DIR = Path(__file__).parent
 BACKEND_DIR = PROJECT_DIR / "backend"
@@ -17,6 +17,30 @@ def _iter_python_files() -> list[Path]:
         p for p in BACKEND_DIR.rglob("*.py")
         if "__pycache__" not in p.parts
     )
+
+
+# ---------------------------------------------------------------------------
+# 0. Remove unused imports
+# ---------------------------------------------------------------------------
+
+def remove_unused_imports(python_files: list[Path]) -> None:
+    """Supprime les imports non utilisés via autoflake."""
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "autoflake",
+            "--remove-all-unused-imports",
+            "--remove-unused-variables",
+            "--in-place",
+            "--recursive",
+            str(BACKEND_DIR),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"  [WARN] autoflake a retourné une erreur :\n{result.stderr}")
+    else:
+        print(f"  autoflake appliqué sur {len(python_files)} fichiers.")
 
 
 # ---------------------------------------------------------------------------
@@ -233,23 +257,26 @@ def main() -> None:
     python_files = _iter_python_files()
     print(f"Found {len(python_files)} Python files in {BACKEND_DIR}\n")
 
-    print("=== [1/5] Docstrings manquantes ===")
+    print("=== [0/6] Imports non utilisés ===")
+    remove_unused_imports(python_files)
+
+    print("\n=== [1/6] Docstrings manquantes ===")
     for path in python_files:
         add_missing_docstrings(path)
 
-    print("\n=== [2/5] Reimports dupliqués ===")
+    print("\n=== [2/6] Reimports dupliqués ===")
     for path in python_files:
         fix_reimports(path)
 
-    print("\n=== [3/5] Pass redondant après docstring ===")
+    print("\n=== [3/6] Pass redondant après docstring ===")
     for path in python_files:
         fix_unnecessary_pass(path)
 
-    print("\n=== [4/5] Noms de variables invalides ===")
+    print("\n=== [4/6] Noms de variables invalides ===")
     for path in python_files:
         fix_invalid_names(path)
 
-    print("\n=== [5/5] Lignes trop longues (inline suppress) ===")
+    print("\n=== [5/6] Lignes trop longues (inline suppress) ===")
     print("  Lancement de pylint pour identifier les lignes...")
     pylint_out = get_pylint_output()
     add_line_too_long_suppression(pylint_out)
