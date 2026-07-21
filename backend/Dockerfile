@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY backend /app/backend
 
+RUN chmod +x /app/backend/entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["python", "main.py"]
+CMD ["/app/backend/entrypoint.sh"]
