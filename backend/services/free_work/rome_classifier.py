@@ -1,4 +1,4 @@
-"""."""
+"""Classificateur déterministe ROME pour les offres Free-Work basé sur le recoupement de tokens."""
 from __future__ import annotations
 
 import csv
@@ -75,7 +75,7 @@ PROGRESS_FILE_NAME = "rome_classification_progress.json"
 
 @dataclass(frozen=True)
 class ClassificationConfig:
-    """."""
+    """Paramètres de pondération et seuils d'une configuration de classification ROME."""
     name: str
     title_weight: float
     skill_weight: float
@@ -126,7 +126,7 @@ DEFAULT_CONFIG = V1_A_CONFIG
 
 @dataclass(frozen=True)
 class RomeProfile:
-    """."""
+    """Profil agrégé d'un code ROME avec tokens de titre, compétences et description."""
     rome_code: str
     rome_label: str | None
     occupation_labels: tuple[str, ...]
@@ -139,7 +139,7 @@ class RomeProfile:
     exact_title_values: frozenset[str]
 
     def public_dict(self) -> dict[str, Any]:
-        """."""
+        """Retourne une représentation sérialisable du profil sans les frozensets internes."""
         return {
             "rome_code": self.rome_code,
             "rome_label": self.rome_label,
@@ -151,7 +151,7 @@ class RomeProfile:
 
 
 def sha256_file(path: Path) -> str:
-    """."""
+    """Calcule le hash SHA256 d'un fichier en lisant par blocs de 1 Mo."""
     digest = hashlib.sha256()
     with path.open("rb") as file:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
@@ -160,7 +160,7 @@ def sha256_file(path: Path) -> str:
 
 
 def load_json_list(path: Path, label: str) -> list[dict[str, Any]]:
-    """."""
+    """Charge un fichier JSON et valide qu'il contient une liste de dicts."""
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, list):
@@ -172,7 +172,7 @@ def load_json_list(path: Path, label: str) -> list[dict[str, Any]]:
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    """."""
+    """Charge un fichier JSONL ligne par ligne en validant que chaque ligne est un objet JSON."""
     rows: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as file:
         for line_number, line in enumerate(file, start=1):
@@ -186,13 +186,13 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def write_json(path: Path, payload: Any) -> None:
-    """."""
+    """Sérialise payload en JSON indenté et l'écrit de façon atomique."""
     content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
     write_bytes_atomic(path, content)
 
 
 def write_bytes_atomic(path: Path, content: bytes) -> None:
-    """."""
+    """Écrit bytes dans path de façon atomique via un fichier temporaire et rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(path.name + ".tmp")
     try:
@@ -204,7 +204,7 @@ def write_bytes_atomic(path: Path, content: bytes) -> None:
 
 
 def normalize_tokens(text: str | None, *, mode: str = "description") -> tuple[str, ...]:
-    """."""
+    """Normalise text en tuple de tokens dédupliqués triés, sans stopwords ni tokens courts."""
     if mode == "title":
         normalized = normaliser_titre(text)
     else:
@@ -218,7 +218,7 @@ def normalize_tokens(text: str | None, *, mode: str = "description") -> tuple[st
 
 
 def skill_tokens(skills: list[dict[str, Any]] | None) -> tuple[str, ...]:
-    """."""
+    """Extrait les tokens normalisés depuis une liste de compétences structurées."""
     if not isinstance(skills, list):
         return ()
     tokens: set[str] = set()
@@ -231,7 +231,7 @@ def skill_tokens(skills: list[dict[str, Any]] | None) -> tuple[str, ...]:
 
 
 def is_generic_title(title: str | None, skills: tuple[str, ...]) -> bool:
-    """."""
+    """Retourne True si le titre est générique ou sans compétences distinctives."""
     tokens = set(normalize_tokens(title, mode="title"))
     if skills:
         return False
@@ -239,7 +239,7 @@ def is_generic_title(title: str | None, skills: tuple[str, ...]) -> bool:
 
 
 def read_rome_reference(csv_path: Path) -> dict[str, dict[str, Any]]:
-    """."""
+    """Lit le référentiel ROME depuis un CSV, retourne un dict code → profil."""
     if not csv_path.exists():
         raise FileNotFoundError(f"Référentiel ROME introuvable : {csv_path}")
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
@@ -271,7 +271,7 @@ def read_rome_reference(csv_path: Path) -> dict[str, dict[str, Any]]:
 
 
 def validate_france_travail_snapshot(rows: list[dict[str, Any]]) -> None:
-    """."""
+    """Valide la structure et l'unicité des france_travail_id dans le snapshot France Travail."""
     seen = set()
     for index, row in enumerate(rows):
         for key in ("france_travail_id", "title", "description", "rome_code"):
@@ -290,7 +290,7 @@ def validate_france_travail_snapshot(rows: list[dict[str, Any]]) -> None:
 
 
 def validate_free_work_offers(rows: list[dict[str, Any]]) -> None:
-    """."""
+    """Valide la structure et l'unicité des source_id dans les offres Free-Work."""
     seen = set()
     for index, row in enumerate(rows):
         for key in ("source_id", "title"):
@@ -305,7 +305,7 @@ def validate_free_work_offers(rows: list[dict[str, Any]]) -> None:
 
 
 def top_values(counter: Counter[str], limit: int) -> tuple[str, ...]:
-    """."""
+    """Retourne les `limit` valeurs les plus fréquentes d'un Counter, par fréquence décroissante."""
     return tuple(value for value, _ in sorted(counter.items(), key=lambda item: (-item[1], item[0]))[:limit])  # pylint: disable=line-too-long
 
 
@@ -314,7 +314,7 @@ def build_rome_profiles(
     rome_reference_csv: Path,
     config: ClassificationConfig = DEFAULT_CONFIG,
 ) -> list[RomeProfile]:
-    """."""
+    """Construit les profils ROME à partir du snapshot France Travail et du référentiel CSV."""
     validate_france_travail_snapshot(france_travail_rows)
     reference = read_rome_reference(rome_reference_csv)
 
@@ -419,7 +419,7 @@ def build_rome_profiles(
 
 
 def overlap_score(query_tokens: tuple[str, ...], profile_tokens: frozenset[str]) -> tuple[float, list[str], list[str]]:  # pylint: disable=line-too-long
-    """."""
+    """Calcule le taux de recouvrement [0-100] entre query_tokens et profile_tokens."""
     if not query_tokens:
         return 0.0, [], ["Aucun signal fourni."]
     matched = sorted(set(query_tokens) & set(profile_tokens))
@@ -429,12 +429,12 @@ def overlap_score(query_tokens: tuple[str, ...], profile_tokens: frozenset[str])
 
 
 def normalized_title_value(text: str | None) -> str:
-    """."""
+    """Retourne le titre normalisé sous forme de chaîne de tokens séparés par des espaces."""
     return " ".join(normalize_tokens(text, mode="title"))
 
 
 def exact_or_near_title_match(title: str | None, profile: RomeProfile) -> tuple[float, str | None]:
-    """."""
+    """Vérifie si le titre normalisé correspond exactement à l'un des intitulés du profil ROME."""
     normalized_title = normalized_title_value(title)
     if not normalized_title:
         return 0.0, None
@@ -448,7 +448,7 @@ def score_candidate(
     profile: RomeProfile,
     config: ClassificationConfig = DEFAULT_CONFIG,
 ) -> dict[str, Any]:
-    """."""
+    """Score de compatibilité d'une offre Free-Work avec un profil ROME (titre, skills, desc.)."""
     title = offer.get("title")
     description_parts = [
         offer.get("description"),
@@ -515,7 +515,7 @@ def classify_independent(
     top_k: int = 3,
     config: ClassificationConfig = DEFAULT_CONFIG,
 ) -> dict[str, Any]:
-    """."""
+    """Classe une offre contre tous les profils ROME, retourne les top_k candidats par score."""
     candidates = [score_candidate(offer, profile, config=config) for profile in profiles]
     candidates.sort(key=lambda item: (-item["score"], item["rome_code"]))
     selected = candidates[:top_k]
@@ -530,7 +530,7 @@ def classify_independent(
 
 
 def build_triage_lookup(triage_rows: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
-    """."""
+    """Construit un dict source_id → ligne de triage à partir des résultats de triage Free-Work."""
     lookup = {}
     for row in triage_rows or []:
         free_work = row.get("free_work") if isinstance(row.get("free_work"), dict) else {}
@@ -541,7 +541,7 @@ def build_triage_lookup(triage_rows: list[dict[str, Any]] | None) -> dict[str, d
 
 
 def reference_rome_from_triage(row: dict[str, Any] | None) -> tuple[str | None, str | None, str | None]:  # pylint: disable=line-too-long
-    """."""
+    """Extrait (rome_code, titre, ft_id) depuis une ligne triage PRESENT_IN_FT_SNAPSHOT."""
     if not row or row.get("decision") != "PRESENT_IN_FT_SNAPSHOT":
         return None, None, None
     best = row.get("best_candidate") if isinstance(row.get("best_candidate"), dict) else {}
@@ -557,7 +557,7 @@ def assignment_from_prediction(
     triage_row: dict[str, Any] | None,
     config: ClassificationConfig = DEFAULT_CONFIG,
 ) -> dict[str, Any]:
-    """."""
+    """Détermine le statut d'affectation ROME (confirmé FT, auto, ambigu, insuffisant)."""
     reference_code, _, _ = reference_rome_from_triage(triage_row)
     candidates = prediction["candidates"]
     top = candidates[0] if candidates else None
@@ -608,7 +608,7 @@ def classify_offers(
     config: ClassificationConfig = DEFAULT_CONFIG,
     progress_callback=None,
 ) -> list[dict[str, Any]]:
-    """."""
+    """Classifie toutes les offres Free-Work contre les profils ROME avec statut d'affectation."""
     validate_free_work_offers(free_work_rows)
     triage_lookup = build_triage_lookup(triage_rows)
     labels_by_code = {profile.rome_code: profile.rome_label for profile in profiles}
@@ -685,7 +685,7 @@ def classify_offers(
 
 
 def bucket(value: float) -> str:
-    """."""
+    """Catégorise un score en tranche de 20 points (0-19, 20-39, 40-59, 60-79, 80-100)."""
     if value < 20:
         return "0-19"
     if value < 40:
@@ -698,7 +698,7 @@ def bucket(value: float) -> str:
 
 
 def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, Any]] | None) -> dict[str, Any]:  # pylint: disable=line-too-long
-    """."""
+    """Calcule top1/top3 accuracy, confusion et distribution sur le sample de référence."""
     triage_lookup = build_triage_lookup(triage_rows)
     by_id = {row["free_work_id"]: row for row in results}
     sample = []
@@ -771,7 +771,7 @@ def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, A
 
 
 def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> dict[str, list[str]]:  # pylint: disable=line-too-long
-    """."""
+    """Divise le sample en calibration (70%) et validation (30%) par code ROME."""
     by_code: dict[str, list[str]] = defaultdict(list)
     for source_id, reference_code, _ in sample:
         by_code[reference_code].append(source_id)
@@ -798,7 +798,7 @@ def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> 
 
 
 def reference_sample(triage_rows: list[dict[str, Any]] | None) -> list[tuple[str, str, str | None]]:
-    """."""
+    """Extrait les tuples (source_id, rome_code, ft_id) des lignes triage FT_SNAPSHOT."""
     sample = []
     for source_id, triage_row in sorted(build_triage_lookup(triage_rows).items()):
         reference_code, _, france_travail_id = reference_rome_from_triage(triage_row)
@@ -811,7 +811,7 @@ def benchmark_from_reference_predictions(
     rows: list[dict[str, Any]],
     split: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
-    """."""
+    """Calcule les métriques top1/top3, confusion et distribution à partir de prédictions LOO."""
     sample_size = len(rows)
     top1_correct = sum(1 for row in rows if row["predicted_rome_code"] == row["reference_rome_code"])  # pylint: disable=line-too-long
     top3_correct = sum(1 for row in rows if row["reference_rome_code"] in row["top3_rome_codes"])
@@ -865,7 +865,7 @@ def threshold_analysis_for_rows(
     score_thresholds: tuple[float, ...] = (50, 55, 60, 65, 70, 75, 80),
     margin_thresholds: tuple[float, ...] = (5, 10, 15, 20, 25, 30),
 ) -> list[dict[str, Any]]:
-    """."""
+    """Analyse la précision et la couverture pour toutes les combinaisons de seuils score/marge."""
     analysis = []
     for score_threshold in score_thresholds:
         for margin_threshold in margin_thresholds:
@@ -888,7 +888,7 @@ def threshold_analysis_for_rows(
 
 
 def select_thresholds(calibration_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """."""
+    """Sélectionne les seuils score/marge optimaux depuis la calibration (cible précision ≥ 90%)."""
     candidates = threshold_analysis_for_rows(calibration_rows)
     credible = [
         row for row in candidates
@@ -925,7 +925,7 @@ def select_thresholds(calibration_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def assignment_metrics_for_rows(rows: list[dict[str, Any]], score_threshold: float, margin_threshold: float) -> dict[str, Any]:  # pylint: disable=line-too-long
-    """."""
+    """Calcule métriques d'affectation auto (couverture, précision, erreurs) par seuils."""
     covered = [
         row for row in rows
         if float(row["top_score"]) >= score_threshold and float(row["margin"]) >= margin_threshold
@@ -948,7 +948,7 @@ def build_leave_one_out_reference_predictions(
     config: ClassificationConfig,
     top_k: int,
 ) -> list[dict[str, Any]]:
-    """."""
+    """Génère des prédictions LOO excluant les offres FT appariées des profils d'entraînement."""
     free_work_lookup = {str(row["source_id"]): row for row in free_work_rows}
     sample = reference_sample(triage_rows)
     held_out_france_travail_ids = {str(france_travail_id) for _, _, france_travail_id in sample if france_travail_id}  # pylint: disable=line-too-long
@@ -986,7 +986,7 @@ def build_calibrated_benchmark(
     rome_reference_csv: Path,
     top_k: int,
 ) -> dict[str, Any]:
-    """."""
+    """Évalue BASELINE/V1_A/V1_B en LOO et sélectionne les seuils optimaux par calibration."""
     config_summaries = {}
     loo_rows_by_config = {}
     for config in (BASELINE_CONFIG, V1_A_CONFIG, V1_B_CONFIG):
@@ -1056,13 +1056,13 @@ def build_calibrated_benchmark(
 
 
 def score_distribution(results: list[dict[str, Any]], key: str) -> dict[str, int]:
-    """."""
+    """Retourne la distribution en tranches d'un champ numérique sur l'ensemble des résultats."""
     counter = Counter(bucket(float(row.get(key) or 0.0)) for row in results)
     return dict(sorted(counter.items()))
 
 
 def write_progress(output_dir: Path, stage: str, current: int, total: int, start: float, status: str = "RUNNING") -> None:  # pylint: disable=line-too-long
-    """."""
+    """Écrit l'état de progression de la classification dans un fichier JSON avec ETA et vitesse."""
     elapsed = time.time() - start
     speed = current / elapsed if elapsed > 0 and current else 0.0
     eta = (total - current) / speed if speed else None
@@ -1084,7 +1084,7 @@ def write_progress(output_dir: Path, stage: str, current: int, total: int, start
 
 
 def write_review_queue(path: Path, results: list[dict[str, Any]]) -> None:
-    """."""
+    """Écrit les offres non affectées ou en erreur dans un CSV de file de relecture humaine."""
     rows = [
         row
         for row in results
@@ -1121,7 +1121,7 @@ def write_review_queue(path: Path, results: list[dict[str, Any]]) -> None:
 
 
 def write_results_jsonl(path: Path, results: list[dict[str, Any]]) -> None:
-    """."""
+    """Écrit les résultats de classification au format JSONL de façon atomique."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(path.name + ".tmp")
     try:
@@ -1142,7 +1142,7 @@ def run_classification(
     triage_input: Path | None = None,
     top_k: int = 3,
 ) -> dict[str, Any]:
-    """."""
+    """Exécute le pipeline complet : benchmark calibré, profils, classification, artefacts."""
     if top_k < 1:
         raise ValueError("--top-k doit être supérieur ou égal à 1.")
     start = time.time()
@@ -1165,7 +1165,7 @@ def run_classification(
     write_progress(output_dir, "CLASSIFICATION", 0, len(free_work_rows), start)
 
     def progress(index: int, total: int) -> None:
-        """."""
+        """Journalise la progression de la classification tous les 500 offres ou à la fin."""
         if index == total or index % 500 == 0:
             write_progress(output_dir, "CLASSIFICATION", index, total, start)
             elapsed = time.time() - start

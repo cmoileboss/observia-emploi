@@ -156,50 +156,6 @@ def fix_unused_arguments(path: Path, pylint_output: str) -> None:
 
     path.write_text(source, encoding="utf-8")
 
-
-# ---------------------------------------------------------------------------
-# 3. Suppress line-too-long inline
-# ---------------------------------------------------------------------------
-
-INLINE_DISABLE = "  # pylint: disable=line-too-long"
-
-
-def add_line_too_long_suppression(pylint_output: str) -> None:
-    """Ajoute # pylint: disable=line-too-long sur les lignes signalées."""
-    pattern = re.compile(
-        r'([^\s:][^:]*\.py):(\d+):\d+: C0301: Line too long \(\d+/\d+\) \(line-too-long\)'
-    )
-    violations: dict[str, list[int]] = {}
-    for match in pattern.finditer(pylint_output):
-        rel_path = match.group(1).replace("\\", "/")
-        lineno = int(match.group(2))
-        violations.setdefault(rel_path, []).append(lineno)
-
-    for rel_path, line_numbers in violations.items():
-        path = BACKEND_DIR / rel_path
-        if not path.exists():
-            continue
-        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-        modified = False
-        for lineno in sorted(set(line_numbers)):
-            idx = lineno - 1
-            if idx >= len(lines):
-                continue
-            line = lines[idx]
-            if INLINE_DISABLE.strip() in line:
-                continue
-            # Skip backslash continuation lines — comment would break syntax
-            stripped = line.rstrip('\n\r')
-            if stripped.rstrip().endswith('\\'):
-                continue
-            eol = line[len(stripped):]
-            lines[idx] = stripped + INLINE_DISABLE + eol
-            modified = True
-        if modified:
-            path.write_text("".join(lines), encoding="utf-8")
-            print(f"  Added line-too-long suppression to {rel_path} ({len(line_numbers)} lines)")
-
-
 # ---------------------------------------------------------------------------
 # 4. Fix unnecessary-pass (pass after docstring)
 # ---------------------------------------------------------------------------
@@ -235,6 +191,35 @@ def fix_invalid_names(path: Path) -> None:
     if new_source != source:
         path.write_text(new_source, encoding="utf-8")
         print(f"  Fixed invalid-name in {path.relative_to(PROJECT_DIR)}")
+
+
+# ---------------------------------------------------------------------------
+# 6. Wrap long lines
+# ---------------------------------------------------------------------------
+
+_MAX_LINE_LENGTH = 100
+
+
+def wrap_long_lines(python_files: list[Path]) -> None:
+    """Réduit les lignes trop longues via autopep8 (max 100 caractères)."""
+    for path in python_files:
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "autopep8",
+                "--max-line-length", str(_MAX_LINE_LENGTH),
+                "--select", "E501",
+                "--in-place",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(
+                f"  [WARN] autopep8 erreur sur {path.relative_to(PROJECT_DIR)}: "
+                f"{result.stderr}"
+            )
+    print(f"  autopep8 E501 appliqué sur {len(python_files)} fichiers.")
 
 
 # ---------------------------------------------------------------------------
@@ -276,10 +261,8 @@ def main() -> None:
     for path in python_files:
         fix_invalid_names(path)
 
-    print("\n=== [5/6] Lignes trop longues (inline suppress) ===")
-    print("  Lancement de pylint pour identifier les lignes...")
-    pylint_out = get_pylint_output()
-    add_line_too_long_suppression(pylint_out)
+    print("\n=== [5/6] Lignes trop longues ===")
+    wrap_long_lines(python_files)
 
     print("\nTerminé. Relancez pylint pour vérifier le score.")
 
