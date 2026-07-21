@@ -18,7 +18,7 @@ DEFAULT_TARGET_RUN = "run_triage_v2_handoff_20260624"
 
 
 def main():
-    """."""
+    """Main entry point to replay triage V2 from existing candidate matches."""
     parser = argparse.ArgumentParser(
         description="Rejoue uniquement le triage V2 à partir des correspondances existantes.")
     parser.add_argument("--source-run-id", default=DEFAULT_SOURCE_RUN)

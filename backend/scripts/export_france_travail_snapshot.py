@@ -56,7 +56,7 @@ def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
 
 
 def _row_to_dict(row) -> dict:
-    """."""
+    """Convert database row to dictionary."""
     if isinstance(row, Mapping):
         return dict(row)
     if hasattr(row, "_mapping"):
@@ -65,7 +65,7 @@ def _row_to_dict(row) -> dict:
 
 
 def _clean_required(value, field_name: str, offer_id: str | None = None) -> str:
-    """."""
+    """Validate and clean required field with error handling."""
     if value is None:
         if offer_id:
             raise ValueError(f"Champ obligatoire '{field_name}' absent pour l'offre {offer_id}.")
@@ -81,7 +81,7 @@ def _clean_required(value, field_name: str, offer_id: str | None = None) -> str:
 
 
 def _clean_optional(value) -> str | None:
-    """."""
+    """Clean optional field, returning None if empty after stripping."""
     if value is None:
         return None
     value_str = str(value).strip()
@@ -89,7 +89,7 @@ def _clean_optional(value) -> str | None:
 
 
 def export_snapshot() -> None:
-    """."""
+    """Export France Travail offers snapshot from database with validation."""
     output_dir = PROCESSED_DATA_ROOT / "france_travail" / "snapshots" / "current"
     offers_file_path = output_dir / "france_travail_offers_snapshot.json"
     manifest_file_path = output_dir / "snapshot_manifest.json"
@@ -207,7 +207,7 @@ def export_snapshot() -> None:
 
 
 def main() -> None:
-    """."""
+    """Main entry point to export France Travail snapshot."""
     parser = argparse.ArgumentParser(
         description="Exporte un snapshot France Travail local en lecture seule.")
     parser.parse_args()

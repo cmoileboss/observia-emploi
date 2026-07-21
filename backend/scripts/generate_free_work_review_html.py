@@ -746,7 +746,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 def main():
-    """."""
+    """Main entry point to generate interactive HTML for human review of uncertain cases."""
     parser = argparse.ArgumentParser(description="Générateur de la vue HTML de revue humaine.")
     parser.add_argument(
         "--run-id",

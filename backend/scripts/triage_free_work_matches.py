@@ -63,12 +63,12 @@ START_TIME = time.time()
 
 
 def normaliser_cle_compacte(texte_normalise: str) -> str:
-    """."""
+    """Remove whitespace from normalized text."""
     return "".join(texte_normalise.split())
 
 
 def extraire_tokens(texte_normalise: str) -> list[str]:
-    """."""
+    """Extract significant tokens from normalized text."""
     tokens = texte_normalise.split()
     filtered = []
     for t in tokens:
@@ -78,7 +78,7 @@ def extraire_tokens(texte_normalise: str) -> list[str]:
 
 
 def match_entreprises(comp_fw: str, comp_ft: str) -> tuple[str, float]:
-    """."""
+    """Match and score company names."""
     if not comp_fw or not comp_ft:
         return "MISSING", 0.0
     if comp_fw == comp_ft:
@@ -99,7 +99,7 @@ def match_entreprises(comp_fw: str, comp_ft: str) -> tuple[str, float]:
 
 def match_geographie(fw_pc: str, fw_loc_norm: str, fw_dept: str, ft_pc: str,
                      ft_loc_norm: str, ft_dept: str) -> tuple[str, float]:
-    """."""
+    """Match and score geographic locations."""
     if not fw_pc or not ft_pc:
         return "UNKNOWN", 0.0
     if fw_pc == ft_pc:
@@ -112,7 +112,7 @@ def match_geographie(fw_pc: str, fw_loc_norm: str, fw_dept: str, ft_pc: str,
 
 
 def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> None:
-    """."""
+    """Atomically write file with retry logic."""
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     temp_name = f"{dest_path.name}_{os.getpid()}_{time.time_ns()}.tmp"
     temp_path = dest_path.with_name(temp_name)
@@ -152,7 +152,7 @@ def classify_triage(
         fw_locality_norm,
         fw_romes):
     # Missing / Incomplete data check
-    """."""
+    """Classify offer into triage category with reason codes."""
     title = fw_item.get("title")
     desc = fw_item.get("description")
 
@@ -231,7 +231,7 @@ def classify_triage(
 
 
 def main():
-    """."""
+    """Execute Free-Work triage classification pipeline."""
     parser = argparse.ArgumentParser(description="Triage des offres Free-Work.")
     parser.add_argument(
         "--free-work-input",
@@ -264,7 +264,7 @@ def main():
 
     # Verify input hashes
     def get_hash(p):
-        """."""
+        """Calculate SHA256 hash of file."""
         h = hashlib.sha256()
         with p.open("rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
@@ -970,7 +970,7 @@ def main():
 
 
 def ecrire_progres_benchmark(bench_dir, progress_data):
-    """."""
+    """Write triage progress data to JSON file."""
     dest_path = bench_dir / "progress.json"
     content_bytes = json.dumps(progress_data, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
     temp_name = f"progress_triage_{os.getpid()}_{time.time_ns()}.json.tmp"

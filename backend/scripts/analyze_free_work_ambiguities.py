@@ -28,22 +28,22 @@ HUMAN_FIELDS = [
 
 
 class AnalysisError(RuntimeError):
-    """."""
+    """Custom exception for analysis errors."""
 
 
 def load_json(path):
-    """."""
+    """Load JSON data from file."""
     with path.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def write_json(path, data):
-    """."""
+    """Write JSON data to file with formatting."""
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def score_band(score):
-    """."""
+    """Categorize score into bands for distribution analysis."""
     if score is None:
         return "NO_SCORE"
     if score < 30:
@@ -62,7 +62,7 @@ def score_band(score):
 
 
 def margin_band(margin):
-    """."""
+    """Categorize score margin into bands."""
     if margin is None:
         return "NO_SECOND_CANDIDATE"
     if margin < 2:
@@ -77,7 +77,7 @@ def margin_band(margin):
 
 
 def coverage_band(coverage):
-    """."""
+    """Categorize data coverage into bands."""
     if coverage is None:
         return "UNKNOWN"
     if coverage < 55:
@@ -90,7 +90,7 @@ def coverage_band(coverage):
 
 
 def get_score(candidate):
-    """."""
+    """Extract match score from candidate, prioritizing preliminary_match_score."""
     if not candidate:
         return None
     if "preliminary_match_score" in candidate:
@@ -99,21 +99,21 @@ def get_score(candidate):
 
 
 def get_candidate_id(candidate):
-    """."""
+    """Extract candidate ID from France Travail or Free-Work offer."""
     if not candidate:
         return None
     return str(candidate.get("france_travail_id") or candidate.get("source_id") or "")
 
 
 def get_reason_key(reason_codes):
-    """."""
+    """Create sorted reason code signature as pipe-separated string."""
     if not reason_codes:
         return "NO_REASON"
     return "+".join(sorted(str(reason) for reason in reason_codes))
 
 
 def is_company_compatible(raw_candidate):
-    """."""
+    """Check if company match type indicates compatibility."""
     comparison = (raw_candidate or {}).get("company_comparison", {})
     return comparison.get("match_type") in {
         "EXACT_NORMALIZED",
@@ -124,47 +124,47 @@ def is_company_compatible(raw_candidate):
 
 
 def is_company_incompatible_or_missing(raw_candidate):
-    """."""
+    """Check if company is incompatible or missing."""
     comparison = (raw_candidate or {}).get("company_comparison", {})
     return comparison.get("match_type") in {"NO_MATCH", "MISSING", None, ""}
 
 
 def is_geo_compatible(raw_candidate):
-    """."""
+    """Check if geography match is compatible."""
     comparison = (raw_candidate or {}).get("geography_comparison", {})
     return comparison.get("result") in {"EXACT_POSTAL_CODE", "SAME_LOCALITY", "SAME_DEPARTMENT"}
 
 
 def is_geo_different(raw_candidate):
-    """."""
+    """Check if geography is marked as different."""
     comparison = (raw_candidate or {}).get("geography_comparison", {})
     return comparison.get("result") == "DIFFERENT"
 
 
 def has_strong_fingerprint(raw_candidate):
-    """."""
+    """Check for strong fingerprint evidence in candidate blocks."""
     blocks = set((raw_candidate or {}).get("candidate_blocks", []))
     return bool(blocks & {"EXACT_FINGERPRINT", "FALLBACK_EXACT_FINGERPRINT"})
 
 
 def title_similarity(raw_candidate):
-    """."""
+    """Extract title sequence similarity score."""
     return ((raw_candidate or {}).get("title_comparison") or {}).get("sequence_similarity")
 
 
 def description_similarity(raw_candidate):
-    """."""
+    """Extract description Jaccard similarity score."""
     components = (raw_candidate or {}).get("components", {})
     return components.get("description_token_jaccard")
 
 
 def candidate_set_signature(raw_candidates, limit=3):
-    """."""
+    """Get ordered tuple of top N candidate IDs."""
     return tuple(get_candidate_id(candidate) for candidate in (raw_candidates or [])[:limit])
 
 
 def validate_inputs(audit_hr, prioritized, triage_results):
-    """."""
+    """Validate data consistency across audit, prioritized, and triage files."""
     audit_ids = [str(item["free_work"]["source_id"]) for item in audit_hr]
     prioritized_ids = [str(item["free_work"]["source_id"]) for item in prioritized]
     triage_hr_ids = [
@@ -217,7 +217,7 @@ def validate_inputs(audit_hr, prioritized, triage_results):
 
 
 def build_case_metrics(item, raw_match):
-    """."""
+    """Extract and compute detailed metrics for single audit case."""
     raw_candidates = (raw_match or {}).get("top_candidates", [])
     best_raw = raw_candidates[0] if raw_candidates else None
     second_raw = raw_candidates[1] if len(raw_candidates) > 1 else None
@@ -301,7 +301,7 @@ def build_case_metrics(item, raw_match):
 
 
 def add_counter(counter, *keys):
-    """."""
+    """Increment nested counter by path keys."""
     cursor = counter
     for key in keys[:-1]:
         cursor = cursor.setdefault(str(key), {})
@@ -310,7 +310,7 @@ def add_counter(counter, *keys):
 
 
 def build_analysis(cases):
-    """."""
+    """Aggregate cases into distributions and cross-tabulations."""
     priority_counts = Counter(case["priority"] for case in cases)
     reason_counts = Counter(case["reason_key"] for case in cases)
     score_distribution = Counter(score_band(case["best_score"]) for case in cases)
@@ -355,7 +355,7 @@ def build_analysis(cases):
 
 
 def probably_new_explanation(case):
-    """."""
+    """Generate French explanation for probably new classification."""
     return (
         "Simulation uniquement : le meilleur candidat France Travail reste faible, "
         "aucune empreinte forte n'est présente, les signaux de titre/description/entreprise "
@@ -364,7 +364,7 @@ def probably_new_explanation(case):
 
 
 def is_simulated_probably_new(case, policy="BALANCED"):
-    """."""
+    """Evaluate case for simulated probably new classification by policy."""
     score_limits = {"CONSERVATIVE": 35, "BALANCED": 40, "AGGRESSIVE": 45}
     score_limit = score_limits[policy]
     evidence = case["evidence"]
@@ -390,7 +390,7 @@ def is_simulated_probably_new(case, policy="BALANCED"):
 
 
 def build_simulated_probably_new(prioritized_by_id, matches_by_id, cases):
-    """."""
+    """Filter and structure cases for probably new simulation."""
     simulated = []
     for case in cases:
         if not is_simulated_probably_new(case, "BALANCED"):
@@ -435,13 +435,13 @@ GENERIC_TITLE_TOKENS = {
 
 
 def is_generic_title(title_norm):
-    """."""
+    """Check if title is too generic for clustering."""
     tokens = set(str(title_norm or "").split())
     return len(tokens) < 3 or tokens.issubset(GENERIC_TITLE_TOKENS)
 
 
 def cluster_key(item, case):
-    """."""
+    """Generate clustering key for case grouping."""
     fw = item.get("free_work", {})
     title_norm = fw.get("title_normalized")
     company_norm = fw.get("company_normalized")
@@ -461,7 +461,7 @@ def cluster_key(item, case):
 
 
 def build_clusters(prioritized_by_id, cases):
-    """."""
+    """Build homogeneous case clusters for potential bulk review."""
     by_key = defaultdict(list)
     cases_by_id = {case["free_work_id"]: case for case in cases}
     for case in cases:
@@ -556,7 +556,7 @@ def build_clusters(prioritized_by_id, cases):
 
 
 def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
-    """."""
+    """Select stratified calibration sample with detailed formatting."""
     cases_by_id = {case["free_work_id"]: case for case in cases}
     cluster_member_ids = {
         member_id for cluster in clusters["clusters"] for member_id in cluster["member_free_work_ids"]}  # pylint: disable=line-too-long
@@ -581,7 +581,7 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
     quotas["HIGH"] += max_size - sum(quotas.values())
 
     def take_from_priority(priority, quota):
-        """."""
+        """Take items from prioritized buckets up to count limit."""
         priority_buckets = [
             (bucket, ids)
             for bucket, ids in buckets.items()
@@ -701,7 +701,7 @@ def select_calibration_sample(prioritized_by_id, cases, clusters, max_size=180):
 
 
 def write_sample_csv(path, sample):
-    """."""
+    """Write calibration sample to CSV file."""
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(
             file,
@@ -751,7 +751,7 @@ def write_sample_csv(path, sample):
 
 
 def simulate_policies(cases, clusters):
-    """."""
+    """Simulate triage policy impacts on case distribution."""
     policies = {}
     duplicate_rules = {
         "CONSERVATIVE_REDUCTION": lambda case: False,
@@ -825,7 +825,7 @@ def simulate_policies(cases, clusters):
 
 
 def policy_risks(policy):
-    """."""
+    """Describe risks associated with triage policy."""
     if policy == "CONSERVATIVE_REDUCTION":
         return [
             "Réduction limitée de charge.",
@@ -843,7 +843,7 @@ def policy_risks(policy):
 
 
 def write_markdown(path, analysis, simulated_count, clusters, policies):
-    """."""
+    """Generate markdown report of ambiguity analysis."""
     lines = [
         "# Analyse des ambiguïtés Free-Work / France Travail",
         "",
@@ -887,7 +887,7 @@ def write_markdown(path, analysis, simulated_count, clusters, policies):
 
 
 def write_rules_proposal(path):
-    """."""
+    """Write triage rules version 2 proposal document."""
     path.write_text(
         """# Proposition non activée de règles de triage V2
 
@@ -921,7 +921,7 @@ Conserver en revue individuelle les cas à score intermédiaire, marge Top 1 / T
 
 
 def run_analysis(run_dir):
-    """."""
+    """Execute complete ambiguity analysis pipeline."""
     start = time.time()
     print("[1/6] Chargement des fichiers existants")
     audit_hr = load_json(run_dir / "audit_human_review_required.json")
@@ -1006,7 +1006,7 @@ def run_analysis(run_dir):
 
 
 def main():
-    """."""
+    """Parse arguments and run ambiguity analysis."""
     parser = argparse.ArgumentParser(
         description="Analyse hors ligne des ambiguïtés Free-Work / France Travail.")
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)

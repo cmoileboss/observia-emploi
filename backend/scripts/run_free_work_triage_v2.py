@@ -33,22 +33,22 @@ PROGRESS_FILE_NAME = "triage_progress.json"
 
 
 class CounterDict(defaultdict):
-    """."""
+    """Defaultdict subclass for counting occurrences."""
     def __init__(self):
-        """."""
+        """Resolve URL from fallback and cache components."""
         super().__init__(int)
 
     def add(self, key: str) -> None:
-        """."""
+        """Increment counter for key."""
         self[str(key)] += 1
 
     def to_dict(self) -> dict[str, int]:
-        """."""
+        """Return sorted dict of counts."""
         return dict(sorted(self.items()))
 
 
 def write_bytes_atomic(path: Path, content: bytes) -> None:
-    """."""
+    """Atomically write bytes to file using temporary file and rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
     try:
@@ -60,7 +60,7 @@ def write_bytes_atomic(path: Path, content: bytes) -> None:
 
 
 def write_json_atomic(path: Path, payload: Any) -> None:
-    """."""
+    """Atomically write JSON to file with UTF-8 encoding."""
     write_bytes_atomic(
         path,
         json.dumps(
@@ -71,7 +71,7 @@ def write_json_atomic(path: Path, payload: Any) -> None:
 
 
 def load_json_file(path: Path, label: str) -> Any:
-    """."""
+    """Load JSON file with detailed error handling and validation."""
     if not path.exists():
         raise FileNotFoundError(f"{label} introuvable : {path}")
     try:
@@ -82,7 +82,7 @@ def load_json_file(path: Path, label: str) -> Any:
 
 
 def require_list(data: Any, label: str) -> list[dict[str, Any]]:
-    """."""
+    """Validate data is JSON list of dicts."""
     if not isinstance(data, list):
         raise ValueError(f"{label} doit être une liste JSON.")
     for index, item in enumerate(data):
@@ -92,7 +92,7 @@ def require_list(data: Any, label: str) -> list[dict[str, Any]]:
 
 
 def validate_unique(rows: list[dict[str, Any]], key: str, label: str) -> dict[str, dict[str, Any]]:
-    """."""
+    """Build lookup dict ensuring unique key values across rows."""
     lookup: dict[str, dict[str, Any]] = {}
     for index, row in enumerate(rows):
         value = canonical_source_id(row.get(key))
@@ -105,7 +105,7 @@ def validate_unique(rows: list[dict[str, Any]], key: str, label: str) -> dict[st
 
 
 def validate_candidate_matches(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """."""
+    """Validate candidate matches structure and required fields."""
     lookup = validate_unique(rows, "free_work_source_id", "candidate_matches")
     for source_id, row in lookup.items():
         for key in ("free_work_title", "free_work_title_normalized", "top_candidates"):
@@ -119,7 +119,7 @@ def validate_candidate_matches(rows: list[dict[str, Any]]) -> dict[str, dict[str
 
 
 def validate_normalized_offers(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """."""
+    """Validate normalized offers have unique source_ids."""
     lookup = validate_unique(rows, "source_id", "offers_normalized")
     for source_id, row in lookup.items():
         if "title" not in row:
@@ -128,7 +128,7 @@ def validate_normalized_offers(rows: list[dict[str, Any]]) -> dict[str, dict[str
 
 
 def validate_france_travail(rows: list[dict[str, Any]]) -> None:
-    """."""
+    """Validate France-Travail offers have unique france_travail_id and required fields."""
     seen = set()
     for index, row in enumerate(rows):
         france_travail_id = row.get("france_travail_id")
@@ -151,7 +151,7 @@ def write_progress(
         total: int,
         start: float,
         status: str = "RUNNING") -> None:
-    """."""
+    """Write progress status with elapsed/speed/ETA metrics to JSON."""
     elapsed = time.time() - start
     speed = current / elapsed if current and elapsed > 0 else 0.0
     eta = (total - current) / speed if speed else None
@@ -173,14 +173,14 @@ def write_progress(
 
 
 def ensure_output_dir_available(output_dir: Path) -> None:
-    """."""
+    """Ensure output directory is empty and ready for writing."""
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(f"Le dossier de sortie existe déjà et n'est pas vide : {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def build_triage_entry_from_match(match_entry: dict[str, Any]) -> dict[str, Any]:
-    """."""
+    """Convert candidate match entry to V1-style triage entry with classification."""
     candidates = match_entry.get("top_candidates") or []
     best = candidates[0] if candidates else None
     second = candidates[1] if len(candidates) > 1 else None
@@ -226,7 +226,7 @@ def build_triage_entry_from_match(match_entry: dict[str, Any]) -> dict[str, Any]
 
 
 def read_matching_strategy(candidate_matches_input: Path) -> dict[str, Any]:
-    """."""
+    """Read matching strategy from manifest.json."""
     manifest_path = candidate_matches_input.parent / "matching_manifest.json"
     if not manifest_path.exists():
         return {"strategy": "UNKNOWN", "use_aliases": None, "manifest_found": False}
@@ -243,7 +243,7 @@ def read_matching_strategy(candidate_matches_input: Path) -> dict[str, Any]:
 
 
 def count_review_rows(path: Path) -> int:
-    """."""
+    """Count CSV rows in review queue file (excluding header)."""
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         return max(0, sum(1 for _ in csv.reader(file, delimiter=";")) - 1)
 
@@ -254,7 +254,7 @@ def run_fresh_triage_v2(
     candidate_matches_input: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
-    """."""
+    """Execute fresh V2 triage on all candidate matches with full validation."""
     start = time.time()
     ensure_output_dir_available(output_dir)
     write_progress(output_dir, "VALIDATING_INPUTS", 0, 1, start)
@@ -440,9 +440,9 @@ def run_fresh_triage_v2(
 
 
 class NoneUrlResolution:
-    """."""
+    """Wrapper for URL resolution using fallback URL."""
     def __init__(self, fallback_url: str | None):
-        """."""
+        """Resolve URL from fallback and cache components."""
         from backend.scripts.free_work_triage_v2 import resolve_free_work_url
 
         resolved = resolve_free_work_url(None, fallback_url)
@@ -452,7 +452,7 @@ class NoneUrlResolution:
 
 
 def parse_args() -> argparse.Namespace:
-    """."""
+    """Parse command-line arguments for fresh V2 triage."""
     parser = argparse.ArgumentParser(
         description="Produit un triage Free-Work V2 complet à partir d'artefacts frais.")
     parser.add_argument(
@@ -470,7 +470,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Main entry point for fresh V2 triage execution."""
     args = parse_args()
     try:
         manifest = run_fresh_triage_v2(

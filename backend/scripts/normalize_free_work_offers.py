@@ -50,7 +50,7 @@ def normaliser_html(html_content: str | None) -> str | None:
 
 
 def normaliser_nom_competence(nom: str | None) -> str | None:
-    """."""
+    """Normalize skill name by decomposing and removing accents."""
     nom_clean = normaliser_texte(nom)
     if not nom_clean:
         return None
@@ -60,7 +60,7 @@ def normaliser_nom_competence(nom: str | None) -> str | None:
 
 
 def normaliser_competences(raw_skills) -> list[dict]:
-    """."""
+    """Deduplicate and normalize skills list with sorted output."""
     if not isinstance(raw_skills, list):
         return []
 
@@ -108,7 +108,7 @@ def normaliser_competences(raw_skills) -> list[dict]:
 
 
 def calculer_sha256_fichier(filepath: Path) -> str:
-    """."""
+    """Calculate SHA256 hash of file by reading in chunks."""
     h = hashlib.sha256()
     with filepath.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -136,7 +136,7 @@ def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
 
 
 def normaliser_offres(input_file: Path) -> Path:
-    """."""
+    """Normalize and validate Free-Work offers from JSON with deduplication and integrity checks."""
     if not input_file.exists():
         raise FileNotFoundError(f"Fichier d'entrée introuvable : {input_file}")
 
@@ -377,7 +377,7 @@ def normaliser_offres(input_file: Path) -> Path:
 
 
 def lire_arguments() -> argparse.Namespace:
-    """."""
+    """Parse command-line arguments for offer normalization."""
     parser = argparse.ArgumentParser(
         description="Normalise les offres d'emploi Free-Work dédupliquées."
     )
@@ -390,7 +390,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Main entry point to normalize Free-Work offers and generate manifest."""
     args = lire_arguments()
     input_file = Path(args.input)
     try:

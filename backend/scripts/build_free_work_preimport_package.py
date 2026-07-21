@@ -23,13 +23,13 @@ ROME_STATUS_PENDING = "PENDING"
 
 
 def utc_now_iso() -> str:
-    """."""
+    """Return current UTC time as ISO 8601 string with Z suffix."""
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def sha256_file(path: Path) -> str:
-    """."""
+    """Compute SHA256 hash of file."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -38,7 +38,7 @@ def sha256_file(path: Path) -> str:
 
 
 def sha256_payload(payload: Any) -> str:
-    """."""
+    """Compute SHA256 hash of JSON serialized payload."""
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
@@ -50,7 +50,7 @@ def sha256_payload(payload: Any) -> str:
 
 
 def read_json_file(path: Path, label: str) -> Any:
-    """."""
+    """Read and parse JSON file with validation and error handling."""
     if not path.exists():
         raise FileNotFoundError(f"{label} introuvable : {path}")
     try:
@@ -61,7 +61,7 @@ def read_json_file(path: Path, label: str) -> Any:
 
 
 def write_json_atomic(path: Path, payload: Any) -> None:
-    """."""
+    """Write JSON payload atomically using temp file replacement."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
     try:
@@ -92,7 +92,7 @@ def write_progress(
         start: float,
         status: str = "RUNNING",
         error: str = None) -> None:
-    """."""
+    """Write processing progress status to JSON file."""
     elapsed = time.time() - start
     speed = current / elapsed if current and elapsed > 0 else 0.0
     eta = (total - current) / speed if speed and current < total else None
@@ -115,7 +115,7 @@ def write_progress(
 
 
 def parse_args() -> argparse.Namespace:
-    """."""
+    """Parse command-line arguments for pre-import package generation."""
     parser = argparse.ArgumentParser(
         description="Génère un paquet pré-import consolidé pour Free-Work."
     )
@@ -136,7 +136,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Main entry point to generate consolidated pre-import package."""
     args = parse_args()
     start_time = time.time()
     started_at = utc_now_iso()

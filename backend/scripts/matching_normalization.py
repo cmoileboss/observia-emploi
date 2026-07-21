@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 
 
 def supprimer_diacritiques(texte: str) -> str:
-    """."""
+    """Remove diacritical marks from text."""
     if not texte:
         return ""
     return "".join(c for c in unicodedata.normalize(
@@ -14,7 +14,7 @@ def supprimer_diacritiques(texte: str) -> str:
 
 
 def normaliser_entreprise(nom: str | None) -> str:
-    """."""
+    """Normalize company names with NFKC, case-folding, accent removal, and legal form stripping."""
     if not nom:
         return ""
     s = str(nom)
@@ -40,7 +40,7 @@ def normaliser_entreprise(nom: str | None) -> str:
 
 
 def normaliser_localite(nom: str | None) -> str:
-    """."""
+    """Normalize locality names by removing accents, decorative prefixes, and punctuation."""
     if not nom:
         return ""
     s = str(nom)
@@ -55,7 +55,7 @@ def normaliser_localite(nom: str | None) -> str:
 
 
 def extraire_departement(pc: str | None) -> str:
-    """."""
+    """Extract 2 or 3 digit department code from postal code."""
     if not pc:
         return ""
     pc = str(pc).strip()
@@ -65,7 +65,7 @@ def extraire_departement(pc: str | None) -> str:
 
 
 def normaliser_titre(titre: str | None) -> str:
-    """."""
+    """Normalize job titles by handling H/F markers, protecting tech terms, and removing punctuation."""
     if not titre:
         return ""
     s = str(titre)
@@ -91,7 +91,7 @@ def normaliser_titre(titre: str | None) -> str:
 
 
 def normaliser_description(desc: str | None) -> str:
-    """."""
+    """Normalize descriptions by unescaping HTML, removing tags, and normalizing text."""
     if not desc:
         return ""
     s = str(desc)

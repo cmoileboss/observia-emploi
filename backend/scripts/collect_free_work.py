@@ -353,7 +353,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Collect Free-Work offers orchestrator entry point."""
     args = lire_arguments()
     try:
         collecter_offres(args.query)

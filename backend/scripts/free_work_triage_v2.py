@@ -36,7 +36,7 @@ DECISION_LABELS_FR = {
 
 @dataclass(frozen=True)
 class TriageThresholds:
-    """."""
+    """Thresholds for V2 triaging decisions based on match scores and evidence coverage."""
     weak_candidate_max_score: float = 40.0
     credible_candidate_min_score: float = 50.0
     strong_duplicate_min_score: float = 75.0
@@ -49,7 +49,7 @@ class TriageThresholds:
 
 @dataclass(frozen=True)
 class UrlResolution:
-    """."""
+    """Result of URL resolution attempt with raw/absolute URL and resolution method."""
     raw_url: str | None
     absolute_url: str | None
     method: str
@@ -57,14 +57,14 @@ class UrlResolution:
 
 @dataclass(frozen=True)
 class AdvertiserRoleResult:
-    """."""
+    """Result of advertiser role detection with role type and supporting evidence."""
     advertiser_role: str
     advertiser_role_evidence: list[str]
 
 
 @dataclass(frozen=True)
 class CompanyComparisonHuman:
-    """."""
+    """Human-readable company comparison result with advertiser role analysis."""
     result: str
     free_work_company: str | None
     france_travail_company: str | None
@@ -74,7 +74,7 @@ class CompanyComparisonHuman:
 
 
 def sha256_file(path: Path) -> str:
-    """."""
+    """Compute SHA256 hash of a file."""
     digest = hashlib.sha256()
     with path.open("rb") as file:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
@@ -83,18 +83,18 @@ def sha256_file(path: Path) -> str:
 
 
 def load_json(path: Path):
-    """."""
+    """Load JSON from file."""
     with path.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def write_json(path: Path, payload) -> None:
-    """."""
+    """Write JSON to file with pretty formatting."""
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def canonical_source_id(value) -> str | None:
-    """."""
+    """Normalize source ID by stripping whitespace and returning None if empty."""
     if value is None:
         return None
     text = str(value).strip()
@@ -102,7 +102,7 @@ def canonical_source_id(value) -> str | None:
 
 
 def build_free_work_details_lookup(path: Path | None) -> dict[str, dict]:
-    """."""
+    """Build lookup dict from normalized Free-Work offers, rejecting duplicates."""
     if not path or not path.exists():
         return {}
     data = load_json(path)
@@ -125,7 +125,7 @@ def build_free_work_details_lookup(path: Path | None) -> dict[str, dict]:
 
 
 def build_france_travail_lookup(path: Path | None) -> dict[str, dict]:
-    """."""
+    """Build lookup dict of France-Travail offers indexed by france_travail_id."""
     if not path or not path.exists():
         return {}
     data = load_json(path)
@@ -137,13 +137,13 @@ def build_france_travail_lookup(path: Path | None) -> dict[str, dict]:
 
 
 def is_free_work_url(url: str) -> bool:
-    """."""
+    """Check if URL belongs to free-work.com domain."""
     parsed = urlparse(url)
     return parsed.scheme in {"http", "https"} and parsed.netloc.lower().endswith("free-work.com")
 
 
 def is_legacy_job_postings_url(url: str | None) -> bool:
-    """."""
+    """Check if URL contains legacy /job_postings path."""
     if not url:
         return False
     return LEGACY_JOB_POSTINGS_PATH in urlparse(url).path
@@ -151,7 +151,7 @@ def is_legacy_job_postings_url(url: str | None) -> bool:
 
 def resolve_free_work_url(raw_offer: dict | None = None,
                           fallback_url: str | None = None) -> UrlResolution:
-    """."""
+    """Resolve Free-Work URL from offer fields or fallback URL with method tracking."""
     raw_offer = raw_offer or {}
     candidate_keys = (
         "href",
@@ -199,7 +199,7 @@ def resolve_free_work_url(raw_offer: dict | None = None,
 
 
 def build_raw_offer_url_lookup(raw_offers_path: Path | None) -> dict[str, UrlResolution]:
-    """."""
+    """Build lookup of URL resolutions for each source_id from raw offers."""
     if not raw_offers_path or not raw_offers_path.exists():
         return {}
     data = load_json(raw_offers_path)
@@ -216,7 +216,7 @@ def build_raw_offer_url_lookup(raw_offers_path: Path | None) -> dict[str, UrlRes
 
 
 def candidate_score(candidate: dict | None) -> float | None:
-    """."""
+    """Extract preliminary_match_score from candidate dict."""
     if not candidate:
         return None
     value = candidate.get("preliminary_match_score")
@@ -224,7 +224,7 @@ def candidate_score(candidate: dict | None) -> float | None:
 
 
 def evidence_coverage(candidate: dict | None, triage_entry: dict | None = None) -> int:
-    """."""
+    """Extract evidence_coverage percentage from candidate or triage entry."""
     if candidate and candidate.get("evidence_coverage") is not None:
         return int(candidate["evidence_coverage"])
     if triage_entry and triage_entry.get("data_coverage") is not None:
@@ -233,14 +233,14 @@ def evidence_coverage(candidate: dict | None, triage_entry: dict | None = None) 
 
 
 def normalize_text_for_role(text: str | None) -> str:
-    """."""
+    """Normalize text to lowercase with collapsed whitespace for role detection."""
     if not text:
         return ""
     return re.sub(r"\s+", " ", str(text).lower()).strip()
 
 
 def detect_advertiser_role(*texts: str | None) -> AdvertiserRoleResult:
-    """."""
+    """Detect advertiser role (direct employer, intermediary, etc.) from text patterns."""
     evidence = []
     joined = "\n".join(normalize_text_for_role(text) for text in texts if text)
     if not joined:
@@ -267,7 +267,7 @@ def compare_companies_with_advertiser_role(
     company_match_type_value: str,
     role_result: AdvertiserRoleResult,
 ) -> CompanyComparisonHuman:
-    """."""
+    """Generate human-readable company comparison with advertiser role context."""
     if company_match_type_value in {"EXACT_NORMALIZED"}:
         result = "SAME_COMPANY"
         message = "Les noms d'entreprise correspondent après normalisation."
@@ -299,7 +299,7 @@ def strong_match_via_intermediary(
         candidate: dict | None,
         role_result: AdvertiserRoleResult,
         thresholds: TriageThresholds = TriageThresholds()) -> bool:
-    """."""
+    """Check if candidate is strong match despite company diff when intermediary detected."""
     if not candidate or role_result.advertiser_role != "RECRUITMENT_INTERMEDIARY":
         return False
     score = candidate_score(candidate)
@@ -323,7 +323,7 @@ def detect_match_advertiser_role(
         best_candidate: dict | None,
         free_work_details: dict | None = None,
         france_travail_offer: dict | None = None) -> AdvertiserRoleResult:
-    """."""
+    """Detect advertiser role for match entry by analyzing Free-Work and FT offer texts."""
     free_work_details = free_work_details or {}
     france_travail_offer = france_travail_offer or {}
     return detect_advertiser_role(
@@ -337,37 +337,37 @@ def detect_match_advertiser_role(
 
 
 def title_similarity(candidate: dict | None) -> float | None:
-    """."""
+    """Extract title sequence_similarity score from candidate."""
     if not candidate:
         return None
     return (candidate.get("title_comparison") or {}).get("sequence_similarity")
 
 
 def description_similarity(candidate: dict | None) -> float | None:
-    """."""
+    """Extract description_token_jaccard similarity from candidate components."""
     if not candidate:
         return None
     return (candidate.get("components") or {}).get("description_token_jaccard")
 
 
 def company_match_type(candidate: dict | None) -> str:
-    """."""
+    """Extract company comparison match_type (EXACT_NORMALIZED, ALIAS_MATCH, etc.)."""
     return ((candidate or {}).get("company_comparison") or {}).get("match_type") or "UNKNOWN"
 
 
 def geography_result(candidate: dict | None) -> str:
-    """."""
+    """Extract geography_comparison result (EXACT_POSTAL_CODE, SAME_LOCALITY, etc.)."""
     return ((candidate or {}).get("geography_comparison") or {}).get("result") or "UNKNOWN"
 
 
 def has_strong_fingerprint(candidate: dict | None) -> bool:
-    """."""
+    """Check if candidate has EXACT_FINGERPRINT or FALLBACK_EXACT_FINGERPRINT block."""
     blocks = set((candidate or {}).get("candidate_blocks") or [])
     return bool(blocks & {"EXACT_FINGERPRINT", "FALLBACK_EXACT_FINGERPRINT"})
 
 
 def company_is_compatible(candidate: dict | None) -> bool:
-    """."""
+    """Check if company match type is compatible (exact, alias, or similar)."""
     return company_match_type(candidate) in {
         "EXACT_NORMALIZED",
         "ALIAS_MATCH",
@@ -377,22 +377,22 @@ def company_is_compatible(candidate: dict | None) -> bool:
 
 
 def company_is_incompatible(candidate: dict | None) -> bool:
-    """."""
+    """Check if company match type is incompatible (no match, missing, unknown)."""
     return company_match_type(candidate) in {"NO_MATCH", "MISSING", "UNKNOWN"}
 
 
 def geography_is_compatible(candidate: dict | None) -> bool:
-    """."""
+    """Check if geography is compatible (same postal code, locality, or department)."""
     return geography_result(candidate) in {"EXACT_POSTAL_CODE", "SAME_LOCALITY", "SAME_DEPARTMENT"}
 
 
 def geography_is_exact(candidate: dict | None) -> bool:
-    """."""
+    """Check if geography is exact (same postal code or locality)."""
     return geography_result(candidate) in {"EXACT_POSTAL_CODE", "SAME_LOCALITY"}
 
 
 def is_generic_title(title_normalized: str | None) -> bool:
-    """."""
+    """Check if title is too generic (few tokens or only generic terms)."""
     tokens = {token for token in str(title_normalized or "").split() if token}
     generic = {
         "developpeur",
@@ -412,7 +412,7 @@ def has_sufficient_free_work_data(
         match_entry: dict,
         best_candidate: dict | None,
         thresholds: TriageThresholds) -> bool:
-    """."""
+    """Check if Free-Work offer has title, description, company/location, and coverage threshold."""
     if not match_entry.get("free_work_title"):
         return False
     has_description = bool(match_entry.get("free_work_description_excerpt"))
@@ -424,7 +424,7 @@ def has_sufficient_free_work_data(
 
 
 def contradiction_codes(candidate: dict | None, thresholds: TriageThresholds) -> list[str]:
-    """."""
+    """Identify contradiction codes in candidate signals (company/geo/title mismatches)."""
     if not candidate:
         return []
     contradictions = []
@@ -453,7 +453,7 @@ def classify_v2(
     thresholds: TriageThresholds = TriageThresholds(),
     advertiser_role: AdvertiserRoleResult | None = None,
 ) -> tuple[str, list[str]]:
-    """."""
+    """Classify match as PRESENT/NOT_FOUND/UNCERTAIN/PROCESSING_ERROR with reason codes."""
     candidates = match_entry.get("top_candidates") or []
     best = candidates[0] if candidates else None
     second = candidates[1] if len(candidates) > 1 else None
@@ -551,14 +551,14 @@ def classify_v2(
 
 
 def percent(value: float | None) -> int | None:
-    """."""
+    """Convert float [0,1] to percentage integer."""
     if value is None:
         return None
     return int(round(value * 100))
 
 
 def level_from_similarity(value: float | None, strong: float = 0.8, medium: float = 0.5) -> str:
-    """."""
+    """Convert similarity score to human level (MATCH, PARTIAL_MATCH, NO_MATCH, UNKNOWN)."""
     if value is None:
         return "UNKNOWN"
     if value >= strong:
@@ -573,7 +573,7 @@ def human_explanation(
         best_candidate: dict | None,
         decision: str,
         reason_codes: list[str]) -> dict:
-    """."""
+    """Generate detailed human-readable explanation for triage decision."""
     if not best_candidate:
         return {
             "overall": "Aucun candidat France Travail n'a été retenu dans le snapshot utilisé.",
@@ -708,7 +708,7 @@ def human_explanation(
 
 
 def score_summary(best_candidate: dict | None) -> dict:
-    """."""
+    """Extract candidate scores (global, coverage, title%, description%)."""
     if not best_candidate:
         return {"score_global": None, "evidence_coverage": 0}
     return {
@@ -720,7 +720,7 @@ def score_summary(best_candidate: dict | None) -> dict:
 
 
 def best_candidate_summary(candidate: dict | None) -> dict | None:
-    """."""
+    """Extract essential best candidate fields (FT id, title, company, postal, ROME, score)."""
     if not candidate:
         return None
     return {
@@ -734,7 +734,7 @@ def best_candidate_summary(candidate: dict | None) -> dict | None:
 
 
 def check_common_skills(free_work_details: dict | None, france_travail_offer: dict | None) -> bool:
-    """."""
+    """Check if Free-Work and France-Travail offers share at least 1-2 common skills."""
     if not free_work_details or not france_travail_offer:
         return False
     fw_skills = free_work_details.get("skills") or []
@@ -1075,7 +1075,7 @@ def make_decision_record(
     free_work_details: dict | None = None,
     france_travail_offer: dict | None = None,
 ) -> dict:
-    """."""
+    """Build complete decision record from match with triage, dossier, and review action."""
     candidates = match_entry.get("top_candidates") or []
     best = candidates[0] if candidates else None
     dossier = build_comparison_dossier(
@@ -1110,7 +1110,7 @@ def make_decision_record(
 
 
 def import_candidate_from_record(record: dict) -> dict | None:
-    """."""
+    """Extract import candidate from record when decision is NOT_FOUND_IN_FT_SNAPSHOT."""
     if record["decision"] != "NOT_FOUND_IN_FT_SNAPSHOT":
         return None
     fw = record["free_work"]
@@ -1131,7 +1131,7 @@ def import_candidate_from_record(record: dict) -> dict | None:
 
 
 def review_row_from_record(record: dict, raw_candidates: list[dict]) -> dict:
-    """."""
+    """Build review queue CSV row from decision record for human validation."""
     dossier = record.get("comparison_dossier")
     if not dossier:
         # Fallback au cas où
@@ -1234,7 +1234,7 @@ def review_row_from_record(record: dict, raw_candidates: list[dict]) -> dict:
 
 def write_review_queue(path: Path, rows: list[dict]) -> None:
     # Ordre strict des colonnes demandé par le brief
-    """."""
+    """Write review rows to CSV with priority sorting and required column order."""
     fieldnames = [
         # Identification
         "priorite_revue",
@@ -1284,7 +1284,7 @@ def write_review_queue(path: Path, rows: list[dict]) -> None:
     priority_order = {"HAUTE": 0, "MOYENNE": 1, "FAIBLE": 2, "HORS_REVUE": 3}
 
     def sort_key(row):
-        """."""
+        """Build sort key for review row priority ordering."""
         prio = row.get("priorite_revue", "HORS_REVUE")
         prio_val = priority_order.get(prio, 3)
         # Extraire le score numérique à partir de la chaîne "Score de similarité : X/100"
@@ -1318,7 +1318,7 @@ def replay_triage_v2(
     legacy_artifacts: bool = False,
     thresholds: TriageThresholds = TriageThresholds(),
 ) -> dict:
-    """."""
+    """Process V2 triage from existing candidate matches and generate decisions/review queue."""
     start = time.time()
     output_dir.mkdir(parents=True, exist_ok=True)
     candidate_matches = load_json(candidate_matches_path)
@@ -1606,7 +1606,7 @@ def replay_triage_v2(
 
 
 def count_job_postings_urls(jsonl_path: Path) -> int:
-    """."""
+    """Count legacy /job_postings URLs in JSONL decisions file."""
     count = 0
     with jsonl_path.open("r", encoding="utf-8") as file:
         for line in file:
@@ -1618,7 +1618,7 @@ def count_job_postings_urls(jsonl_path: Path) -> int:
 
 
 def build_skill_statistics(jsonl_path: Path) -> dict:
-    """."""
+    """Aggregate structured skill statistics across offers by decision type."""
     total_offers = 0
     offers_with = 0
     total_links = 0
@@ -1660,7 +1660,7 @@ def build_skill_statistics(jsonl_path: Path) -> dict:
                 decision_skills[normalized]["offer_count"] += 1
 
     def top_twenty(skill_map):
-        """."""
+        """Return top 20 skills by offer count sorted descending."""
         return sorted(skill_map.values(),
                       key=lambda item: (-item["offer_count"],
                       item["normalized_name"]))[:20]
@@ -1696,22 +1696,22 @@ def build_skill_statistics(jsonl_path: Path) -> dict:
 
 
 class CounterDict(defaultdict):
-    """."""
+    """Defaultdict subclass for counting occurrences of keys."""
     def __init__(self):
         """."""
         super().__init__(int)
 
     def add(self, key: str) -> None:
-        """."""
+        """Increment counter for key."""
         self[str(key)] += 1
 
     def to_dict(self) -> dict:
-        """."""
+        """Return sorted dict of all counts."""
         return dict(sorted(self.items()))
 
 
 def decision_volume_summary(manifest: dict) -> dict:
-    """."""
+    """Extract decision volume metrics from manifest counters."""
     counters = manifest["counters"]
     return {
         "present": counters.get("PRESENT_IN_FT_SNAPSHOT", 0),

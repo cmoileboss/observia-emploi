@@ -39,13 +39,13 @@ HUMAN_FIELDS = [
 
 
 def load_json(path: Path):
-    """."""
+    """Load and parse JSON file."""
     with path.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_jsonl_by_id(path: Path) -> dict[str, dict]:
-    """."""
+    """Load JSONL file indexed by source_id with duplicate detection."""
     rows = {}
     with path.open("r", encoding="utf-8") as file:
         for line_number, line in enumerate(file, start=1):
@@ -60,19 +60,19 @@ def load_jsonl_by_id(path: Path) -> dict[str, dict]:
 
 
 def write_json(path: Path, payload) -> None:
-    """."""
+    """Serialize object to JSON file."""
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def reason_key(reasons) -> str:
-    """."""
+    """Convert reason list to pipe-separated string for aggregation."""
     if not reasons:
         return ""
     return "|".join(str(reason) for reason in reasons)
 
 
 def candidate_by_id(candidate_matches: list[dict]) -> dict[str, dict]:
-    """."""
+    """Index candidate matches by Free-Work source_id."""
     rows = {}
     for item in candidate_matches:
         source_id = str(item["free_work_source_id"])
@@ -84,7 +84,7 @@ def candidate_by_id(candidate_matches: list[dict]) -> dict[str, dict]:
 
 def build_transition_rows(
         v1_rows: list[dict], v2_by_id: dict[str, dict], matches_by_id: dict[str, dict]) -> list[dict]:  # pylint: disable=line-too-long
-    """."""
+    """Build V1→V2 transition analysis rows with scoring."""
     rows = []
     seen = set()
     for v1 in v1_rows:
@@ -115,7 +115,7 @@ def build_transition_rows(
 
 
 def build_matrix(rows: list[dict]) -> dict:
-    """."""
+    """Build V1→V2 decision transition contingency matrix."""
     matrix = defaultdict(Counter)
     for row in rows:
         matrix[row["decision_v1"]][row["decision_v2"]] += 1
@@ -123,7 +123,7 @@ def build_matrix(rows: list[dict]) -> dict:
 
 
 def write_transition_csv(path: Path, rows: list[dict]) -> None:
-    """."""
+    """Write transition rows to CSV with all fields."""
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=list(rows[0].keys()))
         writer.writeheader()
@@ -131,7 +131,7 @@ def write_transition_csv(path: Path, rows: list[dict]) -> None:
 
 
 def candidate_details(candidate: dict | None) -> dict | None:
-    """."""
+    """Extract candidate details for audit including scores and comparisons."""
     if not candidate:
         return None
     return {
@@ -151,7 +151,7 @@ def candidate_details(candidate: dict | None) -> dict | None:
 
 
 def possible_regression_reasons(match: dict, best: dict | None, source_id: str) -> list[str]:
-    """."""
+    """Identify potential V2 regression reasons for reclassified duplicates."""
     if not best:
         return []
     reasons = []
@@ -170,7 +170,7 @@ def possible_regression_reasons(match: dict, best: dict | None, source_id: str) 
 
 
 def audit_reclassified_duplicates(v1_rows, v2_by_id, matches_by_id) -> tuple[list[dict], dict]:
-    """."""
+    """Audit V1 duplicates reclassified by V2 with regression detection."""
     audited = []
     summary = Counter()
     for v1 in v1_rows:
@@ -215,7 +215,7 @@ def audit_reclassified_duplicates(v1_rows, v2_by_id, matches_by_id) -> tuple[lis
 
 
 def write_reclassified_csv(path: Path, rows: list[dict]) -> None:
-    """."""
+    """Write reclassified audit data to CSV."""
     fields = [
         "free_work_source_id",
         "free_work_title",
@@ -254,7 +254,7 @@ def write_reclassified_csv(path: Path, rows: list[dict]) -> None:
 
 
 def uncertainty_bucket(record: dict, match: dict) -> str:
-    """."""
+    """Categorize UNCERTAIN cases by technical reason."""
     reasons = set(record.get("technical_reasons") or [])
     if "INSUFFICIENT_FREE_WORK_DATA" in reasons:
         return "UNCERTAIN_DATA_INSUFFICIENT"
@@ -272,7 +272,7 @@ def uncertainty_bucket(record: dict, match: dict) -> str:
 
 
 def band(value, size=10):
-    """."""
+    """Group value into equal-width bands (default 10-point)."""
     if value is None:
         return "NONE"
     start = int(value // size) * size
@@ -280,7 +280,7 @@ def band(value, size=10):
 
 
 def margin_band(best, second):
-    """."""
+    """Categorize score margin between top2 candidates."""
     if best is None or second is None:
         return "NO_SECOND"
     margin = best - second
@@ -294,7 +294,7 @@ def margin_band(best, second):
 
 
 def analyze_uncertainties(v2_by_id, matches_by_id) -> dict:
-    """."""
+    """Analyze V2 UNCERTAIN cases by reason, score, and potential solutions."""
     summary = Counter()
     score_bands = Counter()
     margin_bands = Counter()
@@ -346,7 +346,7 @@ def analyze_uncertainties(v2_by_id, matches_by_id) -> dict:
 
 
 def top3_for_pilot(match: dict) -> list[dict]:
-    """."""
+    """Extract top3 candidates with scores for pilot review."""
     rows = []
     for candidate in (match.get("top_candidates") or [])[:3]:
         rows.append({"id": candidate.get("france_travail_id"),
@@ -363,7 +363,7 @@ def top3_for_pilot(match: dict) -> list[dict]:
 
 
 def pilot_entry(group, source_id, v1_by_id, v2_by_id, matches_by_id):
-    """."""
+    """Build pilot review entry for human validation."""
     match = matches_by_id[source_id]
     v1 = v1_by_id[source_id]
     v2 = v2_by_id[source_id]
@@ -389,14 +389,14 @@ def pilot_entry(group, source_id, v1_by_id, v2_by_id, matches_by_id):
 
 
 def build_pilot(v1_by_id, v2_by_id, matches_by_id, reclassified):
-    """."""
+    """Build 60-case pilot for human validation across 3 groups."""
     not_found_ids = [
         source_id for source_id, record in v2_by_id.items()
         if record["decision"] == "NOT_FOUND_IN_FT_SNAPSHOT"
     ]
 
     def nf_key(source_id):
-        """."""
+        """Build NOT_FOUND case key from source_id and best FT candidate."""
         match = matches_by_id[source_id]
         best = (match.get("top_candidates") or [None])[0]
         return (candidate_score(best) or 0, -
@@ -458,7 +458,7 @@ def build_pilot(v1_by_id, v2_by_id, matches_by_id, reclassified):
 
 
 def write_pilot_csv(path: Path, pilot: list[dict]) -> None:
-    """."""
+    """Write pilot cases to CSV with candidate details."""
     fields = [
         "pilot_group", "free_work_id", "free_work_url", "free_work_title", "free_work_company",
         "free_work_location", "free_work_description_excerpt", "v1_decision", "v2_decision",
@@ -494,7 +494,7 @@ def write_pilot_csv(path: Path, pilot: list[dict]) -> None:
 
 
 def write_markdown(path: Path, matrix, reclassified_summary, historical, uncertainty, pilot_counts):
-    """."""
+    """Write V1→V2 analysis summary to Markdown."""
     lines = ["# Analyse de transition V1 vers V2", ""]
     lines.append("## Matrice V1 -> V2")
     for source, dests in matrix.items():
@@ -527,7 +527,7 @@ def write_markdown(path: Path, matrix, reclassified_summary, historical, uncerta
 
 
 def run_analysis(v1_dir: Path, v2_dir: Path):
-    """."""
+    """Run full V1→V2 transition analysis generating all reports."""
     v1_rows = load_json(v1_dir / "triage_results.json")
     matches = load_json(v1_dir / "candidate_matches.json")
     v2_by_id = load_jsonl_by_id(v2_dir / "triage_decisions.jsonl")
@@ -606,7 +606,7 @@ Ne pas modifier les champs techniques. Le groupe A vérifie les offres classées
 
 
 def main():
-    """."""
+    """Main entry point to analyze V1 to V2 transition."""
     parser = argparse.ArgumentParser(description="Analyse la transition Free-Work V1 vers V2.")
     parser.add_argument("--v1-run-id", default=V1_RUN_ID)
     parser.add_argument("--v2-run-id", default=V2_RUN_ID)

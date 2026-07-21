@@ -485,7 +485,7 @@ def orchestrer_batch(
 
 
 def valider_delai(valeur_str: str) -> float:
-    """."""
+    """Validate delay argument is non-negative float."""
     try:
         valeur = float(valeur_str)
     except ValueError:
@@ -496,7 +496,7 @@ def valider_delai(valeur_str: str) -> float:
 
 
 def valider_max_attempts(valeur_str: str) -> int:
-    """."""
+    """Validate max attempts argument is positive integer."""
     try:
         valeur = int(valeur_str)
     except ValueError:
@@ -507,7 +507,7 @@ def valider_max_attempts(valeur_str: str) -> int:
 
 
 def lire_arguments() -> argparse.Namespace:
-    """."""
+    """Parse command-line arguments for batch collection."""
     parser = argparse.ArgumentParser(
         description="Orchestre la collecte et la fusion globale Free-Work par code ROME."
     )
@@ -537,7 +537,7 @@ def lire_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Main entry point for batch collection and orchestration."""
     args = lire_arguments()
     rome_csv_path = PROCESSED_DATA_ROOT / "formations_enriched.csv"
     resume_path = Path(args.resume_batch) if args.resume_batch else None

@@ -12,7 +12,7 @@ PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
 
 def get_sha256(file_path: Path) -> str:
-    """."""
+    """Calculate SHA256 hash of file."""
     h = hashlib.sha256()
     with file_path.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -21,7 +21,7 @@ def get_sha256(file_path: Path) -> str:
 
 
 def get_description_excerpt(desc: str, length: int = 150) -> str:
-    """."""
+    """Extract truncated description excerpt with ellipsis."""
     if not desc:
         return ""
     desc_str = str(desc).strip()
@@ -31,7 +31,7 @@ def get_description_excerpt(desc: str, length: int = 150) -> str:
 
 
 def generate_explanation(category: str, reason_codes: list, best_cand: dict) -> str:
-    """."""
+    """Generate human-readable explanation for triage category."""
     if category == "DUPLICATE_HIGH_CONFIDENCE":
         if "EXACT_FINGERPRINT" in reason_codes:
             return "Doublon à forte confiance détecté par concordance exacte d'une empreinte (soit Titre + Entreprise + Code Postal, soit Titre + Code Postal, soit Titre + Entreprise, soit Titre + Description)."  # pylint: disable=line-too-long
@@ -55,7 +55,7 @@ def generate_explanation(category: str, reason_codes: list, best_cand: dict) -> 
 
 
 def main():
-    """."""
+    """Generate master audit results and priority queues."""
     run_id = "run_triage_full_20260624"
     run_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / run_id
 
@@ -162,7 +162,7 @@ def main():
 
         def format_candidate(c, rank):
             # Recalculate score breakdown
-            """."""
+            """Format and score France Travail candidate with components."""
             components = c.get("components", {})
             title_seq = components.get("title_sequence_similarity", 0)
             title_jac = components.get("title_token_jaccard", 0)
@@ -482,7 +482,7 @@ def main():
     sample_hr = []
 
     def extract_n_evenly(lst, n):
-        """."""
+        """Extract n evenly distributed items from sorted list."""
         lst_sorted = sorted(lst, key=lambda x: x["free_work"]["source_id"])
         if not lst_sorted:
             return []
@@ -561,7 +561,7 @@ def main():
     # Let's print out what categories they got.
 
     def check_and_print_case(source_id, name):
-        """."""
+        """Retrieve and display triage category for historical case."""
         item = triage_by_id.get(source_id)
         if item:
             print(

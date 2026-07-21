@@ -26,7 +26,7 @@ START_TIME = time.time()
 
 
 def normaliser_cle(texte: str | None) -> str:
-    """."""
+    """Normalize text to ASCII lowercase for deduplication keys."""
     if texte is None:
         return ""
     s = str(texte)
@@ -45,7 +45,7 @@ def write_progress(
         message: str,
         status: str = "RUNNING",
         extra_stats: dict = None):
-    """."""
+    """Write collection progress status to JSON file with ETA."""
     elapsed = time.time() - START_TIME
     percent = round((current / total) * 100, 2) if total else 0.0
     if current > 0 and elapsed > 0:
@@ -122,7 +122,7 @@ def write_progress(
 
 
 def is_robots_allowed(url: str) -> bool:
-    """."""
+    """Check robots.txt to verify collection is allowed."""
     try:
         headers = {"User-Agent": USER_AGENT}
         r = requests.get(ROBOTS_URL, headers=headers, timeout=10)
@@ -136,7 +136,7 @@ def is_robots_allowed(url: str) -> bool:
 
 
 def format_duration(seconds: float) -> str:
-    """."""
+    """Format seconds to MM:SS duration string."""
     m, s = divmod(int(seconds), 60)
     return f"{m:02d}:{s:02d}"
 
@@ -148,7 +148,7 @@ def collecter_exhaustive(
     max_pages: int | None,
     resume_batch_id: str | None
 ) -> str:
-    """."""
+    """Exhaustively collect Free-Work job offers with pagination, deduplication, and resume support."""
     print("Démarrage de la collecte exhaustive Free-Work...")
 
     # Configuration structurante pour le hash de validation du checkpoint
@@ -640,7 +640,7 @@ def collecter_exhaustive(
 
 
 def main() -> None:
-    """."""
+    """Main entry point to collect full Free-Work catalog."""
     parser = argparse.ArgumentParser(description="Collecte exhaustive du catalogue Free-Work.")
     parser.add_argument("--delay-seconds", type=float, default=1.0, help="Délai entre requêtes.")
     parser.add_argument("--timeout-seconds", type=int, default=20, help="Timeout de connexion.")

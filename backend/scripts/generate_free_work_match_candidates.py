@@ -24,7 +24,7 @@ PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
 
 def normaliser_cle(texte: str, est_titre: bool = False, est_entreprise: bool = False) -> str:
-    """."""
+    """Normalize text as company, title, or generic key."""
     if est_entreprise:
         return normaliser_entreprise(texte)
     if est_titre:
@@ -53,12 +53,12 @@ START_TIME = time.time()
 
 
 def normaliser_cle_compacte(texte_normalise: str) -> str:
-    """."""
+    """Remove whitespace from normalized text."""
     return "".join(texte_normalise.split())
 
 
 def extraire_tokens(texte_normalise: str) -> list[str]:
-    """."""
+    """Extract significant tokens from normalized text."""
     tokens = texte_normalise.split()
     filtered = []
     for t in tokens:
@@ -68,7 +68,7 @@ def extraire_tokens(texte_normalise: str) -> list[str]:
 
 
 def calculer_sha256_fichier(filepath: Path) -> str:
-    """."""
+    """Calculate SHA256 hash of file."""
     h = hashlib.sha256()
     with filepath.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -77,7 +77,7 @@ def calculer_sha256_fichier(filepath: Path) -> str:
 
 
 def ecriture_atomique(dest_path: Path, content_bytes: bytes) -> str:
-    """."""
+    """Atomically write file with change detection."""
     if dest_path.exists():
         if dest_path.read_bytes() == content_bytes:
             return "inchangé"
@@ -101,7 +101,7 @@ def write_progress(
         message: str,
         status: str = "RUNNING",
         extra_stats: dict = None):
-    """."""
+    """Write stage progress data to JSON file."""
     elapsed = time.time() - START_TIME
     percent = round((current / total) * 100, 2) if total else 0.0
     if current > 0 and elapsed > 0:
@@ -178,9 +178,9 @@ def write_progress(
 
 
 class ProgressTracker:
-    """."""
+    """Track and display multi-stage processing progress."""
     def __init__(self, stage_number: int, stage_name: str, total: int, message: str):
-        """."""
+        """Initialize progress tracker with stage info."""
         self.stage_number = stage_number
         self.stage_name = stage_name
         self.total = total
@@ -190,7 +190,7 @@ class ProgressTracker:
         self.update(0, force=True)
 
     def update(self, current: int, force: bool = False, extra_stats: dict = None):
-        """."""
+        """Update progress display and metrics."""
         now = time.time()
         elapsed = now - START_TIME
         percent = round((current / self.total) * 100, 2) if self.total else 0.0
@@ -235,7 +235,7 @@ class ProgressTracker:
 
 
 def charger_free_work(path: Path) -> list[dict]:
-    """."""
+    """Load and validate Free-Work offers with uniqueness checks."""
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -269,7 +269,7 @@ def charger_free_work(path: Path) -> list[dict]:
 
 
 def charger_france_travail(path: Path) -> list[dict]:
-    """."""
+    """Load and validate France Travail offers with required fields."""
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -300,7 +300,7 @@ def charger_france_travail(path: Path) -> list[dict]:
 
 
 def match_entreprises(comp_fw: str, comp_ft: str) -> tuple[str, float]:
-    """."""
+    """Match and score company names."""
     if not comp_fw or not comp_ft:
         return "MISSING", 0.0
     if comp_fw == comp_ft:
@@ -322,7 +322,7 @@ def match_entreprises(comp_fw: str, comp_ft: str) -> tuple[str, float]:
 
 def match_geographie(fw_pc: str, fw_loc_norm: str, fw_dept: str, ft_pc: str,
                      ft_loc_norm: str, ft_dept: str) -> tuple[str, float]:
-    """."""
+    """Match and score geographic locations."""
     if not fw_pc or not ft_pc:
         return "UNKNOWN", 0.0
     if fw_pc == ft_pc:
@@ -340,7 +340,7 @@ def generer_matching(
         strategy: str = "independent_normalized",
         use_aliases: bool = False,
         benchmark_id: str = None) -> None:
-    """."""
+    """Generate candidate matches and scoring for Free-Work offers."""
     global START_TIME
     START_TIME = time.time()
     # [1/6] Chargement et validation des entrées
@@ -545,7 +545,7 @@ def generer_matching(
 
         # Sub-functions to run blocks
         def run_legacy_blocks(is_fallback=False):
-            """."""
+            """Run legacy block-based matching for backward compatibility."""
             block_prefix = "FALLBACK_" if is_fallback else ""
             # Bloc 1 : Empreintes strictes
             fp1 = f"{fw_title_norm}|{fw_company_norm}|{fw_pc}"
@@ -1195,7 +1195,7 @@ def generer_matching(
 
 
 def main() -> None:
-    """."""
+    """Parse arguments and execute matching generation."""
     parser = argparse.ArgumentParser(
         description="Génère les candidats de rapprochement hors ligne."
     )

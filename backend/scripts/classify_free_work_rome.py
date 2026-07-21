@@ -10,7 +10,7 @@ RAW_DATA_ROOT = DATA_ROOT / "raw"
 
 
 def default_rome_reference_csv() -> Path:
-    """."""
+    """Find and return first ROME reference CSV file in raw data."""
     candidates = sorted(RAW_DATA_ROOT.glob("correspondance-rome-rncp-tech-*.csv"))
     if not candidates:
         raise FileNotFoundError(
@@ -19,7 +19,7 @@ def default_rome_reference_csv() -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    """."""
+    """Parse command-line arguments for ROME classification."""
     parser = argparse.ArgumentParser(
         description="Classifie déterministiquement les offres Free-Work normalisées vers des candidats ROME.")  # pylint: disable=line-too-long
     parser.add_argument(
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """."""
+    """Main entry point to classify Free-Work offers to ROME codes."""
     args = parse_args()
     try:
         rome_reference = Path(

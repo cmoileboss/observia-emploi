@@ -26,13 +26,13 @@ V2_RUN_ID = "run_triage_v2_preview_20260624"
 
 
 def load_json(path: Path):
-    """."""
+    """Load and parse JSON file."""
     with path.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_jsonl_by_id(path: Path):
-    """."""
+    """Load JSONL file into dict indexed by free_work source_id."""
     rows = {}
     with path.open("r", encoding="utf-8") as file:
         for line in file:
@@ -42,12 +42,12 @@ def load_jsonl_by_id(path: Path):
 
 
 def write_json(path: Path, payload) -> None:
-    """."""
+    """Serialize object to JSON file."""
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def band(score):
-    """."""
+    """Group score into 10-point bands for distribution analysis."""
     if score is None:
         return "NONE"
     start = int(score // 10) * 10
@@ -60,7 +60,7 @@ def analyze_intermediaries(
         ft_path: Path,
         v1_run_id: str = V1_RUN_ID,
         v2_run_id: str = V2_RUN_ID):
-    """."""
+    """Analyze recruitment intermediary detection in Free-Work/France-Travail matches."""
     v1_dir = base_dir / v1_run_id
     v2_dir = base_dir / v2_run_id
     candidate_matches = load_json(v1_dir / "candidate_matches.json")
@@ -192,7 +192,7 @@ def analyze_intermediaries(
 
 
 def main():
-    """."""
+    """Main entry point to analyze recruitment intermediaries."""
     parser = argparse.ArgumentParser(
         description="Analyse hors ligne les intermédiaires de recrutement dans les matches Free-Work / France Travail.")  # pylint: disable=line-too-long
     parser.add_argument("--v1-run-id", default=V1_RUN_ID)
