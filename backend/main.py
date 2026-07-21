@@ -2,6 +2,7 @@
 
 import os
 import logging
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
@@ -41,20 +42,24 @@ if missing_vars:
     raise EnvironmentError(
         "Variables d'environnement non initialisées : " + ", ".join(missing_vars)
     )
-logger.info("Les variables d'environnement %s sont bien initialisées.", ", ".join(ENV_VARS))
 
 
-logger.info("Initialisation de la base de données")
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Les variables d'environnement %s sont bien initialisées.", ", ".join(ENV_VARS))
+    logger.info("Initialisation de la base de données")
+    Base.metadata.create_all(bind=engine)
+    yield
 
 
-app = FastAPI(title="Observia Emploi API")
+app = FastAPI(title="Observia Emploi API", lifespan=lifespan)
 app.include_router(offres_router)
 app.include_router(competences_router)
 app.include_router(formations_router)
 app.include_router(formation_flux_mensuel_router)
 app.include_router(rome_codes_router)
 app.include_router(main_router)
+
 
 def main() -> None:
     """Démarre le serveur Uvicorn pour l'API FastAPI."""
