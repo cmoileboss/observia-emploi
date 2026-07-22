@@ -222,7 +222,8 @@ class Service:
             enricher.enrich()
             enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
         else:
-            logger.info("Le fichier formations_enriched.csv existe déjà, pas d'enrichissement nécessaire.")
+            logger.info("Le fichier formations_enriched.csv existe déjà, " \
+                        "pas d'enrichissement nécessaire.")
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()
         logger.info("=== Appel à l'API France Travail ===")
