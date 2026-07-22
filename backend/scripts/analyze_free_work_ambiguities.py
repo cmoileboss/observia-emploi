@@ -8,7 +8,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = REPOSITORY_ROOT
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -724,7 +723,8 @@ def write_sample_csv(path, sample):
         )
         writer.writeheader()
         for item in sample:
-            best = item["top_france_travail_candidates"][0] if item["top_france_travail_candidates"] else {}  # pylint: disable=line-too-long
+            best = item["top_france_travail_candidates"][0] if item["top_france_travail_candidates"] else {
+                }  # pylint: disable=line-too-long
             context = item["selection_context"]
             writer.writerow(
                 {

@@ -496,7 +496,7 @@ def main():
                             candidates_blocks_map[fid].add("COMPANY_MATCH")
 
             # RARE_TITLE_TOKENS
-            title_tokens_with_freq = sorted([(t, doc_freq_title.get(t, 0)) for t in fw_tokens if 0 < doc_freq_title.get(  # pylint: disable=line-too-long
+            title_tokens_with_freq = sorted([(t, doc_freq_title.get(t, 0)) for t in fw_tokens if 0 < doc_freq_title.get(
                 t, 0) < MAX_RARE_TOKEN_DOCUMENT_FREQUENCY], key=lambda x: (x[1], x[0]))
             for tok in [x[0] for x in title_tokens_with_freq[:MAX_RARE_TITLE_TOKENS]]:
                 for fid in offers_by_title_token.get(tok, []):
@@ -512,7 +512,7 @@ def main():
                 title_jac = len(t1 & t2) / len(t1 | t2) if t1 | t2 else 0
                 title_weighted = sum(idf_title.get(t, 1.0) for t in (t1 & t2)) / \
                     sum(idf_title.get(t, 1.0) for t in t1) if t1 else 0
-                title_compact_seq = SequenceMatcher(None, fw_title_compact, ft_item["title_compact"]).ratio(  # pylint: disable=line-too-long
+                title_compact_seq = SequenceMatcher(None, fw_title_compact, ft_item["title_compact"]).ratio(
                 ) if fw_title_compact or ft_item["title_compact"] else 0
 
                 title_score = 45 * (title_seq * 0.25 + title_jac * 0.25 +
@@ -553,12 +553,12 @@ def main():
                 rome_score = 5 if rome_match else 0
 
                 final_score = title_score + desc_score + comp_score + geo_score + rome_score
-                coverage = 45 + (25 if fw_desc_norm and ft_item["desc_norm"] else 0) + (15 if fw_pc and ft_item["postal_code"] else 0) + (  # pylint: disable=line-too-long
-                    10 if fw_company_norm and ft_item["company_norm"] else 0) + (5 if rome_match else 0)  # pylint: disable=line-too-long
+                coverage = 45 + (25 if fw_desc_norm and ft_item["desc_norm"] else 0) + (15 if fw_pc and ft_item["postal_code"] else 0) + (
+                    10 if fw_company_norm and ft_item["company_norm"] else 0) + (5 if rome_match else 0)
 
                 comp_res, comp_sim_val = match_entreprises(fw_company_norm, ft_item["company_norm"])
                 geo_res, _ = match_geographie(
-                    fw_pc, fw_locality_norm, fw_dept, ft_item["postal_code"], ft_item["locality_norm"], ft_item["department"])  # pylint: disable=line-too-long
+                    fw_pc, fw_locality_norm, fw_dept, ft_item["postal_code"], ft_item["locality_norm"], ft_item["department"])
 
                 scored_candidates.append({
                     "france_travail_id": fid,
@@ -574,10 +574,10 @@ def main():
                         "title_token_jaccard": round(title_jac, 4),
                         "title_weighted_token_similarity": round(title_weighted, 4),
                         "title_compact_sequence_similarity": round(title_compact_seq, 4),
-                        "description_token_jaccard": round(desc_jac, 4) if desc_jac is not None else None,  # pylint: disable=line-too-long
-                        "description_weighted_token_similarity": round(desc_weighted, 4) if desc_weighted is not None else None,  # pylint: disable=line-too-long
+                        "description_token_jaccard": round(desc_jac, 4) if desc_jac is not None else None,
+                        "description_weighted_token_similarity": round(desc_weighted, 4) if desc_weighted is not None else None,
                         "description_source": desc_src,
-                        "company_sequence_similarity": round(comp_seq, 4) if comp_seq is not None else None,  # pylint: disable=line-too-long
+                        "company_sequence_similarity": round(comp_seq, 4) if comp_seq is not None else None,
                         "geography": geo_label,
                         "rome_query_match": rome_match
                     },
@@ -638,7 +638,7 @@ def main():
             "free_work_title": fw_item["title"],
             "free_work_title_normalized": fw_title_norm if 'fw_title_norm' in locals() else "",
             "free_work_company": fw_company_raw if 'fw_company_raw' in locals() else "",
-            "free_work_company_normalized": fw_company_norm if 'fw_company_norm' in locals() else "",  # pylint: disable=line-too-long
+            "free_work_company_normalized": fw_company_norm if 'fw_company_norm' in locals() else "",
             "free_work_location": {
                 "locality": fw_loc.get("locality"),
                 "locality_normalized": fw_locality_norm if 'fw_locality_norm' in locals() else "",
@@ -660,7 +660,7 @@ def main():
             "free_work_source_url": fw_item.get("source_url") or "",
             "triage_category": category,
             "triage_reason_codes": reason_codes,
-            "data_coverage": 45 + (25 if fw_desc_norm else 0) + (10 if fw_company_norm else 0) + (15 if fw_pc else 0) if 'fw_desc_norm' in locals() else 0,  # pylint: disable=line-too-long
+            "data_coverage": 45 + (25 if fw_desc_norm else 0) + (10 if fw_company_norm else 0) + (15 if fw_pc else 0) if 'fw_desc_norm' in locals() else 0,
             "best_candidate": {
                 "france_travail_id": best_c["france_travail_id"],
                 "score": best_c["preliminary_match_score"]
@@ -889,8 +889,8 @@ def main():
                              "human_comment",
                              "reviewed_at"])
             for q in review_queue:
-                best_ft_id = q["candidates_france_travail"][0]["france_travail_id"] if q["candidates_france_travail"] else ""  # pylint: disable=line-too-long
-                best_score = q["candidates_france_travail"][0]["preliminary_match_score"] if q["candidates_france_travail"] else ""  # pylint: disable=line-too-long
+                best_ft_id = q["candidates_france_travail"][0]["france_travail_id"] if q["candidates_france_travail"] else ""
+                best_score = q["candidates_france_travail"][0]["preliminary_match_score"] if q["candidates_france_travail"] else ""
                 writer.writerow([q["free_work_source_id"],
                                  q["free_work_title"],
                                  q["free_work_company"],

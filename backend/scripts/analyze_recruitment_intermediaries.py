@@ -64,8 +64,7 @@ def analyze_intermediaries(
     v1_dir = base_dir / v1_run_id
     v2_dir = base_dir / v2_run_id
     candidate_matches = load_json(v1_dir / "candidate_matches.json")
-    v1_by_id = {str(row["free_work_source_id"])
-                    : row for row in load_json(v1_dir / "triage_results.json")}
+    v1_by_id = {str(row["free_work_source_id"]): row for row in load_json(v1_dir / "triage_results.json")}
     v2_by_id = load_jsonl_by_id(v2_dir / "triage_decisions.jsonl")
     fw_by_id = {str(row["source_id"]): row for row in load_json(fw_path)}
     ft_by_id = {str(row["france_travail_id"]): row for row in load_json(ft_path)}
@@ -187,7 +186,8 @@ def analyze_intermediaries(
             "## Risques",
             "- Faux rapprochement si la mention client est générique et que plusieurs clients finaux sont plausibles.",  # pylint: disable=line-too-long
             "- Les ESN ne sont pas considérées comme intermédiaires sans preuve textuelle explicite."])  # pylint: disable=line-too-long
-    (v2_dir / "recruitment_intermediary_analysis.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")  # pylint: disable=line-too-long
+    (v2_dir / "recruitment_intermediary_analysis.md").write_text("\n".join(md_lines) +
+     "\n", encoding="utf-8")  # pylint: disable=line-too-long
     return payload
 
 

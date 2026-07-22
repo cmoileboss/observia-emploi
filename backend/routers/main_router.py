@@ -33,11 +33,13 @@ async def get_best_organismes_for_job_id(
 
     return service.get_formations_by_offre_id(job_id)
 
+
 @main_router.get("/bestskills")
 async def get_best_skills(service: Service = Depends(get_service)):
     """Retourne les compétences les plus fréquentes dans les offres importées."""
 
     return service.get_best_skills()
+
 
 @main_router.get("/formations/historique")
 async def get_nb_offers(
