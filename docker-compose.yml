@@ -32,7 +32,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data
+      - ./backend/data/raw:/app/backend/data/raw
       - ./logs:/app/logs
 
 volumes:

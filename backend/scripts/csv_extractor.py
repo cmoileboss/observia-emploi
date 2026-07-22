@@ -1,6 +1,7 @@
 """Charge, nettoie et fusionne les CSV utilisés par le pipeline."""
 
 import logging
+from pathlib import Path
 
 import pandas as pd
 
@@ -68,5 +69,6 @@ class CsvExtractor:
     def export(self, filepath: str):
         """Exporte les données fusionnées dans un fichier CSV."""
 
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
         self.merged.to_csv(filepath, sep=";", index=False)
         logger.info("Données exportées vers le fichier %s", filepath)

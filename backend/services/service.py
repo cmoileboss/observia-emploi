@@ -203,14 +203,26 @@ class Service:
         logger.info("=== Création du fichier de données fusionnées et nettoyées ===")
         create_output()
         logger.info("=== Enrichissement des données de formation ===")
-        enricher = FormationsEnricher()
-        enricher.load(
-            merged_path=str(PROCESSED_DATA_ROOT / "merged_data.csv"),
-            organismes_path=str(RAW_DATA_ROOT / "organismes_enriched.csv"),
-            cdc_path=str(RAW_DATA_ROOT / "cdc_filtered_tech.csv"),
-        )
-        enricher.enrich()
-        enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
+        if not (PROCESSED_DATA_ROOT / "merged_data.csv").exists():
+            logger.error("Le fichier merged_data.csv est manquant.")
+            return
+        if not (RAW_DATA_ROOT / "organismes_enriched.csv").exists():
+            logger.error("Le fichier organismes_enriched.csv est manquant.")
+            return
+        if not (RAW_DATA_ROOT / "cdc_filtered_tech.csv").exists():
+            logger.error("Le fichier cdc_filtered_tech.csv est manquant.")
+            return
+        if not (PROCESSED_DATA_ROOT / "formations_enriched.csv").exists():
+            enricher = FormationsEnricher()
+            enricher.load(
+                merged_path=str(PROCESSED_DATA_ROOT / "merged_data.csv"),
+                organismes_path=str(RAW_DATA_ROOT / "organismes_enriched.csv"),
+                cdc_path=str(RAW_DATA_ROOT / "cdc_filtered_tech.csv"),
+            )
+            enricher.enrich()
+            enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
+        else:
+            logger.info("Le fichier formations_enriched.csv existe déjà, pas d'enrichissement nécessaire.")
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()
         logger.info("=== Appel à l'API France Travail ===")
