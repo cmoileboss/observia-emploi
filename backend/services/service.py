@@ -3,6 +3,7 @@
 from http.client import BAD_REQUEST
 import logging
 import re
+from pathlib import Path
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -17,9 +18,13 @@ from scripts.francetravail_api_call import (
     search_offres_by_rome,
 )
 from scripts.import_formations_enriched import import_formations_enriched
+from scripts.collect_free_work_full_catalog import collecter_exhaustive
+from scripts.import_offers_raw import import_offers
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _normalize_region(region: str | None) -> str:
@@ -198,4 +203,18 @@ class Service:
         logger.info("Nombre de codes ROME uniques : %s", len(rome_codes))
         for rome_code in rome_codes:
             search_offres_by_rome(rome_code)
+        logger.info("=== Collecte des offres Free-Work ===")
+        batch_id = collecter_exhaustive(
+            delay_seconds=1.0,
+            timeout_seconds=30,
+            max_retries=3,
+            max_pages=None,
+            resume_batch_id=None,
+        )
+        offers_raw_path = (
+            BACKEND_ROOT / "data" / "raw"
+            / "free_work" / "full_catalog" / "batches" / batch_id / "offers_raw.json"
+        )
+        logger.info("=== Import des offres Free-Work en base ===")
+        import_offers(json_path=offers_raw_path, batch_size=200)
         logger.info("Stockage des données terminé.")
