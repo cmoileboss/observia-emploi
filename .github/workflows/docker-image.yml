@@ -35,19 +35,6 @@ jobs:
             type=sha
             type=semver,pattern={{version}}
 
-      - name: Restore data files
-        run: |
-          if gh release download data-latest --pattern "data.tar.gz" --dir . --clobber 2>/dev/null; then
-            mkdir -p ./backend/data
-            tar -xzf data.tar.gz -C ./backend/data/
-            echo "✓ Fichiers de données restaurés."
-            rm data.tar.gz
-          else
-            echo "⚠ Release 'data-latest' introuvable, build sans données."
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
