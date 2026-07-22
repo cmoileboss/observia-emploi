@@ -83,7 +83,7 @@ class Service:
                 status_code=BAD_REQUEST,
                 detail=(
                     f"Trimestre invalide : {quarter}. "
-                    "Format attendu : YYYY-T1 a YYYY-T4"
+                    "Format attendu : YYYY-T1 à YYYY-T4"
                 ),
             )
 
