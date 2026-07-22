@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from models.correspondance_formation_model import FormationModel
 from models.francetravail_model import CompetenceModel, OffreModel
@@ -62,6 +62,19 @@ class OffreRepository(BaseRepository[OffreModel]):
         if rome_code:
             query = query.filter(OffreModel.rome_code == rome_code)
         return query.all()
+
+    def list_france_travail_evaluation_offers(self) -> list[OffreModel]:
+        """Retourne les offres France Travail et leurs compétences pour l'évaluation."""
+        return (
+            self.db.query(OffreModel)
+            .options(selectinload(OffreModel.competences))
+            .filter(OffreModel.francetravail_id.isnot(None))
+            .filter(func.trim(OffreModel.francetravail_id) != "")
+            .filter(OffreModel.rome_code.isnot(None))
+            .filter(func.trim(OffreModel.rome_code) != "")
+            .order_by(OffreModel.id)
+            .all()
+        )
 
     def count_offres(self):
         """Retourne le nombre total d'offres."""
