@@ -12,7 +12,7 @@ import pandas as pd
 
 from logging_config import configure_logging
 
-
+configure_logging()
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
@@ -104,12 +104,11 @@ class FormationsEnricher:
 
 
 if __name__ == "__main__":
-    configure_logging()
     enricher = FormationsEnricher()
     enricher.load(
         merged_path=str(PROCESSED_DATA_ROOT / "merged_data.csv"),
-        organismes_path=str(PROCESSED_DATA_ROOT / "organismes_enriched.csv"),
+        organismes_path=str(RAW_DATA_ROOT / "organismes_enriched.csv"),
         cdc_path=str(RAW_DATA_ROOT / "cdc_filtered_tech.csv"),
     )
     enricher.enrich()
-    enricher.export(r"data\processed\formations_enriched.csv")
+    enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
