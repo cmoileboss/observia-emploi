@@ -1,6 +1,5 @@
 """Construit le fichier merged_data.csv à partir des sources brutes."""
 
-import os
 import logging
 from pathlib import Path
 
@@ -37,4 +36,7 @@ def create_output():
     extractor.clean_data()
     extractor.merge_data()
     extractor.export(output_file)
-    logger.info("Le fichier %s a été créé avec succès avec les données fusionnées et nettoyées.", output_file)
+    logger.info(
+        "Le fichier %s a été créé avec succès avec les données fusionnées et nettoyées.",
+        output_file
+    )
