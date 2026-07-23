@@ -5,7 +5,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-import autoflake
 
 PROJECT_DIR = Path(__file__).parent
 BACKEND_DIR = PROJECT_DIR / "backend"
@@ -159,6 +158,7 @@ def fix_unused_arguments(path: Path, pylint_output: str) -> None:
 # ---------------------------------------------------------------------------
 # 4. Fix unnecessary-pass (pass after docstring)
 # ---------------------------------------------------------------------------
+
 
 def fix_unnecessary_pass(path: Path) -> None:
     """Supprime les `pass` qui suivent immédiatement une docstring."""

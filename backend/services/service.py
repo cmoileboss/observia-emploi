@@ -34,6 +34,7 @@ DATA_ROOT = BACKEND_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
+
 def _normalize_region(region: str | None) -> str:
     """Normalise un libellé de région pour les filtres et clés d'agrégation."""
     if not isinstance(region, str):
@@ -83,7 +84,7 @@ class Service:
                 status_code=BAD_REQUEST,
                 detail=(
                     f"Trimestre invalide : {quarter}. "
-                    "Format attendu : YYYY-T1 a YYYY-T4"
+                    "Format attendu : YYYY-T1 à YYYY-T4"
                 ),
             )
 
@@ -222,7 +223,7 @@ class Service:
             enricher.enrich()
             enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
         else:
-            logger.info("Le fichier formations_enriched.csv existe déjà, " \
+            logger.info("Le fichier formations_enriched.csv existe déjà, "
                         "pas d'enrichissement nécessaire.")
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()

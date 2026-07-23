@@ -71,6 +71,7 @@ class FormationRepository(BaseRepository[FormationModel]):
             .all()
         )
 
+
 class FormationFluxMensuelRepository(BaseRepository[FormationFluxMensuelModel]):
     """Encapsule les accès en base pour les flux mensuels des formations."""
 

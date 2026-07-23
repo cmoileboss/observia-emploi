@@ -187,7 +187,8 @@ def analyze_intermediaries(
             "## Risques",
             "- Faux rapprochement si la mention client est générique et que plusieurs clients finaux sont plausibles.",  # pylint: disable=line-too-long
             "- Les ESN ne sont pas considérées comme intermédiaires sans preuve textuelle explicite."])  # pylint: disable=line-too-long
-    (v2_dir / "recruitment_intermediary_analysis.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")  # pylint: disable=line-too-long
+    (v2_dir / "recruitment_intermediary_analysis.md").write_text("\n".join(md_lines) +
+     "\n", encoding="utf-8")  # pylint: disable=line-too-long
     return payload
 
 

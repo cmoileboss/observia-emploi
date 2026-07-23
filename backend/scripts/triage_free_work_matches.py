@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.matching_normalization import (
+from scripts.matching_normalization import (
     normaliser_entreprise,
     normaliser_localite,
     extraire_departement,
@@ -890,7 +890,8 @@ def main():
                              "reviewed_at"])
             for q in review_queue:
                 best_ft_id = q["candidates_france_travail"][0]["france_travail_id"] if q["candidates_france_travail"] else ""  # pylint: disable=line-too-long
-                best_score = q["candidates_france_travail"][0]["preliminary_match_score"] if q["candidates_france_travail"] else ""  # pylint: disable=line-too-long
+                best_score = q["candidates_france_travail"][0]["preliminary_match_score"] if q[
+                    "candidates_france_travail"] else ""  # pylint: disable=line-too-long
                 writer.writerow([q["free_work_source_id"],
                                  q["free_work_title"],
                                  q["free_work_company"],
