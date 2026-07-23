@@ -50,4 +50,4 @@ disable=
     unused-argument
 
 [FORMAT]
-max-line-length=100
+max-line-length=127
