@@ -26,8 +26,10 @@ def main():
     parser.add_argument("--legacy-artifacts", action="store_true")
     args = parser.parse_args()
 
-    source_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / args.source_run_id  # pylint: disable=line-too-long
-    target_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / args.target_run_id  # pylint: disable=line-too-long
+    source_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / \
+        args.source_run_id  # pylint: disable=line-too-long
+    target_dir = PROCESSED_DATA_ROOT / "matching" / "free_work_vs_france_travail" / \
+        args.target_run_id  # pylint: disable=line-too-long
     raw_offers_path = RAW_DATA_ROOT / "free_work" / "full_catalog" / \
         "batches" / "20260624_081715" / "offers_deduplicated.json"
     normalized_offers_path = PROCESSED_DATA_ROOT / "free_work" / \

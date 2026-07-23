@@ -399,13 +399,17 @@ def build_rome_profiles(
             description_df.update(profile.description_tokens)
         common_title = {token for token, count in title_df.items() if count > common_limit}
         common_skill = {token for token, count in skill_df.items() if count > common_limit}
-        common_description = {token for token, count in description_df.items() if count > common_limit}
+        common_description = {token for token,
+            count in description_df.items() if count > common_limit}
         profiles = [
             replace(
                 profile,
-                title_tokens=frozenset(token for token in profile.title_tokens if token not in common_title),
-                skill_tokens=frozenset(token for token in profile.skill_tokens if token not in common_skill),
-                description_tokens=frozenset(token for token in profile.description_tokens if token not in common_description),
+                title_tokens=frozenset(
+                    token for token in profile.title_tokens if token not in common_title),
+                skill_tokens=frozenset(
+                    token for token in profile.skill_tokens if token not in common_skill),
+                description_tokens=frozenset(
+                    token for token in profile.description_tokens if token not in common_description),
                 source_counts={
                     **profile.source_counts,
                     "filtered_common_title_tokens": len(common_title),
@@ -456,11 +460,13 @@ def score_candidate(
     ]
     title_tokens = normalize_tokens(title, mode="title")
     structured_skills = skill_tokens(offer.get("skills"))
-    description_tokens = normalize_tokens(" ".join(str(part) for part in description_parts if part), mode="description")
+    description_tokens = normalize_tokens(" ".join(str(part)
+                                          for part in description_parts if part), mode="description")
 
     title_score, title_hits, title_missing = overlap_score(title_tokens, profile.title_tokens)
     skills_score, skill_hits, skill_missing = overlap_score(structured_skills, profile.skill_tokens)
-    desc_score, desc_hits, desc_missing = overlap_score(description_tokens, profile.description_tokens)
+    desc_score, desc_hits, desc_missing = overlap_score(
+        description_tokens, profile.description_tokens)
     exact_match_score, exact_match_label = exact_or_near_title_match(title, profile)
 
     score = round(
@@ -482,15 +488,18 @@ def score_candidate(
     if exact_match_label:
         reasons["positive"].append({"field": "title", "exact_or_near_match": exact_match_label})
     else:
-        reasons["missing_or_contradictory"].append({"field": "title", "missing_tokens": title_missing})
+        reasons["missing_or_contradictory"].append(
+            {"field": "title", "missing_tokens": title_missing})
     if skill_hits:
         reasons["positive"].append({"field": "skills", "matched_tokens": skill_hits[:12]})
     elif structured_skills:
-        reasons["missing_or_contradictory"].append({"field": "skills", "missing_tokens": skill_missing})
+        reasons["missing_or_contradictory"].append(
+            {"field": "skills", "missing_tokens": skill_missing})
     if desc_hits:
         reasons["positive"].append({"field": "description", "matched_tokens": desc_hits[:12]})
     elif description_tokens:
-        reasons["missing_or_contradictory"].append({"field": "description", "missing_tokens": desc_missing})
+        reasons["missing_or_contradictory"].append(
+            {"field": "description", "missing_tokens": desc_missing})
 
     return {
         "rome_code": profile.rome_code,
@@ -580,7 +589,8 @@ def assignment_from_prediction(
             "assignment_method": "NO_SUFFICIENT_SIGNAL",
         }
     positive_reasons = top.get("reasons", {}).get("positive", [])
-    has_discriminant_signal = any(reason.get("field") in {"title", "skills"} for reason in positive_reasons)
+    has_discriminant_signal = any(reason.get(
+        "field") in {"title", "skills"} for reason in positive_reasons)
     if config.require_discriminant_signal and not has_discriminant_signal:
         return {
             "assignment_status": "UNASSIGNED_INSUFFICIENT_SIGNAL",
@@ -783,7 +793,8 @@ def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> 
     for code, source_ids in sorted(by_code.items()):
         ordered = sorted(
             source_ids,
-            key=lambda value: hashlib.sha256(f"{CALIBRATION_SEED}:{code}:{value}".encode("utf-8")).hexdigest(),
+            key=lambda value: hashlib.sha256(
+                f"{CALIBRATION_SEED}:{code}:{value}".encode("utf-8")).hexdigest(),
         )
         if len(ordered) >= 4:
             calibration_count = max(1, round(len(ordered) * 0.7))
@@ -815,7 +826,8 @@ def benchmark_from_reference_predictions(
 ) -> dict[str, Any]:
     """Calcule les métriques top1/top3, confusion et distribution à partir de prédictions LOO."""
     sample_size = len(rows)
-    top1_correct = sum(1 for row in rows if row["predicted_rome_code"] == row["reference_rome_code"])
+    top1_correct = sum(
+        1 for row in rows if row["predicted_rome_code"] == row["reference_rome_code"])
     top3_correct = sum(1 for row in rows if row["reference_rome_code"] in row["top3_rome_codes"])
     confusion: dict[str, Counter[str]] = defaultdict(Counter)
     predicted_counter = Counter(row["predicted_rome_code"] or "UNASSIGNED" for row in rows)
@@ -876,7 +888,8 @@ def threshold_analysis_for_rows(
                 row for row in rows
                 if float(row["top_score"]) >= score_threshold and float(row["margin"]) >= margin_threshold
             ]
-            errors = sum(1 for row in covered if row["predicted_rome_code"] != row["reference_rome_code"])
+            errors = sum(
+                1 for row in covered if row["predicted_rome_code"] != row["reference_rome_code"])
             analysis.append(
                 {
                     "score_threshold": score_threshold,
@@ -954,7 +967,8 @@ def build_leave_one_out_reference_predictions(
     """Génère des prédictions LOO excluant les offres FT appariées des profils d'entraînement."""
     free_work_lookup = {str(row["source_id"]): row for row in free_work_rows}
     sample = reference_sample(triage_rows)
-    held_out_france_travail_ids = {str(france_travail_id) for _, _, france_travail_id in sample if france_travail_id}
+    held_out_france_travail_ids = {str(france_travail_id)
+                                       for _, _, france_travail_id in sample if france_travail_id}
     training_rows = [
         row for row in france_travail_rows
         if str(row.get("france_travail_id") or "") not in held_out_france_travail_ids
@@ -1007,7 +1021,8 @@ def build_calibrated_benchmark(
     selected_config = V1_A_CONFIG
     selected_rows = loo_rows_by_config[selected_config.name]
     split = deterministic_reference_split(
-        [(row["free_work_id"], row["reference_rome_code"], row["reference_france_travail_id"]) for row in selected_rows]
+        [(row["free_work_id"], row["reference_rome_code"], row["reference_france_travail_id"])
+          for row in selected_rows]
     )
     calibration_ids = set(split["calibration"])
     validation_ids = set(split["validation"])
@@ -1255,8 +1270,10 @@ def run_classification(
             "require_discriminant_signal": selected.require_discriminant_signal,
         }
     write_json(output_dir / "rome_classification_benchmark.json", serializable_benchmark)
-    write_json(output_dir / "rome_profiles_summary.json", [profile.public_dict() for profile in profiles])
-    write_progress(output_dir, "COMPLETED", len(free_work_rows), len(free_work_rows), start, status="COMPLETED")
+    write_json(output_dir / "rome_profiles_summary.json",
+               [profile.public_dict() for profile in profiles])
+    write_progress(output_dir, "COMPLETED", len(free_work_rows),
+                   len(free_work_rows), start, status="COMPLETED")
     return {
         "manifest": manifest,
         "benchmark": benchmark,

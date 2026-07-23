@@ -864,7 +864,8 @@ def generer_matching(
 
                 sum_idf_common_desc = sum(idf_desc.get(tok, 1.0) for tok in (d1 & d2))
                 sum_idf_total_desc = sum(idf_desc.get(tok, 1.0) for tok in d1)
-                desc_weighted = sum_idf_common_desc / sum_idf_total_desc if sum_idf_total_desc else 0  # pylint: disable=line-too-long
+                desc_weighted = sum_idf_common_desc / \
+                    sum_idf_total_desc if sum_idf_total_desc else 0  # pylint: disable=line-too-long
 
                 desc_score_contrib = 25 * (desc_jac * 0.4 + desc_weighted * 0.6)
             else:
