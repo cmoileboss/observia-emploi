@@ -922,7 +922,8 @@ def select_thresholds(calibration_rows: list[dict[str, Any]]) -> dict[str, Any]:
         return {
             "score_threshold": 100.0,
             "margin_threshold": 100.0,
-            "selection_reason": "Aucun seuil crédible sur la calibration ; affectation automatique désactivée hors correspondances FT.",
+            "selection_reason": "Aucun seuil crédible sur la calibration ; "
+                    + "affectation automatique désactivée hors correspondances FT.",
         }
     selected = sorted(
         credible,
@@ -1049,8 +1050,10 @@ def build_calibrated_benchmark(
         "data_leakage_audit": {
             "initial_benchmark_profiles_used_full_france_travail_snapshot": True,
             "matched_france_travail_offer_removed_in_leave_one_out": True,
-            "implementation": "reference_holdout: les 143 offres France Travail appariées sont retirées des profils benchmark.",
-            "reference_set_warning": "Les 143 correspondances sont pratiques mais ne constituent pas une vérité métier parfaite.",
+            "implementation": "reference_holdout: les 143 offres France Travail appariées "
+              + "sont retirées des profils benchmark.",
+            "reference_set_warning": "Les 143 correspondances sont pratiques "
+              + "mais ne constituent pas une vérité métier parfaite.",
         },
         "configuration_summaries": config_summaries,
         "selected_configuration": calibrated_config.name,
