@@ -192,11 +192,6 @@ class Service:
         offre = self.offre_repository.get_by_id(offre_id)
         if offre is None:
             raise HTTPException(status_code=404, detail=f"Aucune offre trouvée : {offre_id}")
-        if offre.francetravail_id is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="L'analyse LLM est réservée aux offres sans francetravail_id.",
-            )
 
         candidates = (
             self.rome_repository.list_formations_by_rome(offre.rome_code)

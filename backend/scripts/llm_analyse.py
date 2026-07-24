@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 from fastapi import HTTPException
 from groq import Groq
@@ -32,6 +33,16 @@ class FormationMatch:
     formation: FormationModel
     justification: str
     rang: int
+
+
+@dataclass
+class BatchFormationMatch:
+    """Résultat batch pour une offre."""
+
+    offre: OffreModel
+    status: str  # "ok" | "no_candidates" | "rate_limit_error" | "error"
+    matches: list[FormationMatch] = field(default_factory=list)
+    error: str | None = None
 
 
 def _build_user_prompt(
