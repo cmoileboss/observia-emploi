@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from logging_config import configure_logging
 from models.correspondance_formation_model import FormationModel
 from region_mapping import DEPARTMENT_TO_REGION
+
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 from repositories.francetravail_repository import OffreRepository
+
 from scripts.francetravail_api_call import (
     get_unique_rome_codes_from_csv_file,
     search_offres_by_rome,
@@ -20,12 +22,17 @@ from scripts.francetravail_api_call import (
 from scripts.import_formations_enriched import import_formations_enriched
 from scripts.collect_free_work_full_catalog import collecter_exhaustive
 from scripts.import_offers_raw import import_offers
+from scripts.create_output import create_output
+from scripts.formations_enricher import FormationsEnricher
+
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-
+DATA_ROOT = BACKEND_ROOT / "data"
+RAW_DATA_ROOT = DATA_ROOT / "raw"
+PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
 
 def _normalize_region(region: str | None) -> str:
     """Normalise un libellé de région pour les filtres et clés d'agrégation."""
@@ -193,9 +200,30 @@ class Service:
 
     def populate_database(self) -> None:
         """Initialise la base de données avec les données enrichies."""
-        logger.info(
-            "Stockage des données enrichies dans la base de données sans démarrer l'API."
-        )
+        logger.info("=== Création du fichier de données fusionnées et nettoyées ===")
+        create_output()
+        logger.info("=== Enrichissement des données de formation ===")
+        if not (PROCESSED_DATA_ROOT / "merged_data.csv").exists():
+            logger.error("Le fichier merged_data.csv est manquant.")
+            return
+        if not (RAW_DATA_ROOT / "organismes_enriched.csv").exists():
+            logger.error("Le fichier organismes_enriched.csv est manquant.")
+            return
+        if not (RAW_DATA_ROOT / "cdc_filtered_tech.csv").exists():
+            logger.error("Le fichier cdc_filtered_tech.csv est manquant.")
+            return
+        if not (PROCESSED_DATA_ROOT / "formations_enriched.csv").exists():
+            enricher = FormationsEnricher()
+            enricher.load(
+                merged_path=str(PROCESSED_DATA_ROOT / "merged_data.csv"),
+                organismes_path=str(RAW_DATA_ROOT / "organismes_enriched.csv"),
+                cdc_path=str(RAW_DATA_ROOT / "cdc_filtered_tech.csv"),
+            )
+            enricher.enrich()
+            enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
+        else:
+            logger.info("Le fichier formations_enriched.csv existe déjà, " \
+                        "pas d'enrichissement nécessaire.")
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()
         logger.info("=== Appel à l'API France Travail ===")

@@ -29,13 +29,10 @@ services:
     environment:
       DATABASE_HOST: db
       DATABASE_PORT: 5432
-      RAW_DATA_FOLDER: /app/data/raw
-      PROCESSED_DATA_FOLDER: /app/data/processed
-      LOG_FILE: /app/logs/app.log
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - ./backend/data/raw:/app/backend/data/raw
       - ./logs:/app/logs
 
 volumes:

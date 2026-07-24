@@ -39,6 +39,8 @@ env/
 logs/
 /backend/logs/
 
+data/
+
 # Travail local et expériences temporaires
 /backend/scratch/
 
