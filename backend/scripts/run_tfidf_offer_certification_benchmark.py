@@ -10,13 +10,15 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Mapping
 
-from backend.services.offer_certification_benchmark import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from services.offer_certification_benchmark import (
     BenchmarkRun,
     load_active_benchmark_certifications,
     load_benchmark_offers,
     run_benchmark,
 )
-from backend.services.tfidf_offer_certification import TfidfBenchmarkMethod
+from services.tfidf_offer_certification import TfidfBenchmarkMethod
 
 
 FORMAT_VERSION = "observia-offer-certification-benchmark-v1"

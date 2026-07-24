@@ -6,9 +6,9 @@ import sys
 
 from sqlalchemy import text
 
-from backend.postgres_connection import SESSION_LOCAL
-from backend.repositories.correspondance_formation_repository import FormationRepository
-from backend.services.france_travail_training_requirements import (
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import FormationRepository
+from services.france_travail_training_requirements import (
     FranceTravailTrainingRequirement,
     FranceTravailTrainingRequirementSourceRow,
     build_france_travail_training_requirements,

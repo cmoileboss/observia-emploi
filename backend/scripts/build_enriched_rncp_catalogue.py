@@ -10,25 +10,27 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from backend.postgres_connection import SESSION_LOCAL
-from backend.repositories.correspondance_formation_repository import FormationRepository
-from backend.services.enriched_rncp_catalogue import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import FormationRepository
+from services.enriched_rncp_catalogue import (
     EnrichedRncpCatalogue,
     LocalRncpOrganization,
     LocalRncpOrganizationAssociation,
     build_enriched_rncp_catalogue,
 )
-from backend.services.official_rncp_audit import (
+from services.official_rncp_audit import (
     calculate_official_rncp_audit,
     discover_current_rncp_resource,
     download_official_rncp_archive,
     fetch_official_dataset_metadata,
     parse_official_rncp_archive,
 )
-from backend.services.official_rncp_successors import (
+from services.official_rncp_successors import (
     resolve_official_rncp_successors,
 )
-from backend.services.rncp_catalogue import (
+from services.rncp_catalogue import (
     RncpCatalogue,
     RncpCatalogueSourceRow,
     build_rncp_catalogue,

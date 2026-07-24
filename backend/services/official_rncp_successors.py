@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable
 
-from backend.services.official_rncp_audit import (
+from services.official_rncp_audit import (
     OfficialRncpCertification,
     OfficialRncpParseResult,
     normalize_rncp_code,

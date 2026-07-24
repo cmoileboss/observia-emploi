@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import Mapping, Sequence
 
-from backend.services.benchmark_text_tokenization import (
+from services.benchmark_text_tokenization import (
     tokenize_benchmark_text,
 )
-from backend.services.offer_certification_benchmark import (
+from services.offer_certification_benchmark import (
     BenchmarkCertification,
     BenchmarkOffer,
     BenchmarkOfferRanking,

@@ -11,15 +11,15 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from backend.postgres_connection import SESSION_LOCAL
-from backend.repositories.correspondance_formation_repository import FormationRepository
-from backend.repositories.francetravail_repository import OffreRepository
-from backend.services.france_travail_training_requirements import (
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import FormationRepository
+from repositories.francetravail_repository import OffreRepository
+from services.france_travail_training_requirements import (
     FranceTravailTrainingRequirementSourceRow,
     build_france_travail_training_requirements,
     index_training_requirements_by_offer,
 )
-from backend.services.offer_certification_evaluation_sample import (
+from services.offer_certification_evaluation_sample import (
     EvaluationCompetence,
     EvaluationOfferSource,
     EvaluationSample,

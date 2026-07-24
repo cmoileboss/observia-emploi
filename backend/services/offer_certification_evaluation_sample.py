@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from backend.services.france_travail_training_requirements import (
+from services.france_travail_training_requirements import (
     FranceTravailTrainingRequirement,
 )
 

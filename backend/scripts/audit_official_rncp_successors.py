@@ -6,15 +6,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-from backend.scripts.build_rncp_catalogue import load_rncp_catalogue
-from backend.services.official_rncp_audit import (
+from scripts.build_rncp_catalogue import load_rncp_catalogue
+from services.official_rncp_audit import (
     OfficialRncpResource,
     discover_current_rncp_resource,
     download_official_rncp_archive,
     fetch_official_dataset_metadata,
     parse_official_rncp_archive,
 )
-from backend.services.official_rncp_successors import (
+from services.official_rncp_successors import (
     OfficialRncpSuccessionAnalysis,
     OfficialRncpSuccessorAuditReport,
     OfficialRncpSuccessorNode,

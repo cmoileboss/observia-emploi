@@ -15,6 +15,7 @@ from region_mapping import DEPARTMENT_TO_REGION
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 from repositories.francetravail_repository import OffreRepository
 
+from scripts.llm_analyse import link_offre_to_formations
 from scripts.francetravail_api_call import (
     get_unique_rome_codes_from_csv_file,
     search_offres_by_rome,
@@ -181,6 +182,49 @@ class Service:
         seen_ids = {f.id for f in offre.formations}
         merged = list(offre.formations) + [f for f in rome_formations if f.id not in seen_ids]
         return merged
+
+    def get_formations_llm(
+        self,
+        offre_id: str,
+        top_k: int = 10,
+    ) -> list[dict]:
+        """Retourne le classement LLM des formations les plus adaptées à une offre."""
+        offre = self.offre_repository.get_by_id(offre_id)
+        if offre is None:
+            raise HTTPException(status_code=404, detail=f"Aucune offre trouvée : {offre_id}")
+        if offre.francetravail_id is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="L'analyse LLM est réservée aux offres sans francetravail_id.",
+            )
+
+        candidates = (
+            self.rome_repository.list_formations_by_rome(offre.rome_code)
+            if offre.rome_code
+            else []
+        )
+        if not candidates:
+            candidates = self.formation_repository.get_all()
+
+        candidates = [
+            f for f in candidates
+            if not f.siret_of_contractant or not f.siret_of_contractant.strip()
+        ]
+
+        matches = link_offre_to_formations(offre, candidates, top_k=top_k)
+
+        return [
+            {
+                "rang": m.rang,
+                "justification": m.justification,
+                "formation_id": m.formation.id,
+                "intitule_certification": m.formation.intitule_certification,
+                "niveau_rncp": m.formation.niveau_rncp,
+                "organisme": m.formation.nom_entreprise or m.formation.raison_sociale_of_contractant,
+                "code_rncp": m.formation.code_rncp,
+            }
+            for m in matches
+        ]
 
     def get_best_skills(self) -> dict[str, int]:
         """Retourne les compétences les plus demandées dans les offres France Travail."""

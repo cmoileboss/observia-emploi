@@ -6,8 +6,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from backend.scripts.build_rncp_catalogue import load_rncp_catalogue
-from backend.services.official_rncp_audit import (
+from scripts.build_rncp_catalogue import load_rncp_catalogue
+from services.official_rncp_audit import (
     OfficialRncpAuditReport,
     calculate_official_rncp_audit,
     discover_current_rncp_resource,

@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
-from backend.services.offer_certification_evaluation_sample import (
+from services.offer_certification_evaluation_sample import (
     EvaluationCompetence,
     EvaluationOfferSource,
     build_common_matching_text,

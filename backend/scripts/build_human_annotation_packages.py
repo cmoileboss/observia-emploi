@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from backend.services.human_annotation_protocol import (
+from services.human_annotation_protocol import (
     LOT5_ARTIFACT_NAMES,
     AnnotationPackageResult,
     build_annotation_packages,

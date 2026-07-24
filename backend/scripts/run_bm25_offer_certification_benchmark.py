@@ -10,12 +10,14 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Mapping
 
-from backend.services.bm25_offer_certification import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from services.bm25_offer_certification import (
     DEFAULT_B,
     DEFAULT_K1,
     Bm25BenchmarkMethod,
 )
-from backend.services.offer_certification_benchmark import (
+from services.offer_certification_benchmark import (
     BenchmarkRun,
     load_active_benchmark_certifications,
     load_benchmark_offers,

@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.matching_normalization import (
+from scripts.matching_normalization import (
     normaliser_entreprise,
     normaliser_localite,
     extraire_departement,

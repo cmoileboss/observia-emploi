@@ -9,9 +9,9 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from backend.postgres_connection import SESSION_LOCAL
-from backend.repositories.correspondance_formation_repository import FormationRepository
-from backend.services.rncp_catalogue import (
+from postgres_connection import SESSION_LOCAL
+from repositories.correspondance_formation_repository import FormationRepository
+from services.rncp_catalogue import (
     RncpCatalogue,
     RncpCatalogueSourceRow,
     build_rncp_catalogue,

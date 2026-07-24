@@ -14,7 +14,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from backend.services.human_annotation_protocol import (
+from services.human_annotation_protocol import (
     ANNOTATION_INPUT_COLUMNS,
     ANNOTATOR_COLUMNS,
     VALID_MAIN_CRITERIA,

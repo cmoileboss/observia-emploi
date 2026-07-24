@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from backend.services.human_annotation_workbook import (
+from services.human_annotation_workbook import (
     import_workbook_annotations,
 )
 

@@ -5,19 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from backend.services.official_rncp_audit import (
+from services.official_rncp_audit import (
     OfficialRncpAuditReport,
     OfficialRncpCertification,
     OfficialRncpParseResult,
     OfficialRncpResource,
     normalize_rncp_code,
 )
-from backend.services.official_rncp_successors import (
+from services.official_rncp_successors import (
     OfficialRncpSuccessionAnalysis,
     OfficialRncpSuccessorAuditReport,
     OfficialRncpSuccessorNode,
 )
-from backend.services.rncp_catalogue import RncpCatalogue, RncpCertification
+from services.rncp_catalogue import RncpCatalogue, RncpCertification
 
 
 @dataclass(frozen=True)
