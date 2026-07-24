@@ -10,7 +10,6 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from enums.niveau_rncp_enum import NiveauRNCP
 from logging_config import configure_logging
@@ -24,6 +23,8 @@ from repositories.francetravail_repository import (
     OffreFormationRepository,
     OffreRepository,
 )
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
