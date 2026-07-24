@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.free_work_triage_v2 import (
+from scripts.free_work_triage_v2 import (
     candidate_score,
     description_similarity,
     has_strong_fingerprint,
@@ -578,7 +578,8 @@ def run_analysis(v1_dir: Path, v2_dir: Path):
     uncertainty_md.extend(["", "## Réductibilité potentielle"])
     for key, count in uncertainty["potentially_reducible_by"].items():
         uncertainty_md.append(f"- {key}: {count}")
-    (v2_dir / "v2_uncertainty_analysis.md").write_text("\n".join(uncertainty_md) + "\n", encoding="utf-8")  # pylint: disable=line-too-long
+    (v2_dir / "v2_uncertainty_analysis.md").write_text("\n".join(uncertainty_md) +
+     "\n", encoding="utf-8")  # pylint: disable=line-too-long
     write_json(v2_dir / "v2_calibration_pilot_60.json", pilot)
     write_pilot_csv(v2_dir / "v2_calibration_pilot_60.csv", pilot)
     (v2_dir / "v2_calibration_pilot_60_instructions.md").write_text(

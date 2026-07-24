@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from backend.postgres_connection import engine
+from postgres_connection import engine
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]

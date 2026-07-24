@@ -15,6 +15,7 @@ from region_mapping import DEPARTMENT_TO_REGION
 from repositories.correspondance_formation_repository import FormationRepository, RomeCodeRepository
 from repositories.francetravail_repository import OffreRepository
 
+from scripts.llm_analyse import link_offre_to_formations
 from scripts.francetravail_api_call import (
     get_unique_rome_codes_from_csv_file,
     search_offres_by_rome,
@@ -33,6 +34,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = BACKEND_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 PROCESSED_DATA_ROOT = DATA_ROOT / "processed"
+
 
 def _normalize_region(region: str | None) -> str:
     """Normalise un libellé de région pour les filtres et clés d'agrégation."""
@@ -83,7 +85,7 @@ class Service:
                 status_code=BAD_REQUEST,
                 detail=(
                     f"Trimestre invalide : {quarter}. "
-                    "Format attendu : YYYY-T1 a YYYY-T4"
+                    "Format attendu : YYYY-T1 à YYYY-T4"
                 ),
             )
 
@@ -182,6 +184,44 @@ class Service:
         merged = list(offre.formations) + [f for f in rome_formations if f.id not in seen_ids]
         return merged
 
+    def get_formations_llm(
+        self,
+        offre_id: str,
+        top_k: int = 10,
+    ) -> list[dict]:
+        """Retourne le classement LLM des formations les plus adaptées à une offre."""
+        offre = self.offre_repository.get_by_id(offre_id)
+        if offre is None:
+            raise HTTPException(status_code=404, detail=f"Aucune offre trouvée : {offre_id}")
+
+        candidates = (
+            self.rome_repository.list_formations_by_rome(offre.rome_code)
+            if offre.rome_code
+            else []
+        )
+        if not candidates:
+            candidates = self.formation_repository.get_all()
+
+        candidates = [
+            f for f in candidates
+            if not f.siret_of_contractant or not f.siret_of_contractant.strip()
+        ]
+
+        matches = link_offre_to_formations(offre, candidates, top_k=top_k)
+
+        return [
+            {
+                "rang": m.rang,
+                "justification": m.justification,
+                "formation_id": m.formation.id,
+                "intitule_certification": m.formation.intitule_certification,
+                "niveau_rncp": m.formation.niveau_rncp,
+                "organisme": m.formation.nom_entreprise or m.formation.raison_sociale_of_contractant,
+                "code_rncp": m.formation.code_rncp,
+            }
+            for m in matches
+        ]
+
     def get_best_skills(self) -> dict[str, int]:
         """Retourne les compétences les plus demandées dans les offres France Travail."""
         offres = self.offre_repository.get_all()
@@ -222,7 +262,7 @@ class Service:
             enricher.enrich()
             enricher.export(str(PROCESSED_DATA_ROOT / "formations_enriched.csv"))
         else:
-            logger.info("Le fichier formations_enriched.csv existe déjà, " \
+            logger.info("Le fichier formations_enriched.csv existe déjà, "
                         "pas d'enrichissement nécessaire.")
         logger.info("=== Import des formations enrichies dans la base de données ===")
         import_formations_enriched()

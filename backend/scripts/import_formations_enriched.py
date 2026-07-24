@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import csv
 import logging
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from logging_config import configure_logging
 from models.correspondance_formation_model import FormationFluxMensuelModel, FormationModel

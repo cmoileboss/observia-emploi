@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from backend.scripts.matching_normalization import normaliser_description, normaliser_titre
+from scripts.matching_normalization import normaliser_description, normaliser_titre
 
 
 CLASSIFIER_VERSION = "free_work_rome_deterministic_v1_final"
@@ -306,7 +306,7 @@ def validate_free_work_offers(rows: list[dict[str, Any]]) -> None:
 
 def top_values(counter: Counter[str], limit: int) -> tuple[str, ...]:
     """Retourne les `limit` valeurs les plus fréquentes d'un Counter, par fréquence décroissante."""
-    return tuple(value for value, _ in sorted(counter.items(), key=lambda item: (-item[1], item[0]))[:limit])  # pylint: disable=line-too-long
+    return tuple(value for value, _ in sorted(counter.items(), key=lambda item: (-item[1], item[0]))[:limit])
 
 
 def build_rome_profiles(
@@ -357,7 +357,7 @@ def build_rome_profiles(
             normalized_title_tokens = normalize_tokens(title, mode="description")
             skill_profile_tokens.update(normalized_title_tokens)
             description_tokens.update(normalized_title_tokens)
-        for token, _ in sorted(desc_tokens_by_code[code].items(), key=lambda item: (-item[1], item[0]))[:160]:  # pylint: disable=line-too-long
+        for token, _ in sorted(desc_tokens_by_code[code].items(), key=lambda item: (-item[1], item[0]))[:160]:
             description_tokens.add(token)
         skill_profile_tokens.update(observed_skills)
 
@@ -399,13 +399,13 @@ def build_rome_profiles(
             description_df.update(profile.description_tokens)
         common_title = {token for token, count in title_df.items() if count > common_limit}
         common_skill = {token for token, count in skill_df.items() if count > common_limit}
-        common_description = {token for token, count in description_df.items() if count > common_limit}  # pylint: disable=line-too-long
+        common_description = {token for token, count in description_df.items() if count > common_limit}
         profiles = [
             replace(
                 profile,
-                title_tokens=frozenset(token for token in profile.title_tokens if token not in common_title),  # pylint: disable=line-too-long
-                skill_tokens=frozenset(token for token in profile.skill_tokens if token not in common_skill),  # pylint: disable=line-too-long
-                description_tokens=frozenset(token for token in profile.description_tokens if token not in common_description),  # pylint: disable=line-too-long
+                title_tokens=frozenset(token for token in profile.title_tokens if token not in common_title),
+                skill_tokens=frozenset(token for token in profile.skill_tokens if token not in common_skill),
+                description_tokens=frozenset(token for token in profile.description_tokens if token not in common_description),
                 source_counts={
                     **profile.source_counts,
                     "filtered_common_title_tokens": len(common_title),
@@ -418,7 +418,7 @@ def build_rome_profiles(
     return profiles
 
 
-def overlap_score(query_tokens: tuple[str, ...], profile_tokens: frozenset[str]) -> tuple[float, list[str], list[str]]:  # pylint: disable=line-too-long
+def overlap_score(query_tokens: tuple[str, ...], profile_tokens: frozenset[str]) -> tuple[float, list[str], list[str]]:
     """Calcule le taux de recouvrement [0-100] entre query_tokens et profile_tokens."""
     if not query_tokens:
         return 0.0, [], ["Aucun signal fourni."]
@@ -456,11 +456,11 @@ def score_candidate(
     ]
     title_tokens = normalize_tokens(title, mode="title")
     structured_skills = skill_tokens(offer.get("skills"))
-    description_tokens = normalize_tokens(" ".join(str(part) for part in description_parts if part), mode="description")  # pylint: disable=line-too-long
+    description_tokens = normalize_tokens(" ".join(str(part) for part in description_parts if part), mode="description")
 
     title_score, title_hits, title_missing = overlap_score(title_tokens, profile.title_tokens)
     skills_score, skill_hits, skill_missing = overlap_score(structured_skills, profile.skill_tokens)
-    desc_score, desc_hits, desc_missing = overlap_score(description_tokens, profile.description_tokens)  # pylint: disable=line-too-long
+    desc_score, desc_hits, desc_missing = overlap_score(description_tokens, profile.description_tokens)
     exact_match_score, exact_match_label = exact_or_near_title_match(title, profile)
 
     score = round(
@@ -482,15 +482,15 @@ def score_candidate(
     if exact_match_label:
         reasons["positive"].append({"field": "title", "exact_or_near_match": exact_match_label})
     else:
-        reasons["missing_or_contradictory"].append({"field": "title", "missing_tokens": title_missing})  # pylint: disable=line-too-long
+        reasons["missing_or_contradictory"].append({"field": "title", "missing_tokens": title_missing})
     if skill_hits:
         reasons["positive"].append({"field": "skills", "matched_tokens": skill_hits[:12]})
     elif structured_skills:
-        reasons["missing_or_contradictory"].append({"field": "skills", "missing_tokens": skill_missing})  # pylint: disable=line-too-long
+        reasons["missing_or_contradictory"].append({"field": "skills", "missing_tokens": skill_missing})
     if desc_hits:
         reasons["positive"].append({"field": "description", "matched_tokens": desc_hits[:12]})
     elif description_tokens:
-        reasons["missing_or_contradictory"].append({"field": "description", "missing_tokens": desc_missing})  # pylint: disable=line-too-long
+        reasons["missing_or_contradictory"].append({"field": "description", "missing_tokens": desc_missing})
 
     return {
         "rome_code": profile.rome_code,
@@ -540,7 +540,7 @@ def build_triage_lookup(triage_rows: list[dict[str, Any]] | None) -> dict[str, d
     return lookup
 
 
-def reference_rome_from_triage(row: dict[str, Any] | None) -> tuple[str | None, str | None, str | None]:  # pylint: disable=line-too-long
+def reference_rome_from_triage(row: dict[str, Any] | None) -> tuple[str | None, str | None, str | None]:
     """Extrait (rome_code, titre, ft_id) depuis une ligne triage PRESENT_IN_FT_SNAPSHOT."""
     if not row or row.get("decision") != "PRESENT_IN_FT_SNAPSHOT":
         return None, None, None
@@ -580,7 +580,7 @@ def assignment_from_prediction(
             "assignment_method": "NO_SUFFICIENT_SIGNAL",
         }
     positive_reasons = top.get("reasons", {}).get("positive", [])
-    has_discriminant_signal = any(reason.get("field") in {"title", "skills"} for reason in positive_reasons)  # pylint: disable=line-too-long
+    has_discriminant_signal = any(reason.get("field") in {"title", "skills"} for reason in positive_reasons)
     if config.require_discriminant_signal and not has_discriminant_signal:
         return {
             "assignment_status": "UNASSIGNED_INSUFFICIENT_SIGNAL",
@@ -614,7 +614,7 @@ def classify_offers(
     labels_by_code = {profile.rome_code: profile.rome_label for profile in profiles}
     results = []
     total = len(free_work_rows)
-    for index, offer in enumerate(sorted(free_work_rows, key=lambda item: str(item["source_id"])), start=1):  # pylint: disable=line-too-long
+    for index, offer in enumerate(sorted(free_work_rows, key=lambda item: str(item["source_id"])), start=1):
         source_id = str(offer["source_id"])
         try:
             prediction = classify_independent(offer, profiles, top_k=top_k, config=config)
@@ -625,12 +625,13 @@ def classify_offers(
             assigned_label = None
             if assignment["assigned_rome_code"]:
                 assigned_label = next(
-                    (candidate["rome_label"] for candidate in prediction["candidates"] if candidate["rome_code"] == assignment["assigned_rome_code"]),  # pylint: disable=line-too-long
+                    (candidate["rome_label"] for candidate in prediction["candidates"]
+                     if candidate["rome_code"] == assignment["assigned_rome_code"]),
                     labels_by_code.get(assignment["assigned_rome_code"]),
                 )
             reasons = {
                 "positive_reasons": top.get("reasons", {}).get("positive", []) if top else [],
-                "negative_or_missing_signals": top.get("reasons", {}).get("missing_or_contradictory", []) if top else [],  # pylint: disable=line-too-long
+                "negative_or_missing_signals": top.get("reasons", {}).get("missing_or_contradictory", []) if top else [],
             }
             record = {
                 "free_work_id": source_id,
@@ -648,7 +649,7 @@ def classify_offers(
                     "rome_code": top["rome_code"] if top else None,
                     "rome_label": top["rome_label"] if top else None,
                     "score": top["score"] if top else 0.0,
-                    "top3_rome_codes": [candidate["rome_code"] for candidate in prediction["candidates"]],  # pylint: disable=line-too-long
+                    "top3_rome_codes": [candidate["rome_code"] for candidate in prediction["candidates"]],
                     "second_rome_code": second["rome_code"] if second else None,
                 },
                 "processing_error": None,
@@ -697,7 +698,7 @@ def bucket(value: float) -> str:
     return "80-100"
 
 
-def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, Any]] | None) -> dict[str, Any]:  # pylint: disable=line-too-long
+def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, Any]] | None) -> dict[str, Any]:
     """Calcule top1/top3 accuracy, confusion et distribution sur le sample de référence."""
     triage_lookup = build_triage_lookup(triage_rows)
     by_id = {row["free_work_id"]: row for row in results}
@@ -739,15 +740,16 @@ def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, A
             covered = [
                 (reference_code, result)
                 for _, reference_code, result in sample
-                if float(result["top_score"]) >= score_threshold and float(result["margin"]) >= margin_threshold  # pylint: disable=line-too-long
+                if float(result["top_score"]) >= score_threshold and float(result["margin"]) >= margin_threshold
             ]
-            errors = sum(1 for reference_code, result in covered if result["independent_prediction"]["rome_code"] != reference_code)  # pylint: disable=line-too-long
+            errors = sum(1 for reference_code,
+                         result in covered if result["independent_prediction"]["rome_code"] != reference_code)
             threshold_rows.append(
                 {
                     "score_threshold": score_threshold,
                     "margin_threshold": margin_threshold,
                     "covered_cases": len(covered),
-                    "observed_precision": round((len(covered) - errors) / len(covered), 4) if covered else None,  # pylint: disable=line-too-long
+                    "observed_precision": round((len(covered) - errors) / len(covered), 4) if covered else None,
                     "coverage_rate": round(len(covered) / len(sample), 4) if sample else 0.0,
                     "errors": errors,
                 }
@@ -770,7 +772,7 @@ def build_benchmark(results: list[dict[str, Any]], triage_rows: list[dict[str, A
     }
 
 
-def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> dict[str, list[str]]:  # pylint: disable=line-too-long
+def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> dict[str, list[str]]:
     """Divise le sample en calibration (70%) et validation (30%) par code ROME."""
     by_code: dict[str, list[str]] = defaultdict(list)
     for source_id, reference_code, _ in sample:
@@ -781,7 +783,7 @@ def deterministic_reference_split(sample: list[tuple[str, str, str | None]]) -> 
     for code, source_ids in sorted(by_code.items()):
         ordered = sorted(
             source_ids,
-            key=lambda value: hashlib.sha256(f"{CALIBRATION_SEED}:{code}:{value}".encode("utf-8")).hexdigest(),  # pylint: disable=line-too-long
+            key=lambda value: hashlib.sha256(f"{CALIBRATION_SEED}:{code}:{value}".encode("utf-8")).hexdigest(),
         )
         if len(ordered) >= 4:
             calibration_count = max(1, round(len(ordered) * 0.7))
@@ -813,7 +815,7 @@ def benchmark_from_reference_predictions(
 ) -> dict[str, Any]:
     """Calcule les métriques top1/top3, confusion et distribution à partir de prédictions LOO."""
     sample_size = len(rows)
-    top1_correct = sum(1 for row in rows if row["predicted_rome_code"] == row["reference_rome_code"])  # pylint: disable=line-too-long
+    top1_correct = sum(1 for row in rows if row["predicted_rome_code"] == row["reference_rome_code"])
     top3_correct = sum(1 for row in rows if row["reference_rome_code"] in row["top3_rome_codes"])
     confusion: dict[str, Counter[str]] = defaultdict(Counter)
     predicted_counter = Counter(row["predicted_rome_code"] or "UNASSIGNED" for row in rows)
@@ -840,7 +842,7 @@ def benchmark_from_reference_predictions(
             code: {
                 "total": counts["total"],
                 "top1_correct": counts["top1_correct"],
-                "top1_accuracy": round(counts["top1_correct"] / counts["total"], 4) if counts["total"] else 0.0,  # pylint: disable=line-too-long
+                "top1_accuracy": round(counts["top1_correct"] / counts["total"], 4) if counts["total"] else 0.0,
             }
             for code, counts in sorted(by_code.items())
         },
@@ -853,7 +855,8 @@ def benchmark_from_reference_predictions(
             split_rows = [row for row in rows if row["free_work_id"] in set(ids)]
             result[f"{split_name}_sample_size"] = len(split_rows)
             result[f"{split_name}_top1_accuracy"] = (
-                round(sum(1 for row in split_rows if row["predicted_rome_code"] == row["reference_rome_code"]) / len(split_rows), 4)  # pylint: disable=line-too-long
+                round(sum(1 for row in split_rows if row["predicted_rome_code"]
+                      == row["reference_rome_code"]) / len(split_rows), 4)
                 if split_rows
                 else 0.0
             )
@@ -871,15 +874,15 @@ def threshold_analysis_for_rows(
         for margin_threshold in margin_thresholds:
             covered = [
                 row for row in rows
-                if float(row["top_score"]) >= score_threshold and float(row["margin"]) >= margin_threshold  # pylint: disable=line-too-long
+                if float(row["top_score"]) >= score_threshold and float(row["margin"]) >= margin_threshold
             ]
-            errors = sum(1 for row in covered if row["predicted_rome_code"] != row["reference_rome_code"])  # pylint: disable=line-too-long
+            errors = sum(1 for row in covered if row["predicted_rome_code"] != row["reference_rome_code"])
             analysis.append(
                 {
                     "score_threshold": score_threshold,
                     "margin_threshold": margin_threshold,
                     "covered_cases": len(covered),
-                    "observed_precision": round((len(covered) - errors) / len(covered), 4) if covered else None,  # pylint: disable=line-too-long
+                    "observed_precision": round((len(covered) - errors) / len(covered), 4) if covered else None,
                     "coverage_rate": round(len(covered) / len(rows), 4) if rows else 0.0,
                     "errors": errors,
                 }
@@ -906,7 +909,7 @@ def select_thresholds(calibration_rows: list[dict[str, Any]]) -> dict[str, Any]:
         return {
             "score_threshold": 100.0,
             "margin_threshold": 100.0,
-            "selection_reason": "Aucun seuil crédible sur la calibration ; affectation automatique désactivée hors correspondances FT.",  # pylint: disable=line-too-long
+            "selection_reason": "Aucun seuil crédible sur la calibration ; affectation automatique désactivée hors correspondances FT.",
         }
     selected = sorted(
         credible,
@@ -920,11 +923,11 @@ def select_thresholds(calibration_rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "score_threshold": selected["score_threshold"],
         "margin_threshold": selected["margin_threshold"],
-        "selection_reason": "Meilleure précision observée sur calibration, puis meilleure couverture.",  # pylint: disable=line-too-long
+        "selection_reason": "Meilleure précision observée sur calibration, puis meilleure couverture.",
     }
 
 
-def assignment_metrics_for_rows(rows: list[dict[str, Any]], score_threshold: float, margin_threshold: float) -> dict[str, Any]:  # pylint: disable=line-too-long
+def assignment_metrics_for_rows(rows: list[dict[str, Any]], score_threshold: float, margin_threshold: float) -> dict[str, Any]:
     """Calcule métriques d'affectation auto (couverture, précision, erreurs) par seuils."""
     covered = [
         row for row in rows
@@ -951,7 +954,7 @@ def build_leave_one_out_reference_predictions(
     """Génère des prédictions LOO excluant les offres FT appariées des profils d'entraînement."""
     free_work_lookup = {str(row["source_id"]): row for row in free_work_rows}
     sample = reference_sample(triage_rows)
-    held_out_france_travail_ids = {str(france_travail_id) for _, _, france_travail_id in sample if france_travail_id}  # pylint: disable=line-too-long
+    held_out_france_travail_ids = {str(france_travail_id) for _, _, france_travail_id in sample if france_travail_id}
     training_rows = [
         row for row in france_travail_rows
         if str(row.get("france_travail_id") or "") not in held_out_france_travail_ids
@@ -973,7 +976,7 @@ def build_leave_one_out_reference_predictions(
                 "top_score": prediction["top_score"],
                 "second_score": prediction["second_score"],
                 "margin": prediction["margin"],
-                "top3_rome_codes": [candidate["rome_code"] for candidate in prediction["candidates"]],  # pylint: disable=line-too-long
+                "top3_rome_codes": [candidate["rome_code"] for candidate in prediction["candidates"]],
             }
         )
     return rows
@@ -1004,7 +1007,7 @@ def build_calibrated_benchmark(
     selected_config = V1_A_CONFIG
     selected_rows = loo_rows_by_config[selected_config.name]
     split = deterministic_reference_split(
-        [(row["free_work_id"], row["reference_rome_code"], row["reference_france_travail_id"]) for row in selected_rows]  # pylint: disable=line-too-long
+        [(row["free_work_id"], row["reference_rome_code"], row["reference_france_travail_id"]) for row in selected_rows]
     )
     calibration_ids = set(split["calibration"])
     validation_ids = set(split["validation"])
@@ -1031,8 +1034,8 @@ def build_calibrated_benchmark(
         "data_leakage_audit": {
             "initial_benchmark_profiles_used_full_france_travail_snapshot": True,
             "matched_france_travail_offer_removed_in_leave_one_out": True,
-            "implementation": "reference_holdout: les 143 offres France Travail appariées sont retirées des profils benchmark.",  # pylint: disable=line-too-long
-            "reference_set_warning": "Les 143 correspondances sont pratiques mais ne constituent pas une vérité métier parfaite.",  # pylint: disable=line-too-long
+            "implementation": "reference_holdout: les 143 offres France Travail appariées sont retirées des profils benchmark.",
+            "reference_set_warning": "Les 143 correspondances sont pratiques mais ne constituent pas une vérité métier parfaite.",
         },
         "configuration_summaries": config_summaries,
         "selected_configuration": calibrated_config.name,
@@ -1045,9 +1048,9 @@ def build_calibrated_benchmark(
         },
         "threshold_selection": {
             **threshold_selection,
-            "calibration": assignment_metrics_for_rows(calibration_rows, score_threshold, margin_threshold),  # pylint: disable=line-too-long
-            "validation": assignment_metrics_for_rows(validation_rows, score_threshold, margin_threshold),  # pylint: disable=line-too-long
-            "leave_one_out_all_references": assignment_metrics_for_rows(selected_rows, score_threshold, margin_threshold),  # pylint: disable=line-too-long
+            "calibration": assignment_metrics_for_rows(calibration_rows, score_threshold, margin_threshold),
+            "validation": assignment_metrics_for_rows(validation_rows, score_threshold, margin_threshold),
+            "leave_one_out_all_references": assignment_metrics_for_rows(selected_rows, score_threshold, margin_threshold),
             "calibration_threshold_grid": threshold_analysis_for_rows(calibration_rows),
         },
         "leave_one_out": benchmark_from_reference_predictions(selected_rows, split=split),
@@ -1061,7 +1064,7 @@ def score_distribution(results: list[dict[str, Any]], key: str) -> dict[str, int
     return dict(sorted(counter.items()))
 
 
-def write_progress(output_dir: Path, stage: str, current: int, total: int, start: float, status: str = "RUNNING") -> None:  # pylint: disable=line-too-long
+def write_progress(output_dir: Path, stage: str, current: int, total: int, start: float, status: str = "RUNNING") -> None:
     """Écrit l'état de progression de la classification dans un fichier JSON avec ETA et vitesse."""
     elapsed = time.time() - start
     speed = current / elapsed if elapsed > 0 and current else 0.0
@@ -1088,7 +1091,7 @@ def write_review_queue(path: Path, results: list[dict[str, Any]]) -> None:
     rows = [
         row
         for row in results
-        if row["assignment_status"] in {"UNASSIGNED_AMBIGUOUS", "UNASSIGNED_INSUFFICIENT_SIGNAL", "PROCESSING_ERROR"}  # pylint: disable=line-too-long
+        if row["assignment_status"] in {"UNASSIGNED_AMBIGUOUS", "UNASSIGNED_INSUFFICIENT_SIGNAL", "PROCESSING_ERROR"}
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as file:
@@ -1104,7 +1107,7 @@ def write_review_queue(path: Path, results: list[dict[str, Any]]) -> None:
         ]
         writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
         writer.writeheader()
-        for row in sorted(rows, key=lambda item: (item["assignment_status"], -float(item["top_score"]), item["free_work_id"])):  # pylint: disable=line-too-long
+        for row in sorted(rows, key=lambda item: (item["assignment_status"], -float(item["top_score"]), item["free_work_id"])):
             top = row["candidates"][0] if row["candidates"] else {}
             writer.writerow(
                 {
@@ -1221,15 +1224,15 @@ def run_classification(
         },
         "calibration_metrics": benchmark.get("threshold_selection", {}).get("calibration"),
         "validation_metrics": benchmark.get("threshold_selection", {}).get("validation"),
-        "leave_one_out_metrics": benchmark.get("threshold_selection", {}).get("leave_one_out_all_references"),  # pylint: disable=line-too-long
+        "leave_one_out_metrics": benchmark.get("threshold_selection", {}).get("leave_one_out_all_references"),
         "duration_seconds": round(duration, 2),
         "score_distribution": score_distribution(results, "top_score"),
         "margin_distribution": score_distribution(results, "margin"),
         "profile_sources": {
             "rome_labels": "backend/data/raw/correspondance-rome-rncp-tech-*.csv:intitule_rome",
-            "occupation_labels": "backend/data/raw/correspondance-rome-rncp-tech-*.csv:intitule_rncp",  # pylint: disable=line-too-long
+            "occupation_labels": "backend/data/raw/correspondance-rome-rncp-tech-*.csv:intitule_rncp",
             "observed_job_titles": "france_travail_snapshot:title",
-            "observed_skills": "france_travail_snapshot:competences/skills si présents; absent dans le snapshot de référence",  # pylint: disable=line-too-long
+            "observed_skills": "france_travail_snapshot:competences/skills si présents; absent dans le snapshot de référence",
         },
     }
 
@@ -1252,8 +1255,8 @@ def run_classification(
             "require_discriminant_signal": selected.require_discriminant_signal,
         }
     write_json(output_dir / "rome_classification_benchmark.json", serializable_benchmark)
-    write_json(output_dir / "rome_profiles_summary.json", [profile.public_dict() for profile in profiles])  # pylint: disable=line-too-long
-    write_progress(output_dir, "COMPLETED", len(free_work_rows), len(free_work_rows), start, status="COMPLETED")  # pylint: disable=line-too-long
+    write_json(output_dir / "rome_profiles_summary.json", [profile.public_dict() for profile in profiles])
+    write_progress(output_dir, "COMPLETED", len(free_work_rows), len(free_work_rows), start, status="COMPLETED")
     return {
         "manifest": manifest,
         "benchmark": benchmark,

@@ -1,5 +1,6 @@
 """Appels à l'API France Travail et import des offres en base."""
 
+import sys
 from pathlib import Path
 
 import os
@@ -8,6 +9,7 @@ import logging
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+
 
 from enums.niveau_rncp_enum import NiveauRNCP
 from logging_config import configure_logging
@@ -21,6 +23,8 @@ from repositories.francetravail_repository import (
     OffreFormationRepository,
     OffreRepository,
 )
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
