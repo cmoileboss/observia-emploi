@@ -26,6 +26,7 @@ _HEAVY_MODULES = [
     "scripts.import_offers_raw",
     "scripts.create_output",
     "scripts.formations_enricher",
+    "scripts.llm_analyse",
 ]
 for _mod in _HEAVY_MODULES:
     sys.modules.setdefault(_mod, MagicMock())

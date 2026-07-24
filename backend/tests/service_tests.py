@@ -393,4 +393,4 @@ class TestGetBestSkills:
 
     def test_offre_with_no_competences(self, service):
         service.offre_repository.get_all.return_value = [_offre([])]
-        assert service.get_best_skills() != {}
+        assert service.get_best_skills() == {}
