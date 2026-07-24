@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.free_work_triage_v2 import (
+from scripts.free_work_triage_v2 import (
     compare_companies_with_advertiser_role,
     candidate_score,
     detect_advertiser_role,

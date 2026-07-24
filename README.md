@@ -307,11 +307,7 @@ cd observia-emploi
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-<<<<<<< HEAD
-python -m pip install -r backend/requirements.txt
-=======
 pip install -r backend\requirements.txt
->>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 ```
 
 ### Configuration
@@ -333,9 +329,6 @@ Copy-Item .env.example .env
 | `DATABASE_USER` | Oui | Non | vide | Utilisateur PostgreSQL. |
 | `DATABASE_PASSWORD` | Oui | Oui | vide | Mot de passe PostgreSQL. |
 
-<<<<<<< HEAD
-Le fichier `.env` contient des secrets et ne doit pas être versionné.
-=======
 Variables à renseigner dans `.env` :
 
 - `CLIENT_ID` : identifiant de l'application créée dans l'API France Travail
@@ -354,7 +347,6 @@ Variables à renseigner dans `.env` :
 Avant l'exécution de la commande de préparation des données, il faut mettre dans le dossier `RAW_DATA_FOLDER` les fichiers :
 - `correspondance-rome-rncp-tech-6a16c0f17343f806639940.csv` disponible sur la page du brief Observia et
 - `entree_sortie_formation.csv` trouvable sur le site `https://www.data.gouv.fr/datasets/moncompteformation-entrees-et-sorties-de-formation`.
->>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 
 Il faut également créer la base de données `PostgreSQL`. Le nom de la base de données doit correspondre à la valeur de la variable d'environnement `DATABASE_NAME`.
 
@@ -362,16 +354,9 @@ Il faut également créer la base de données `PostgreSQL`. Le nom de la base de
 
 Le code backend Python se trouve dans le dossier `backend`.
 
-<<<<<<< HEAD
-La commande suivante permet de lancer le pipeline de préparation des données.
-
-```powershell
-.\.venv\Scripts\python.exe -m backend.main --build-data
-=======
 La commande suivante permet de lancer le pipeline de préparation des données.  
 ```powershell
 python .\backend\main.py --build-data
->>>>>>> e2ae32e08c3e739a8e3369bd210596999ec22c63
 ```
 
 Le pipeline est lancé dans `backend\main.py`. Il crée les tables dans la base de données PostgreSQL si nécessaire et utilise tous les fichiers du dossier `backend\scripts`.

@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.free_work_triage_v2 import (
+from scripts.free_work_triage_v2 import (
     candidate_score,
     description_similarity,
     has_strong_fingerprint,

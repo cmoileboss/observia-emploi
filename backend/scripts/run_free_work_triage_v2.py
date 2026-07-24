@@ -1,7 +1,7 @@
 """."""
 from __future__ import annotations
-from backend.scripts.triage_free_work_matches import classify_triage, extraire_tokens
-from backend.scripts.free_work_triage_v2 import (
+from scripts.triage_free_work_matches import classify_triage, extraire_tokens
+from scripts.free_work_triage_v2 import (
     TRIAGE_RULESET_V2_CANDIDATE,
     TriageThresholds,
     build_france_travail_lookup,

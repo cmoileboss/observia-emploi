@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.free_work_triage_v2 import replay_triage_v2
+from scripts.free_work_triage_v2 import replay_triage_v2
 import argparse
 from pathlib import Path
 

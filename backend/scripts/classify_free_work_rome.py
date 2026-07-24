@@ -1,5 +1,5 @@
 """."""
-from backend.services.free_work.rome_classifier import run_classification
+from services.free_work.rome_classifier import run_classification
 import argparse
 from pathlib import Path
 import sys

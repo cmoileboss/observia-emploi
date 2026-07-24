@@ -1,5 +1,5 @@
 """."""
-from backend.scripts.collect_free_work import collecter_offres
+from scripts.collect_free_work import collecter_offres
 import argparse
 import csv
 import json

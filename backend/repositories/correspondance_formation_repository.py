@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, load_only, selectinload
 
 from models.correspondance_formation_model import (
     FormationFluxMensuelModel,
     FormationModel,
     RomeCodeModel,
 )
+from models.francetravail_model import OffreModel
 from repositories.base_repository import BaseRepository
 
 
@@ -68,6 +70,56 @@ class FormationRepository(BaseRepository[FormationModel]):
         return (
             self.db.query(FormationModel)
             .filter(FormationModel.code_rncp == code_rncp)
+            .all()
+        )
+
+    def list_mcf_catalogue_formations(self) -> list[FormationModel]:
+        """Retourne les lignes MCF utiles au catalogue RNCP avec leurs relations."""
+        return (
+            self.db.query(FormationModel)
+            .options(
+                selectinload(FormationModel.flux_mensuels),
+                selectinload(FormationModel.codes_rome),
+            )
+            .filter(FormationModel.siret_of_contractant.isnot(None))
+            .filter(func.trim(FormationModel.siret_of_contractant) != "")
+            .filter(FormationModel.flux_mensuels.any())
+            .filter(FormationModel.codes_rome.any())
+            .order_by(FormationModel.id)
+            .all()
+        )
+
+    def list_france_travail_training_requirements(self) -> list[FormationModel]:
+        """Retourne les exigences de formation rattachées aux offres France Travail."""
+        return (
+            self.db.query(FormationModel)
+            .options(
+                load_only(
+                    FormationModel.id,
+                    FormationModel.intitule_certification,
+                    FormationModel.code_rncp,
+                    FormationModel.niveau_rncp,
+                    FormationModel.commentaire,
+                    FormationModel.siret_of_contractant,
+                ),
+                selectinload(FormationModel.offres).load_only(OffreModel.id),
+                selectinload(FormationModel.flux_mensuels).load_only(
+                    FormationFluxMensuelModel.id
+                ),
+                selectinload(FormationModel.codes_rome).load_only(
+                    RomeCodeModel.code_rome
+                ),
+            )
+            .filter(FormationModel.offres.any())
+            .filter(
+                or_(
+                    FormationModel.siret_of_contractant.is_(None),
+                    func.trim(FormationModel.siret_of_contractant) == "",
+                )
+            )
+            .filter(~FormationModel.flux_mensuels.any())
+            .filter(~FormationModel.codes_rome.any())
+            .order_by(FormationModel.id)
             .all()
         )
 

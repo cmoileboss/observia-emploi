@@ -22,6 +22,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from logging_config import configure_logging
 from models.francetravail_model import CompetenceModel, OffreModel
 from postgres_connection import SESSION_LOCAL
@@ -29,7 +31,6 @@ from repositories.correspondance_formation_repository import RomeCodeRepository
 from repositories.francetravail_repository import CompetenceRepository, OffreRepository
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BACKEND_ROOT))
 
 DEFAULT_JSON_PATH = BACKEND_ROOT / "data" / "raw" / "free_work" / "full_catalog" / "batches"
 DEFAULT_BATCH_SIZE = 200

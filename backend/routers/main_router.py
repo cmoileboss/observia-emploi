@@ -33,6 +33,15 @@ async def get_best_organismes_for_job_id(
 
     return service.get_formations_by_offre_id(job_id)
 
+@main_router.get("/job/{offre_id}/formations/llm")
+async def get_formations_llm(
+    offre_id: str,
+    top_k: int = 10,
+    service: Service = Depends(get_service),
+):
+    """Retourne le classement LLM des top_k meilleures formations pour une offre donnée."""
+    return service.get_formations_llm(offre_id, top_k=top_k)
+
 
 @main_router.get("/bestskills")
 async def get_best_skills(service: Service = Depends(get_service)):

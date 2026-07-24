@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from backend.scripts.matching_normalization import normaliser_description, normaliser_titre
+from scripts.matching_normalization import normaliser_description, normaliser_titre
 
 
 CLASSIFIER_VERSION = "free_work_rome_deterministic_v1_final"
