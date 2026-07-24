@@ -48,7 +48,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIRECTORY,
-        help="Dossier généré recevant les huit artefacts d'annotation.",
+        help="Dossier recevant les artefacts canoniques et les six XLSX.",
     )
     return parser.parse_args(argv)
 

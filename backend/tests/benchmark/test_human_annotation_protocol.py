@@ -6,10 +6,12 @@ import json
 from collections import defaultdict
 
 import pytest
+from openpyxl import load_workbook
 
 from backend.services.human_annotation_protocol import (
     ANNOTATOR_COLUMNS,
     HIDDEN_FIELDS,
+    PROTECTED_COLUMNS,
     VALID_MAIN_CRITERIA,
     AnnotationPackageResult,
     Lot5AnnotationInputs,
@@ -18,10 +20,19 @@ from backend.services.human_annotation_protocol import (
     build_offer_group_id,
     build_pair_id,
     build_source_complementary_context,
+    export_annotation_packages,
     load_lot5_annotation_inputs,
     normalize_duplicate_text,
     select_pilot_offer_keys,
     validate_completed_annotation,
+)
+from backend.services.human_annotation_workbook import (
+    ANNOTATION_MARKER_PREFIX,
+    INSTRUCTIONS_SHEET_NAME,
+    PAIR_ID_COLUMN_INDEX,
+    PAIR_MARKER_PREFIX,
+    build_annotation_workbook,
+    import_workbook_annotations,
 )
 
 
@@ -204,7 +215,7 @@ def package_result() -> AnnotationPackageResult:
 
 
 def read_csv(content: bytes) -> list[dict[str, str]]:
-    return list(csv.DictReader(io.StringIO(content.decode("utf-8"))))
+    return list(csv.DictReader(io.StringIO(content.decode("utf-8-sig"))))
 
 
 def write_csv(rows: list[dict[str, str]]) -> bytes:
@@ -212,7 +223,7 @@ def write_csv(rows: list[dict[str, str]]) -> bytes:
     writer = csv.DictWriter(output, fieldnames=ANNOTATOR_COLUMNS, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
-    return output.getvalue().encode("utf-8")
+    return output.getvalue().encode("utf-8-sig")
 
 
 def complete_rows(content: bytes) -> list[dict[str, str]]:
@@ -343,6 +354,43 @@ def test_formats_france_travail_context_in_the_generic_column(package_result):
     )
 
 
+def test_csv_bom_preserves_french_text_and_accepts_legacy_utf8():
+    inputs = make_inputs()
+    offer = {
+        **inputs.offers[0],
+        "champs_sources": {
+            **inputs.offers[0]["champs_sources"],
+            "intitule": "développeur réseau",
+            "description": "sécurité et réseau",
+            "competences": [{"code": "C1", "libelle": "compétences"}],
+        },
+    }
+    enriched_inputs = Lot5AnnotationInputs(
+        manifest=inputs.manifest,
+        offers=(offer, *inputs.offers[1:]),
+        candidate_pools=inputs.candidate_pools,
+        annotation_pairs=inputs.annotation_pairs,
+        artifact_sha256=inputs.artifact_sha256,
+    )
+    result = build_annotation_packages(enriched_inputs)
+    template = result.artifacts["development_annotator_1.csv"]
+
+    assert template.startswith(b"\xef\xbb\xbf")
+    rows = read_csv(template)
+    assert tuple(rows[0]) == ANNOTATOR_COLUMNS
+    offer_rows = [row for row in rows if row["offre_intitule"] == "développeur réseau"]
+    assert offer_rows
+    assert offer_rows[0]["offre_description"] == "sécurité et réseau"
+    assert offer_rows[0]["offre_competences"] == "C1 — compétences"
+
+    completed = write_csv(complete_rows(template))
+    validate_completed_annotation(template, completed)
+
+    legacy_template = template[3:]
+    legacy_completed = completed[3:]
+    validate_completed_annotation(legacy_template, legacy_completed)
+
+
 def test_formats_multiple_france_travail_requirements_and_ignores_generic_values():
     source_fields = {
         "contexte_source_complementaire": "  ",
@@ -416,6 +464,312 @@ def test_all_generated_artifacts_are_byte_deterministic(package_result):
         "validation_annotator_1.csv",
         "validation_annotator_2.csv",
     }
+
+
+def test_builds_readable_pilot_workbook_with_hidden_pair_ids(package_result):
+    workbook_content = build_annotation_workbook(
+        package_result.artifacts["pilot_annotator_1.csv"]
+    )
+    workbook = load_workbook(io.BytesIO(workbook_content))
+
+    assert workbook.sheetnames == [
+        INSTRUCTIONS_SHEET_NAME,
+        "Offre 01",
+        "Offre 02",
+        "Offre 03",
+        "Offre 04",
+        "Offre 05",
+    ]
+    pair_ids = []
+    first_csv_row = read_csv(
+        package_result.artifacts["pilot_annotator_1.csv"]
+    )[0]
+    for worksheet in workbook.worksheets[1:]:
+        worksheet_pair_ids = [
+            cell.value.removeprefix(PAIR_MARKER_PREFIX)
+            for cell in worksheet["C"]
+            if isinstance(cell.value, str)
+            and cell.value.startswith(PAIR_MARKER_PREFIX)
+        ]
+        pair_ids.extend(worksheet_pair_ids)
+        assert len(worksheet_pair_ids) == 12
+        assert worksheet.freeze_panes == "A5"
+        assert not worksheet.protection.sheet
+        assert worksheet.sheet_view.zoomScale == 85
+        assert 110 <= worksheet.column_dimensions["B"].width <= 130
+        assert worksheet.column_dimensions["C"].hidden
+        validations = worksheet.data_validations.dataValidation
+        assert len(validations) == 36
+        assert {validation.formula1 for validation in validations} == {
+            '"0,1,2,3"',
+            '"' + ",".join(VALID_MAIN_CRITERIA) + '"',
+            '"OUI,NON"',
+        }
+        visible_values = {
+            str(cell.value)
+            for row in worksheet.iter_rows(min_col=1, max_col=2)
+            for cell in row
+            if cell.value is not None
+        }
+        assert not (set(HIDDEN_FIELDS) & visible_values)
+        assert "annotation_reference.jsonl" not in visible_values
+        assert any("Compétences" in value for value in visible_values)
+        description_row = next(
+            cell.row
+            for cell in worksheet["A"]
+            if isinstance(cell.value, str)
+            and cell.value.startswith("Description")
+        )
+        appellation_row = next(
+            cell.row for cell in worksheet["A"] if cell.value == "Appellation"
+        )
+        assert description_row > 4
+        assert worksheet.row_dimensions[description_row].outlineLevel == 1
+        assert not worksheet.row_dimensions[description_row].hidden
+        assert worksheet.row_dimensions[description_row].height > (
+            worksheet.row_dimensions[appellation_row].height
+        )
+        long_text_labels = {
+            "Description",
+            "Compétences détaillées",
+            "Contexte complémentaire",
+            "Activités",
+            "Compétences attestées",
+            "Blocs de compétences",
+            "Justification",
+        }
+        long_text_rows = {
+            cell.row
+            for cell in worksheet["A"]
+            if isinstance(cell.value, str)
+            and any(cell.value.startswith(label) for label in long_text_labels)
+        }
+        assert all(
+            not (
+                merged.min_col <= 2 <= merged.max_col
+                and merged.min_row in long_text_rows
+            )
+            for merged in worksheet.merged_cells.ranges
+        )
+        first_header_row = next(
+            cell.row
+            for cell in worksheet["C"]
+            if isinstance(cell.value, str)
+            and cell.value.startswith(PAIR_MARKER_PREFIX)
+        )
+        first_header = worksheet.cell(row=first_header_row, column=1).value
+        assert first_header.startswith("Certification 01 — RNCP")
+    first_sheet = workbook["Offre 01"]
+    first_description_row = next(
+        cell.row
+        for cell in first_sheet["A"]
+        if isinstance(cell.value, str)
+        and cell.value.startswith("Description")
+    )
+    first_description_rows = [
+        cell.row
+        for cell in first_sheet["A"]
+        if isinstance(cell.value, str)
+        and cell.value.startswith("Description")
+    ]
+    assert "".join(
+        first_sheet.cell(row=row_index, column=2).value or ""
+        for row_index in first_description_rows
+    ) == first_csv_row["offre_description"]
+    assert len(pair_ids) == 60
+    assert len(set(pair_ids)) == 60
+
+
+def test_workbooks_keep_each_annotator_candidate_order(package_result):
+    workbook_pair_orders = []
+    csv_pair_orders = []
+    for annotator in ("annotator_1", "annotator_2"):
+        csv_content = package_result.artifacts[f"pilot_{annotator}.csv"]
+        csv_pair_orders.append([row["pair_id"] for row in read_csv(csv_content)])
+        workbook = load_workbook(
+            io.BytesIO(build_annotation_workbook(csv_content)),
+            read_only=True,
+        )
+        workbook_pair_orders.append(
+            [
+                row[0].value
+                for worksheet in workbook.worksheets[1:]
+                for row in worksheet.iter_rows(
+                    min_col=PAIR_ID_COLUMN_INDEX,
+                    max_col=PAIR_ID_COLUMN_INDEX,
+                )
+                if isinstance(row[0].value, str)
+                and row[0].value.startswith(PAIR_MARKER_PREFIX)
+            ]
+        )
+
+        workbook_pair_orders[-1] = [
+            marker.removeprefix(PAIR_MARKER_PREFIX)
+            for marker in workbook_pair_orders[-1]
+        ]
+
+    assert workbook_pair_orders == csv_pair_orders
+    assert set(workbook_pair_orders[0]) == set(workbook_pair_orders[1])
+    assert workbook_pair_orders[0] != workbook_pair_orders[1]
+
+
+def test_splits_very_long_rncp_texts_without_altering_content(package_result):
+    rows = read_csv(package_result.artifacts["pilot_annotator_1.csv"])
+    activities = (
+        "Analyser les besoins réseau et sécurité. " * 140
+        + "\n\nPiloter les activités avec les équipes. " * 30
+    )
+    competences = (
+        "Développer des compétences techniques et documenter les résultats. "
+        * 90
+    )
+    blocks = (
+        "Bloc de compétences : concevoir, sécuriser et maintenir le système. "
+        * 320
+    )
+    assert len(activities) >= 5_000
+    assert len(competences) >= 5_000
+    assert len(blocks) >= 20_000
+    rows[0]["certification_activites"] = activities
+    rows[0]["certification_competences_attestees"] = competences
+    rows[0]["certification_blocs_competences"] = blocks
+
+    workbook = load_workbook(
+        io.BytesIO(build_annotation_workbook(write_csv(rows)))
+    )
+    worksheet = workbook["Offre 01"]
+    expected_by_label = {
+        "Activités": activities,
+        "Compétences attestées": competences,
+        "Blocs de compétences": blocks,
+    }
+    for label, expected_text in expected_by_label.items():
+        continuation_rows = [
+            cell.row
+            for cell in worksheet["A"]
+            if isinstance(cell.value, str)
+            and cell.value.startswith(f"{label} (")
+        ]
+        chunks = [
+            worksheet.cell(row=row_index, column=2).value
+            for row_index in continuation_rows
+        ]
+        assert len(chunks) > 1
+        assert "".join(chunks) == expected_text
+        assert all(
+            worksheet.row_dimensions[row_index].height < 409
+            for row_index in continuation_rows
+        )
+
+
+def test_reimports_only_annotation_fields_and_validates_final_csv(package_result):
+    template = package_result.artifacts["pilot_annotator_1.csv"]
+    workbook = load_workbook(io.BytesIO(build_annotation_workbook(template)))
+    first_offer_sheet = workbook["Offre 01"]
+    first_offer_sheet["B2"] = "Appellation technique modifiée"
+    first_candidate_row = next(
+        cell.row
+        for cell in first_offer_sheet["C"]
+        if isinstance(cell.value, str)
+        and cell.value.startswith(PAIR_MARKER_PREFIX)
+    )
+    first_offer_sheet.cell(row=first_candidate_row + 1, column=2).value = (
+        "RNCP technique modifié"
+    )
+    for worksheet in workbook.worksheets[1:]:
+        for marker_cell in worksheet["C"]:
+            if not isinstance(marker_cell.value, str) or not (
+                marker_cell.value.startswith(ANNOTATION_MARKER_PREFIX)
+            ):
+                continue
+            field, _, _ = marker_cell.value.removeprefix(
+                ANNOTATION_MARKER_PREFIX
+            ).partition(":")
+            worksheet.cell(
+                row=marker_cell.row,
+                column=2,
+                value={
+                    "score": 2,
+                    "critere_principal": VALID_MAIN_CRITERIA[0],
+                    "justification": (
+                        "Justification sur les compétences et la sécurité."
+                    ),
+                    "incertain": "NON",
+                }[field],
+            )
+    output = io.BytesIO()
+    workbook.save(output)
+
+    completed_csv = import_workbook_annotations(template, output.getvalue())
+    validation = validate_completed_annotation(template, completed_csv)
+    template_rows = read_csv(template)
+    completed_rows = read_csv(completed_csv)
+
+    assert completed_csv.startswith(b"\xef\xbb\xbf")
+    assert validation.pair_count == 60
+    assert [row["pair_id"] for row in completed_rows] == [
+        row["pair_id"] for row in template_rows
+    ]
+    for template_row, completed_row in zip(template_rows, completed_rows):
+        for column in PROTECTED_COLUMNS:
+            assert completed_row[column] == template_row[column]
+        assert completed_row["score"] == "2"
+        assert completed_row["critere_principal"] == VALID_MAIN_CRITERIA[0]
+        assert completed_row["justification"] == (
+            "Justification sur les compétences et la sécurité."
+        )
+        assert completed_row["incertain"] == "NON"
+
+
+@pytest.mark.parametrize("invalid_pair_marker", ("missing", "unknown", "duplicate"))
+def test_reimport_rejects_invalid_pair_markers(
+    package_result,
+    invalid_pair_marker,
+):
+    template = package_result.artifacts["pilot_annotator_1.csv"]
+    workbook = load_workbook(io.BytesIO(build_annotation_workbook(template)))
+    pair_cells = [
+        cell
+        for worksheet in workbook.worksheets[1:]
+        for cell in worksheet["C"]
+        if isinstance(cell.value, str)
+        and cell.value.startswith(PAIR_MARKER_PREFIX)
+    ]
+    if invalid_pair_marker == "missing":
+        pair_cells[0].value = None
+    elif invalid_pair_marker == "unknown":
+        pair_cells[0].value = PAIR_MARKER_PREFIX + "pair_inconnu"
+    else:
+        pair_cells[1].value = pair_cells[0].value
+    output = io.BytesIO()
+    workbook.save(output)
+
+    with pytest.raises(ValueError, match="pair_id|réponses"):
+        import_workbook_annotations(template, output.getvalue())
+
+
+def test_export_adds_six_xlsx_companions_without_changing_csv_artifacts(
+    package_result,
+    tmp_path,
+):
+    export_annotation_packages(package_result, tmp_path)
+
+    expected_workbooks = {
+        f"{name.removesuffix('.csv')}.xlsx"
+        for name in package_result.artifacts
+        if name.endswith(".csv")
+    }
+    assert expected_workbooks == {
+        "pilot_annotator_1.xlsx",
+        "pilot_annotator_2.xlsx",
+        "development_annotator_1.xlsx",
+        "development_annotator_2.xlsx",
+        "validation_annotator_1.xlsx",
+        "validation_annotator_2.xlsx",
+    }
+    assert expected_workbooks <= {path.name for path in tmp_path.iterdir()}
+    for name, content in package_result.artifacts.items():
+        assert (tmp_path / name).read_bytes() == content
 
 
 def test_manifest_contains_input_hashes_seeds_counts_and_audit_rules(package_result):

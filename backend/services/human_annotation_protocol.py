@@ -257,12 +257,20 @@ def _load_json(content: bytes, artifact_name: str) -> Any:
 
 
 def _read_csv_rows(content: bytes, artifact_name: str) -> list[dict[str, str]]:
-    """Décode un CSV UTF-8 et retourne ses lignes sous forme de dictionnaires."""
+    """Décode un CSV UTF-8, avec ou sans BOM, en dictionnaires."""
     try:
-        decoded = content.decode("utf-8")
+        decoded = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ValueError(f"Artefact CSV non UTF-8 : {artifact_name}.") from exc
     return list(csv.DictReader(io.StringIO(decoded, newline="")))
+
+
+def read_annotation_csv(
+    content: bytes,
+    artifact_name: str = "paquet d'annotation",
+) -> list[dict[str, str]]:
+    """Lit les lignes d'un CSV d'annotation UTF-8 avec ou sans BOM."""
+    return _read_csv_rows(content, artifact_name)
 
 
 def _get_uniform_pool_size(
@@ -562,7 +570,7 @@ def select_pilot_offer_keys(
     return tuple(_offer_key(offer) for offer in selected)
 
 
-def _csv_bytes(rows: Sequence[Mapping[str, str]]) -> bytes:
+def serialize_annotation_csv(rows: Sequence[Mapping[str, str]]) -> bytes:
     """Sérialise des lignes avec en-tête UTF-8 et fins de ligne LF."""
     output = io.StringIO(newline="")
     writer = csv.DictWriter(
@@ -572,7 +580,7 @@ def _csv_bytes(rows: Sequence[Mapping[str, str]]) -> bytes:
     )
     writer.writeheader()
     writer.writerows(rows)
-    return output.getvalue().encode("utf-8")
+    return output.getvalue().encode("utf-8-sig")
 
 
 def _build_packet_rows(
@@ -697,8 +705,8 @@ def build_annotation_packages(
         )
         first_name = f"{packet_name}_annotator_1.csv"
         second_name = f"{packet_name}_annotator_2.csv"
-        artifacts[first_name] = _csv_bytes(first_rows)
-        artifacts[second_name] = _csv_bytes(second_rows)
+        artifacts[first_name] = serialize_annotation_csv(first_rows)
+        artifacts[second_name] = serialize_annotation_csv(second_rows)
         packet_counts[first_name] = {
             "offres": len(offer_keys),
             "couples": len(first_rows),
@@ -764,7 +772,7 @@ def export_annotation_packages(
     result: AnnotationPackageResult,
     output_directory: Path,
 ) -> None:
-    """Écrit les huit artefacts d'annotation dans le dossier demandé."""
+    """Écrit les artefacts canoniques et les six classeurs compagnons."""
     expected_names = {
         "annotation_manifest.json",
         "annotation_reference.jsonl",
@@ -780,6 +788,15 @@ def export_annotation_packages(
     output_directory.mkdir(parents=True, exist_ok=True)
     for name in sorted(result.artifacts):
         (output_directory / name).write_bytes(result.artifacts[name])
+    from backend.services.human_annotation_workbook import (
+        build_annotation_workbook,
+    )
+
+    for csv_name in sorted(name for name in expected_names if name.endswith(".csv")):
+        workbook_name = f"{Path(csv_name).stem}.xlsx"
+        (output_directory / workbook_name).write_bytes(
+            build_annotation_workbook(result.artifacts[csv_name])
+        )
 
 
 def validate_completed_annotation(
